@@ -1,6 +1,6 @@
 # SL BAD BOY — Schoolboy Rush
 
-An original 3D Sri Lankan endless runner for **web and Android**, built with **Three.js, JavaScript, Vite and Capacitor**. It includes ten long themed districts, original landmark scenery, hill-country tunnels, articulated characters, a Sri Lankan police pursuit, a 10-second scooter boost, fair speed-scaled traffic, touch buttons/gestures and synthesized audio. Models, textures, signs, icons and sounds are generated locally; no branded game assets, CDN scripts or copyrighted Subway Surfers content are used.
+An original 3D Sri Lankan endless runner for **web and Android**, built with **Three.js, JavaScript, Vite and Capacitor**. It includes ten long themed districts, original landmark scenery, hill-country tunnels, articulated characters, a Sri Lankan police pursuit, a 10-second scooter boost, fair speed-scaled traffic, touch buttons/gestures and synthesized audio. Models, textures, signs and sounds are generated locally; the Android launcher and native splash use the supplied SL BAD BOY poster artwork. No branded game assets, CDN scripts or copyrighted Subway Surfers content are used.
 
 ## Android APK
 
@@ -19,7 +19,7 @@ Install these prerequisites once:
 2. **Java 21** (available through Android Studio or a JDK) with `java` on PATH or `JAVA_HOME` set. Capacitor 8 cannot compile with Java 17.
 3. **Android Studio/SDK** with Android SDK 36 and build tools, with `ANDROID_HOME`/`ANDROID_SDK_ROOT` set or `android/local.properties` configured by Android Studio.
 
-Then double-click **`build-apk.bat`**. It installs exact Node dependencies when needed, builds the full web game, regenerates original launcher/splash artwork, syncs Capacitor, runs Gradle, checks the resulting file, and copies it to:
+Then double-click **`build-apk.bat`**. It installs exact Node dependencies when needed, builds the full web game, renders the supplied launcher/splash artwork, syncs Capacitor, runs Gradle, checks the resulting file, and copies it to:
 
 ```text
 artifacts\SL-BAD-BOY.apk
@@ -141,7 +141,7 @@ index.html                     UI screens, HUD and accessibility labels
 play-windows.bat               Windows web launcher
 build-apk.bat                  Complete Windows Android APK builder
 capacitor.config.json          Native app identity and splash configuration
-android/                       Capacitor Android project and original native resources
+android/                       Capacitor Android project and native resources
 scripts/render-mobile-assets.mjs  Cross-platform launcher/splash renderer
 .github/workflows/android-apk.yml  Tested remote APK build and validation
 src/main.js                    Font loading, native lifecycle and game bootstrap
@@ -171,7 +171,8 @@ src/game/InputController.js    Keyboard and touch gestures
 src/game/ScoreManager.js       Score and persistent best record
 src/ui/GameUI.js               HUD, menus, district and feedback presentation
 src/ui/SignFonts.js            Local Sinhala/Tamil font loading and fallback
-assets/icon.svg               Original game icon
+assets/icon.svg               Original web game icon
+assets/sl-bad-boy-logo.png     Supplied Android launcher and native splash artwork
 tests/                        Gameplay, environment, character and browser regressions
 ```
 
