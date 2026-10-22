@@ -90,7 +90,8 @@ try {
   assert.equal(await page.$eval('#scene canvas', (node) => node.width > 0), true);
   await page.screenshot({ path: 'test-results/menu.png' });
   assert.equal(await page.evaluate(() => window.__LANKA_RUN__.police.group.visible), false);
-  passed.push('game opens with a WebGL canvas, start menu and no idle officer');
+  assert.equal(await page.$eval('.world-tag span', (node) => node.textContent), '14 DISTRICTS');
+  passed.push('game opens with a WebGL canvas, fourteen-district menu and no idle officer');
 
   assert.equal(await page.evaluate(() => window.__LANKA_RUN__.audio.context === null), true);
   await page.click('#mute-button');
@@ -184,7 +185,7 @@ try {
     game.spawner.nextScooterIn = 100000;
     game.spawner.spawnScooter(1, game.player.group.position.z - 3, 910);
   });
-  await waitForFunction(() => window.__LANKA_RUN__.player.scooterActive && window.__LANKA_RUN__.speed > 100);
+  await waitForFunction(() => window.__LANKA_RUN__.player.scooterActive && window.__LANKA_RUN__.player.scooterTimer < 8.4);
   const boost = await page.evaluate(async () => {
     const { GAME } = await import('/src/config.js');
     const game = window.__LANKA_RUN__;
@@ -197,7 +198,7 @@ try {
       hudVisible: document.getElementById('boost-hud').classList.contains('is-visible'),
     };
   });
-  assert.ok(Math.abs(boost.multiplier - 10) < 0.0001, `live boost multiplier was ${boost.multiplier}`);
+  assert.ok(Math.abs(boost.multiplier - 1.2) < 0.0001, `live boost multiplier was ${boost.multiplier}`);
   assert.ok(boost.timer <= 10 && boost.timer > 8);
   assert.equal(boost.scooterVisible, true);
   assert.equal(boost.shieldVisible, true);
@@ -210,9 +211,9 @@ try {
   assert.equal(await page.evaluate(() => window.__LANKA_RUN__.state), 'running');
   await waitForFunction(() => window.__LANKA_RUN__.police.getGap() > 12 && !window.__LANKA_RUN__.police.group.visible);
   await page.screenshot({ path: 'test-results/scooter-boost.png' });
-  passed.push('live scooter pickup gives 10× speed, shielded traffic contact and visible police separation');
+  passed.push('live scooter pickup gives exactly 1.2× speed, shielded traffic contact and visible police separation');
 
-  await page.waitForFunction(() => !window.__LANKA_RUN__.player.scooterActive && window.__LANKA_RUN__.speed < 100, { timeout: 90000 });
+  await page.waitForFunction(() => !window.__LANKA_RUN__.player.scooterActive, { timeout: 90000 });
   assert.equal(await page.evaluate(() => window.__LANKA_RUN__.player.scooter.visible), false);
   assert.equal(await page.$eval('#boost-hud', (node) => node.classList.contains('is-visible')), false);
   await waitForFunction(() => window.__LANKA_RUN__.police.getGap() < 4 && window.__LANKA_RUN__.police.group.visible);
@@ -301,7 +302,14 @@ try {
   await page.screenshot({ path: 'test-results/gameplay.png' });
   passed.push('Restart button immediately creates a clean run with old objects removed');
 
-  await page.evaluate(() => { window.__LANKA_RUN__.spawner.collisionEnabled = false; });
+  await page.evaluate(() => {
+    const game = window.__LANKA_RUN__;
+    game.spawner.clear();
+    game.spawner.nextSpawnIn = 100000;
+    game.spawner.nextScooterIn = 100000;
+    game.spawner.collisionEnabled = false;
+  });
+  assert.equal(await page.evaluate(() => window.__LANKA_RUN__.state), 'running');
   const cdp = await page.createCDPSession();
   const swipe = async (fromX, fromY, toX, toY) => {
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: fromX, y: fromY, id: 1 }] });
@@ -319,7 +327,8 @@ try {
   await waitForFunction(() => window.__LANKA_RUN__?.state === 'menu' && document.getElementById('studio-loading').hidden);
   assert.equal(await page.evaluate(() => window.__LANKA_RUN__.score.bestScore), savedBest);
   const roadCheck = await page.evaluate(() => {
-    const world = window.__LANKA_RUN__.world;
+    const game = window.__LANKA_RUN__;
+    const world = game.world;
     world.reset();
     const groundTop = world.ground.position.y + world.ground.scale.y / 2;
     const road = world.sections[0].children[0];
@@ -327,6 +336,9 @@ try {
     if (roadTop <= groundTop) return false;
     for (let step = 0; step < 6000; step += 1) {
       world.update(1 / 60, 36);
+      // Upload each district's signs during warm-up; the following stress run
+      // must then retain a stable GPU footprint instead of measuring first use.
+      if (step % 300 === 0) game.renderer.render(game.scene, game.camera);
       const sorted = world.getSectionCenters().sort((a, b) => a - b);
       for (let index = 1; index < sorted.length; index += 1) {
         if (Math.abs(sorted[index] - sorted[index - 1] - 30) > 0.0001) return false;
@@ -373,7 +385,38 @@ try {
   assert.ok(stress.milliseconds < 30000, `6,000-step world stress took ${stress.milliseconds} ms`);
   passed.push(`7,200 metres of themed recycling kept scene and GPU resource counts stable (${Math.round(stress.milliseconds)} ms stress step)`);
 
-  for (const theme of ['suburb', 'market', 'kotte', 'kandy', 'kadugannawa', 'nuwara-eliya', 'ella', 'galle', 'negombo']) {
+  for (const theme of ['colombo', 'suburb', 'market', 'kotte', 'kandy', 'kadugannawa', 'nuwara-eliya', 'ella', 'galle', 'negombo', 'anuradhapura', 'polonnaruwa', 'jaffna', 'trincomalee']) {
+    if (theme === 'colombo') {
+      const fortProjection = await page.evaluate(async () => {
+        const { ENVIRONMENT_THEMES, THEME_LENGTH } = await import('/src/game/EnvironmentThemes.js');
+        const game = window.__LANKA_RUN__;
+        game.state = 'paused';
+        game.ui.showRunning();
+        game.world.reset();
+        const target = THEME_LENGTH * ENVIRONMENT_THEMES.length - 48;
+        let guard = 0;
+        while (game.world.travelled < target && guard < 10000) {
+          game.world.update(1 / 60, 36);
+          guard += 1;
+        }
+        game.updateTheme(0);
+        game.scene.updateMatrixWorld(true);
+        game.camera.updateMatrixWorld(true);
+        const section = game.world.sections.find((candidate) => candidate.userData.approachLandmark === 'colombo-fort');
+        let landmark = null;
+        section?.userData.scenery?.traverse((node) => { if (node.userData.landmark === 'colombo-fort') landmark = node; });
+        if (!landmark) return null;
+        const point = game.camera.position.clone();
+        landmark.getWorldPosition(point);
+        point.y += 3;
+        point.project(game.camera);
+        return { x: point.x, y: point.y, z: point.z, sectionZ: section.position.z };
+      });
+      assert.ok(fortProjection && Math.abs(fortProjection.x) < 0.95 && Math.abs(fortProjection.y) < 0.95
+        && fortProjection.z < 1 && fortProjection.sectionZ < -10, `Fort approach not in view: ${JSON.stringify(fortProjection)}`);
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      await page.screenshot({ path: 'test-results/colombo-fort-approach.png' });
+    }
     await page.evaluate((themeId) => {
       const game = window.__LANKA_RUN__;
       game.state = 'running';
@@ -388,8 +431,14 @@ try {
         guard += 1;
       }
       game.updateTheme(0);
+      // Hold the exact district-entry frame so approach/main landmarks remain inspectable.
+      game.state = 'paused';
     }, theme);
     assert.equal(await page.evaluate(() => window.__LANKA_RUN__.currentTheme.id), theme);
+    const expectedApproach = theme === 'colombo' ? 'colombo-fort' : theme === 'market' ? 'red-mosque' : null;
+    if (expectedApproach) {
+      assert.ok(await page.evaluate((id) => window.__LANKA_RUN__.world.sections.some((section) => section.userData.approachLandmark === id), expectedApproach));
+    }
     await new Promise((resolve) => setTimeout(resolve, 350));
     await page.screenshot({ path: `test-results/${theme}.png` });
     if (theme === 'kadugannawa' || theme === 'ella') {
@@ -408,7 +457,7 @@ try {
       await page.screenshot({ path: `test-results/${theme}-tunnel.png` });
     }
   }
-  passed.push('all ten districts render with landmarks and both hill-country tunnel runs');
+  passed.push('all fourteen districts render with landmarks and both hill-country tunnel runs');
   assert.equal(await page.evaluate(() => document.fonts.check('700 48px "Noto Sans Sinhala"', 'බස්')), true);
   assert.equal(await page.evaluate(() => document.fonts.check('700 48px "Noto Sans Tamil"', 'பேருந்து')), true);
   const signTexts = await page.evaluate(() => {
@@ -436,8 +485,36 @@ try {
   await waitForFunction(() => window.__LANKA_RUN__.state === 'running');
   await page.evaluate(() => { window.__LANKA_RUN__.spawner.collisionEnabled = false; });
   await new Promise((resolve) => setTimeout(resolve, 250));
+  const mobileGraphics = await page.evaluate(async () => {
+    const { getMeshKitStats } = await import('/src/art/MeshKit.js');
+    const game = window.__LANKA_RUN__;
+    let shadowFlags = 0;
+    game.scene.traverse((node) => { if (node.castShadow || node.receiveShadow) shadowFlags += 1; });
+    return {
+      ...game.graphics.getStats(),
+      shadowsEnabled: game.renderer.shadowMap.enabled,
+      sunShadow: game.sun.castShadow,
+      shadowFlags,
+      antialias: game.renderer.getContext().getContextAttributes().antialias,
+      bump: getMeshKitStats().bumpMapping,
+      hdr: game.graphics.hdrSupported,
+      drawCalls: game.renderer.info.render.calls,
+      anatomy: game.player.visual.userData.anatomy,
+    };
+  });
+  assert.equal(mobileGraphics.shadowsEnabled, false);
+  assert.equal(mobileGraphics.sunShadow, false);
+  assert.equal(mobileGraphics.shadowFlags, 0);
+  assert.equal(mobileGraphics.antialias, false);
+  assert.equal(mobileGraphics.hdr, false);
+  assert.equal(mobileGraphics.postprocessing, false);
+  assert.equal(mobileGraphics.clouds, 2);
+  assert.equal(mobileGraphics.bump, false);
+  assert.ok(mobileGraphics.pixelRatio <= 1.01);
+  assert.equal(mobileGraphics.anatomy, 'lathe-torso-capsule-limbs-shaped-head');
   await page.screenshot({ path: 'test-results/mobile-gameplay.png' });
-  passed.push('portrait mobile layout, touch instructions and portrait camera remain usable');
+  passed.push('portrait mobile layout and touch controls use direct shadow-free, low-cost rendering');
+  passed.push(`mobile quality capped pixel ratio, MSAA, HDR/bloom, bump maps and clouds (${mobileGraphics.drawCalls} software-renderer draw calls)`);
 
   await page.click('#touch-controls button[data-action="left"]');
   await waitForFunction(() => window.__LANKA_RUN__.player.lane === 0);

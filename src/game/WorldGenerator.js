@@ -11,6 +11,7 @@ import {
   createHouse,
   createMarketStall,
   createPalm,
+  createPalmyrah,
   createParkedVehicle,
   createRoadSign,
   createRoadsideBin,
@@ -26,6 +27,7 @@ import { advanceSectionCenter } from './RoadMath.js';
 import { themeForDistance, themeForSequence, themeSectionIndex, THEME_SECTIONS } from './EnvironmentThemes.js';
 import { createDistrictLandmark, createLandscapeStrip, createTunnelSection } from '../art/Landmarks.js';
 import { batchStaticGroup, disposeBatchedGeometry } from '../art/StaticBatcher.js';
+import { createDistrictGateway, createSriLankanRoadside } from '../art/Roadside.js';
 
 export class WorldGenerator {
   constructor(scene) {
@@ -40,10 +42,11 @@ export class WorldGenerator {
     this.groundTarget = new THREE.Color();
 
     this.ground = box(this.group, [150, 0.35, 370], [0, -0.175, -85], 0x68845a, {
-      castShadow: false, receiveShadow: true, surface: 'grass',
+      castShadow: false, receiveShadow: false, surface: 'grass',
     });
-    const backdrop = batchStaticGroup(createBackdrop());
-    this.group.add(backdrop);
+    this.backdrop = null;
+    this.backdropTheme = null;
+    this.updateBackdrop(themeForSequence(0));
     for (let i = 0; i < ROAD.sectionCount; i += 1) {
       const section = this.createSection(i);
       this.sections.push(section);
@@ -52,17 +55,28 @@ export class WorldGenerator {
     this.reset();
   }
 
+  updateBackdrop(theme) {
+    if (this.backdropTheme === theme.id) return;
+    if (this.backdrop) {
+      disposeBatchedGeometry(this.backdrop);
+      this.backdrop.removeFromParent();
+    }
+    this.backdropTheme = theme.id;
+    this.backdrop = batchStaticGroup(createBackdrop(theme.id), { freeze: true });
+    this.group.add(this.backdrop);
+  }
+
   createSection(index) {
     const section = new THREE.Group();
     section.name = `Road section ${index}`;
     section.userData.sequence = index;
     const length = ROAD.sectionLength;
     box(section, [10.5, 0.2, length + 0.04], [0, -0.09, 0], 0x3c4143, {
-      castShadow: false, receiveShadow: true, surface: 'asphalt',
+      castShadow: false, receiveShadow: false, surface: 'asphalt',
     });
     for (const side of [-1, 1]) {
       box(section, [1.4, 0.28, length], [side * 5.95, 0.02, 0], 0xc0bcae, {
-        castShadow: false, receiveShadow: true, surface: 'paving',
+        castShadow: false, receiveShadow: false, surface: 'paving',
       });
       box(section, [0.18, 0.35, length], [side * 5.25, 0.05, 0], 0xe2d7bd, { castShadow: false });
       box(section, [0.1, 0.025, length], [side * 4.92, 0.012, 0], 0xe8dfbf, { castShadow: false });
@@ -76,8 +90,17 @@ export class WorldGenerator {
       }
     }
     cylinder(section, [0.36], 0.025, [3.95, 0.02, -5], 0x495052, { segments: 16, castShadow: false });
+    // Familiar Sri Lankan black-and-white road edge posts, outside traffic lanes.
+    for (const side of [-1, 1]) {
+      for (const z of [-12, 12]) {
+        for (let band = 0; band < 3; band += 1) {
+          box(section, [0.22, 0.27, 0.22], [side * 5.58, 0.18 + band * 0.27, z],
+            band % 2 ? 0xf0eee2 : 0x242a2b, { castShadow: false });
+        }
+      }
+    }
     // Keep the asphalt slab first for collider-independent road diagnostics.
-    batchStaticGroup(section, { preserve: new Set([section.children[0]]) });
+    batchStaticGroup(section, { preserve: new Set([section.children[0]]), freeze: true });
     return section;
   }
 
@@ -97,19 +120,25 @@ export class WorldGenerator {
     const localIndex = themeSectionIndex(sequence);
     const isTunnel = Boolean(theme.tunnelSections?.includes(localIndex));
     const landmarkSide = Math.floor(sequence / THEME_SECTIONS) % 2 ? -1 : 1;
-    const stripSide = localIndex === 1 ? -landmarkSide : sequence % 2 ? 1 : -1;
-    const residential = ['suburb', 'garden', 'tea'].includes(theme.layout);
-    const hasLandscapeStrip = ['tea', 'rail', 'coast', 'fort', 'hill'].includes(theme.layout);
+    const landmarkId = localIndex === 1 ? theme.landmark : localIndex === 0 ? theme.approachLandmark : null;
+    const activeLandmarkSide = localIndex === 0 && theme.approachLandmark ? -landmarkSide : landmarkSide;
+    const stripSide = landmarkId ? -activeLandmarkSide : sequence % 2 ? 1 : -1;
+    const residential = ['suburb', 'garden', 'tea', 'ancient', 'palmyrah'].includes(theme.layout);
+    const hasLandscapeStrip = ['tea', 'rail', 'coast', 'fort', 'hill', 'ancient', 'palmyrah'].includes(theme.layout);
     section.userData.theme = theme.id;
     section.userData.tunnel = isTunnel;
     section.userData.landmark = localIndex === 1 ? theme.landmark : null;
+    section.userData.approachLandmark = localIndex === 0 ? theme.approachLandmark || null : null;
+    const nextTheme = localIndex === THEME_SECTIONS - 1 ? themeForSequence(sequence + 1) : null;
+    const nextLandmarkSide = Math.floor((sequence + 1) / THEME_SECTIONS) % 2 ? -1 : 1;
+    const approachVistaSide = nextTheme?.approachLandmark ? -nextLandmarkSide : null;
     const random = mulberry32(9203 + sequence * 97);
     const variant = sequence * 7;
 
     for (const side of [-1, 1]) {
       const z = -5 + random() * 9 + (side > 0 ? 2 : -1);
-      if (localIndex === 1 && side === landmarkSide) {
-        // Reserve a clear, grounded footprint for the district landmark.
+      if ((landmarkId && side === activeLandmarkSide) || side === approachVistaSide) {
+        // Reserve grounded landmark footprints and a clear view from the prior district.
       } else if (residential || (['hill', 'rail'].includes(theme.layout) && sequence % 2 === 0)) {
         const house = createHouse(variant + (side > 0 ? 2 : 0));
         house.position.set(side * (10.2 + random()), 0.02, z);
@@ -141,15 +170,17 @@ export class WorldGenerator {
         }
       }
 
-      if (!isTunnel) {
+      if (!isTunnel && side !== approachVistaSide) {
         const variant = sequence + (side > 0 ? 1 : 0);
-        const vegetation = variant % 3 === 0
-          ? createBananaPlant(0.9 + random() * 0.25, variant)
-          : createPalm([5.8, 6.5, 7.2, 6.1][variant % 4], (random() - 0.5) * 1.3);
+        const vegetation = theme.id === 'jaffna'
+          ? createPalmyrah([5.4, 6.1, 6.7, 5.8][variant % 4], (random() - 0.5) * 0.45)
+          : variant % 3 === 0
+            ? createBananaPlant(0.9 + random() * 0.25, variant)
+            : createPalm([5.8, 6.5, 7.2, 6.1][variant % 4], (random() - 0.5) * 1.3);
         vegetation.position.set(side * (7.2 + random() * 1.1), 0, -12 + random() * 24);
         scenery.add(vegetation);
       }
-      if (!(localIndex === 1 && side === landmarkSide)
+      if (!(landmarkId && side === activeLandmarkSide) && side !== approachVistaSide
         && (!hasLandscapeStrip || side !== stripSide) && (theme.layout !== 'market' || sequence % 2 === 0)) {
         const tree = createTree(0.65 + random() * 0.25, sequence + (side > 0 ? 2 : 0));
         tree.position.set(side * (13 + random() * 3), 0, -10 + random() * 20);
@@ -174,11 +205,27 @@ export class WorldGenerator {
       strip.position.set(stripSide * 15.2, 0, 0);
       scenery.add(strip);
     }
-    if (localIndex === 1 && theme.landmark) {
-      const districtLandmark = createDistrictLandmark(theme.landmark);
-      districtLandmark.position.set(landmarkSide * 14.2, 0.02, -1);
-      districtLandmark.rotation.y = theme.landmark === 'nine-arches' ? 0 : -landmarkSide * Math.PI / 2;
+    if (landmarkId) {
+      const approaching = localIndex === 0 && Boolean(theme.approachLandmark);
+      const districtLandmark = createDistrictLandmark(landmarkId);
+      districtLandmark.position.set(activeLandmarkSide * (approaching ? 12.1 : 14.2), 0.02, approaching ? 4 : -1);
+      if (approaching) districtLandmark.scale.setScalar(1.18);
+      districtLandmark.rotation.y = landmarkId === 'nine-arches' ? 0 : -activeLandmarkSide * Math.PI / 2;
       scenery.add(districtLandmark);
+    }
+    if (!isTunnel && localIndex === 0) {
+      const gateway = createDistrictGateway(theme);
+      const gatewaySide = theme.approachLandmark ? -activeLandmarkSide : landmarkSide;
+      gateway.position.set(gatewaySide * 6.95, 0.02, 10.5);
+      gateway.rotation.y = -gatewaySide * Math.PI / 2;
+      scenery.add(gateway);
+    }
+    if (!isTunnel && (localIndex === 2 || localIndex === 6)) {
+      const roadside = createSriLankanRoadside(theme.id, sequence);
+      const side = sequence % 2 ? 1 : -1;
+      roadside.position.set(side * 7.05, 0.02, localIndex === 2 ? 11 : -11);
+      roadside.rotation.y = -side * Math.PI / 2;
+      scenery.add(roadside);
     }
 
     if (!isTunnel) {
@@ -236,13 +283,14 @@ export class WorldGenerator {
       });
       scenery.add(tunnel);
     }
-    batchStaticGroup(scenery);
+    batchStaticGroup(scenery, { freeze: true });
   }
 
   reset() {
     this.travelled = 0;
     this.nextSequence = ROAD.sectionCount;
     this.pendingScenery.length = 0;
+    this.updateBackdrop(themeForSequence(0));
     this.sections.forEach((section, index) => {
       section.position.z = 15 - index * ROAD.sectionLength;
       this.buildScenery(section, index);
@@ -268,6 +316,7 @@ export class WorldGenerator {
       this.buildScenery(section, section.userData.sequence);
     }
     const theme = this.getCurrentTheme();
+    this.updateBackdrop(theme);
     this.groundTarget.set(theme.ground);
     this.ground.material.color.lerp(this.groundTarget, Math.min(1, delta * 1.5));
   }

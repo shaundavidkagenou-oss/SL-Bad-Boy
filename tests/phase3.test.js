@@ -101,7 +101,7 @@ test('scooter pickup is swept, rides for ten seconds, pauses and resets cleanly'
   const spawner = new ObstacleSpawner(scene, { onScooter: () => { pickups += 1; player.startScooter(); } });
   spawner.nextSpawnIn = 999;
   spawner.spawnScooter(1, PLAYER_Z - 6, 910);
-  spawner.update(0.05, GAME.baseSpeed * GAME.scooterMultiplier, player);
+  spawner.update(0.5, GAME.baseSpeed * GAME.scooterMultiplier, player);
   assert.equal(pickups, 1);
   assert.equal(spawner.getRowEntries(910).length, 0);
   assert.equal(player.scooterActive, true);
@@ -110,15 +110,15 @@ test('scooter pickup is swept, rides for ten seconds, pauses and resets cleanly'
   assert.equal(player.scooterTimer, GAME.scooterDuration);
   const wheel = player.scooter.userData.wheels[0];
   const wheelBefore = wheel.rotation.x;
-  for (let frame = 0; frame < 300; frame += 1) player.update(1 / 60, 140, 'running');
+  for (let frame = 0; frame < 300; frame += 1) player.update(1 / 60, GAME.baseSpeed * GAME.scooterMultiplier, 'running');
   assert.ok(wheel.rotation.x < wheelBefore);
   assert.ok(player.joints.leftKnee.rotation.x < -0.2);
   assert.ok(player.joints.leftArm.rotation.x > 0.4);
   assert.ok(player.scooterTimer > 4.9 && player.scooterTimer <= 5.1);
   const pausedTimer = player.scooterTimer;
-  player.update(2, 140, 'paused');
+  player.update(2, GAME.baseSpeed * GAME.scooterMultiplier, 'paused');
   assert.equal(player.scooterTimer, pausedTimer);
-  for (let frame = 0; frame < 302; frame += 1) player.update(1 / 60, 140, 'running');
+  for (let frame = 0; frame < 302; frame += 1) player.update(1 / 60, GAME.baseSpeed * GAME.scooterMultiplier, 'running');
   assert.equal(player.scooterActive, false);
   assert.equal(player.scooterTimer, 0);
   assert.equal(player.scooter.visible, false);
@@ -128,11 +128,11 @@ test('scooter pickup is swept, rides for ten seconds, pauses and resets cleanly'
   assert.equal(player.shield.visible, false);
 });
 
-test('ten-times speed is literal and scooter traffic shield replaces only boosted crashes', () => {
-  assert.equal(GAME.scooterMultiplier, 10);
+test('1.2-times speed is literal and scooter traffic shield replaces only boosted crashes', () => {
+  assert.equal(GAME.scooterMultiplier, 1.2);
   assert.equal(GAME.scooterDuration, 10);
-  assert.equal(speedForElapsed(8, true), speedForElapsed(8, false) * 10);
-  assert.equal(speedForElapsed(10000, true), GAME.maxSpeed * 10);
+  assert.equal(speedForElapsed(8, true), speedForElapsed(8, false) * 1.2);
+  assert.equal(speedForElapsed(10000, true), GAME.maxSpeed * 1.2);
   const scene = new THREE.Scene();
   const player = new Player(scene);
   let hits = 0;
@@ -141,7 +141,7 @@ test('ten-times speed is literal and scooter traffic shield replaces only booste
   spawner.nextSpawnIn = 999;
   player.startScooter();
   spawner.spawnObstacle('car', 1, PLAYER_Z - 6, 911);
-  const result = spawner.update(0.05, 140, player);
+  const result = spawner.update(0.5, GAME.baseSpeed * GAME.scooterMultiplier, player);
   assert.equal(result, 'running');
   assert.equal(hits, 0);
   assert.equal(shieldHits, 1);
@@ -172,8 +172,8 @@ test('officer is hidden on menu, sprints on run start, falls behind on scooter a
   assert.ok(Math.abs(police.joints.leftLeg.rotation.x - stride) > 0.001);
   player.startScooter();
   for (let frame = 0; frame < 300; frame += 1) {
-    player.update(1 / 60, 140, 'running');
-    police.update(1 / 60, 140, player, 'running', []);
+    player.update(1 / 60, GAME.baseSpeed * GAME.scooterMultiplier, 'running');
+    police.update(1 / 60, GAME.baseSpeed * GAME.scooterMultiplier, player, 'running', []);
   }
   assert.ok(police.getGap() > 12, `boost gap was ${police.getGap()}`);
   assert.equal(police.group.visible, false);

@@ -45,7 +45,7 @@ function addVertexColor(geometry, color) {
  * Combine compatible stationary meshes without flattening animated roots.
  * Original MeshKit geometry remains shared; only merged copies are owned here.
  */
-export function batchStaticGroup(root, { preserve = new Set() } = {}) {
+export function batchStaticGroup(root, { preserve = new Set(), freeze = false } = {}) {
   if (!root) return root;
   root.updateMatrixWorld(true);
   inverseRoot.copy(root.matrixWorld).invert();
@@ -86,8 +86,10 @@ export function batchStaticGroup(root, { preserve = new Set() } = {}) {
     if (!mergedGeometry) continue;
     const merged = new THREE.Mesh(mergedGeometry, material);
     merged.name = `Batched ${meshes.length} stationary meshes`;
-    merged.castShadow = meshes[0].castShadow;
-    merged.receiveShadow = meshes[0].receiveShadow;
+    merged.castShadow = false;
+    merged.receiveShadow = false;
+    merged.matrixAutoUpdate = false;
+    merged.updateMatrix();
     merged.userData.batchOwnedGeometry = true;
     merged.userData.batchSize = meshes.length;
     for (const mesh of meshes) mesh.removeFromParent();
@@ -104,6 +106,13 @@ export function batchStaticGroup(root, { preserve = new Set() } = {}) {
     }
   };
   prune(root);
+  if (freeze) {
+    root.traverse((node) => {
+      if (node === root) return;
+      node.updateMatrix();
+      node.matrixAutoUpdate = false;
+    });
+  }
   return root;
 }
 

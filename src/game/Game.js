@@ -23,12 +23,12 @@ export class Game {
     this.container = container;
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x9fcfd0);
-    this.scene.fog = new THREE.Fog(0xa8cfcb, 74, 232);
+    this.scene.fog = new THREE.Fog(0xa8cfcb, 82, 285);
     this.cameraRig = new CameraRig();
     this.camera = this.cameraRig.camera;
 
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     const coarsePointer = window.matchMedia?.('(pointer: coarse)').matches ?? false;
+    this.renderer = new THREE.WebGLRenderer({ antialias: !coarsePointer, powerPreference: 'high-performance' });
     const requestedQuality = new URLSearchParams(window.location.search).get('quality');
     this.softwareRenderer = requestedQuality === 'high' ? false : isSoftwareRenderer(this.renderer);
     if (this.softwareRenderer) {
@@ -36,11 +36,15 @@ export class Game {
       this.renderer.forceContextLoss();
       this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
     }
-    configureSurfaceQuality({ bump: !this.softwareRenderer });
-    const pixelRatioLimit = this.softwareRenderer ? 0.75 : coarsePointer ? 1.25 : 1.5;
+    configureSurfaceQuality({
+      bump: !this.softwareRenderer && !coarsePointer,
+      anisotropy: this.softwareRenderer || coarsePointer ? 1 : 4,
+    });
+    const pixelRatioLimit = this.softwareRenderer ? 0.75 : coarsePointer ? 1 : 1.4;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelRatioLimit));
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = this.softwareRenderer ? THREE.BasicShadowMap : THREE.PCFSoftShadowMap;
+    // Shadows are intentionally disabled on every device. Directional and
+    // hemisphere lighting still provide depth without a second scene render.
+    this.renderer.shadowMap.enabled = false;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.03;
@@ -50,17 +54,7 @@ export class Game {
     this.scene.add(hemisphere);
     const sun = new THREE.DirectionalLight(0xffe4b0, 2.6);
     sun.position.set(26, 34, -45);
-    sun.castShadow = true;
-    const shadowSize = this.softwareRenderer ? 512 : coarsePointer ? 1024 : 2048;
-    sun.shadow.mapSize.set(shadowSize, shadowSize);
-    sun.shadow.camera.left = -27;
-    sun.shadow.camera.right = 27;
-    sun.shadow.camera.top = 28;
-    sun.shadow.camera.bottom = -18;
-    sun.shadow.camera.near = 1;
-    sun.shadow.camera.far = 115;
-    sun.shadow.bias = -0.00022;
-    sun.shadow.normalBias = 0.022;
+    sun.castShadow = false;
     sun.target.position.set(0, 0, -18);
     this.scene.add(sun, sun.target);
     this.sun = sun;
@@ -270,13 +264,12 @@ export class Game {
         this.world.update(stepDelta, this.speed);
         this.player.update(stepDelta, this.speed, 'running');
         const result = this.spawner.update(stepDelta, this.speed, this.player);
-        if (result !== 'hit' && this.state === 'running') {
-          this.score.update(stepDelta, this.speed);
-          this.ui.updateHud(this.score, this.speed, false, this.player);
-        }
+        if (result !== 'hit' && this.state === 'running') this.score.update(stepDelta, this.speed);
         this.police.update(stepDelta, this.speed, this.player, this.state, this.spawner.entries);
         policeAdvanced = true;
       }
+      // Avoid repeating DOM writes for every physics catch-up substep.
+      if (this.state === 'running') this.ui.updateHud(this.score, this.speed, false, this.player);
     } else if (this.state === 'menu') {
       this.player.update(frameDelta, 0, 'menu');
       for (const entry of this.spawner.entries) {

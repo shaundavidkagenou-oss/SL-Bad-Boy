@@ -1,23 +1,13 @@
 import * as THREE from 'three';
-import { box, cylinder, sphere, cone, label, material } from './MeshKit.js';
+import { box, cylinder, sphere, cone, label } from './MeshKit.js';
 import { createObstacleModel } from './Vehicles.js';
 import { hasLocalSignFonts, LOCAL_SIGN_FONT } from '../ui/SignFonts.js';
 
-let frondGeometry;
+export { createPalm, createPalmyrah, createBananaPlant, createTree } from './Vegetation.js';
+export { createDistrictBackdrop as createBackdrop } from './DistrictBackdrop.js';
+
 const wireGeometries = new Map();
 const wireMaterial = new THREE.LineBasicMaterial({ color: 0x303638 });
-
-function getFrondGeometry() {
-  if (frondGeometry) return frondGeometry;
-  frondGeometry = new THREE.BufferGeometry();
-  frondGeometry.setAttribute('position', new THREE.Float32BufferAttribute([
-    0, 0, 0, -0.42, 0, 1.05, -0.28, -0.14, 2.15, 0, -0.62, 3.25,
-    0.28, -0.14, 2.15, 0.42, 0, 1.05, 0, 0.1, 1.35,
-  ], 3));
-  frondGeometry.setIndex([0, 1, 6, 1, 2, 6, 2, 3, 6, 3, 4, 6, 4, 5, 6, 5, 0, 6]);
-  frondGeometry.computeVertexNormals();
-  return frondGeometry;
-}
 
 function addWindow(parent, x, y, z, width = 1, height = 1, shutters = false) {
   box(parent, [width + 0.14, height + 0.14, 0.08], [x, y, z], 0xeee4cf);
@@ -49,76 +39,6 @@ function addBalcony(parent, width, y, z) {
   for (let x = -width / 2 + 0.12; x <= width / 2; x += 0.42) {
     box(parent, [0.055, 0.82, 0.055], [x, y + 0.45, z + 0.87], 0x354f52);
   }
-}
-
-export function createPalm(height = 6.5, lean = 0.5) {
-  const palm = new THREE.Group();
-  const segments = 6;
-  for (let i = 0; i < segments; i += 1) {
-    const t = i / (segments - 1);
-    cylinder(palm, [0.17 - t * 0.04, 0.24 - t * 0.04], height / segments + 0.09,
-      [lean * t * t, (i + 0.5) * height / segments, 0], i % 2 ? 0x89613e : 0xa3784b, {
-        segments: 7, rotation: [0, 0, -lean * 0.025],
-      });
-  }
-  const crown = new THREE.Group();
-  crown.position.set(lean, height, 0);
-  palm.add(crown);
-  for (let i = 0; i < 10; i += 1) {
-    const frond = new THREE.Mesh(getFrondGeometry(), material(i % 3 ? 0x237a46 : 0x43a253, {
-      side: THREE.DoubleSide,
-    }));
-    frond.rotation.y = i * Math.PI * 0.2;
-    frond.rotation.x = i % 2 ? 0.08 : -0.1;
-    frond.scale.setScalar(i % 2 ? 1 : 0.82);
-    frond.castShadow = true;
-    crown.add(frond);
-  }
-  for (let i = 0; i < 4; i += 1) {
-    const angle = i * Math.PI / 2;
-    sphere(crown, 0.18, [Math.cos(angle) * 0.25, -0.18, Math.sin(angle) * 0.25], 0x7b5b2c);
-  }
-  return palm;
-}
-
-export function createBananaPlant(scale = 1, variant = 0) {
-  const plant = new THREE.Group();
-  plant.name = 'Original tropical banana plant';
-  cylinder(plant, [0.12, 0.19], 1.65, [0, 0.825, 0], 0x7e9448, { segments: 7 });
-  for (let ring = 0; ring < 4; ring += 1) {
-    cylinder(plant, [0.15 - ring * 0.008], 0.12, [0, 0.35 + ring * 0.34, 0], 0xa1a75a, { segments: 7 });
-  }
-  const crown = new THREE.Group();
-  crown.position.y = 1.58;
-  plant.add(crown);
-  for (let index = 0; index < 8; index += 1) {
-    const leaf = new THREE.Mesh(getFrondGeometry(), material(index % 3 ? 0x3d8d45 : 0x6da34b, {
-      side: THREE.DoubleSide, roughness: 0.76,
-    }));
-    leaf.rotation.y = index * Math.PI / 4 + variant * 0.17;
-    leaf.rotation.x = index % 2 ? 0.18 : -0.08;
-    leaf.scale.set(0.88, 0.72, index % 2 ? 0.62 : 0.72);
-    leaf.castShadow = true;
-    crown.add(leaf);
-  }
-  const blossom = cone(crown, 0.13, 0.36, [0.18, -0.35, 0.1], 0x7e3547, { segments: 7 });
-  blossom.rotation.z = Math.PI;
-  plant.scale.setScalar(scale);
-  return plant;
-}
-
-export function createTree(scale = 1, variant = 0) {
-  const tree = new THREE.Group();
-  cylinder(tree, [0.22, 0.34], 2.8 * scale, [0, 1.4 * scale, 0], 0x765035, { segments: 7 });
-  const greens = [0x2f7846, 0x3d8c4d, 0x276b40, 0x548c45];
-  sphere(tree, 1.5 * scale, [0, 3.4 * scale, 0], greens[variant % 4], { scale: [1, 0.9, 1] });
-  sphere(tree, 1.05 * scale, [-0.9 * scale, 3.2 * scale, 0.25], greens[(variant + 1) % 4]);
-  sphere(tree, 1.1 * scale, [0.85 * scale, 3.5 * scale, -0.2], greens[(variant + 2) % 4]);
-  sphere(tree, 0.85 * scale, [0.2, 4.25 * scale, 0.15], greens[(variant + 1) % 4]);
-  if (variant % 5 === 4) {
-    for (const x of [-0.6, 0.3, 0.75]) sphere(tree, 0.18 * scale, [x, 4 * scale, 0.7], 0xe69aaf);
-  }
-  return tree;
 }
 
 function commercialBuilding(variant, style) {
@@ -336,6 +256,10 @@ const SINHALA_BOARDS = Object.freeze({
   ella: ['ඇල්ල', 'නව ආරුක්කු', 'තේ කඩේ', 'ආයුබෝවන්', 'විවෘතයි'],
   galle: ['ගාල්ල', 'කොටුව', 'පොත් කඩේ', 'තේ කඩේ', 'ආයුබෝවන්'],
   negombo: ['මීගමුව', 'මාළු', 'තැඹිලි', 'කෑම කඩේ', 'ආයුබෝවන්'],
+  anuradhapura: ['අනුරාධපුරය', 'රුවන්වැලිසෑය', 'මල් පූජා', 'ආයුබෝවන්', 'විවෘතයි'],
+  polonnaruwa: ['පොළොන්නරුව', 'පුරාණ නගරය', 'මල් පූජා', 'ආයුබෝවන්', 'විවෘතයි'],
+  jaffna: ['යාපනය', 'පනා පලතුරු', 'කොටුව', 'තේ කඩේ', 'ආයුබෝවන්'],
+  trincomalee: ['ත්‍රිකුණාමලය', 'වරාය', 'මාළු', 'තේ කඩේ', 'ආයුබෝවන්'],
 });
 const BOARD_FALLBACKS = ['WELCOME', 'ISLAND TOWN', 'TEA SHOP', 'FOOD STORE', 'OPEN'];
 
@@ -398,30 +322,4 @@ export function createParkedVehicle(kind = 'car', variant = 0) {
   vehicle.scale.setScalar(0.88);
   vehicle.userData.decorative = true;
   return vehicle;
-}
-
-export function createBackdrop() {
-  const backdrop = new THREE.Group();
-  const hills = [[-62, -249, 34, 0x3f7f58], [-25, -255, 40, 0x39734f], [23, -258, 43, 0x326c4c], [67, -250, 35, 0x43845a]];
-  for (const [x, z, radius, color] of hills) {
-    sphere(backdrop, radius, [x, -8, z], color, { widthSegments: 10, heightSegments: 6, scale: [1.25, 0.65, 0.8], castShadow: false });
-  }
-  for (let i = 0; i < 24; i += 1) {
-    const x = -102 + i * 9;
-    const height = 6 + (i * 7 % 17);
-    box(backdrop, [5 + (i % 3), height, 6], [x, height / 2, -242 - (i % 4) * 4],
-      [0x9db5a5, 0xc0b898, 0x91a8ad, 0xb5a9b8][i % 4], { castShadow: false });
-    if (i % 3 === 0) box(backdrop, [2.2, 1.1, 2.2], [x, height + 0.55, -242 - (i % 4) * 4], 0x77928b, { castShadow: false });
-  }
-  // An original slender island communications tower and a distant white dagoba.
-  cylinder(backdrop, [0.65, 1.25], 29, [-38, 14.5, -251], 0x9aa9a4, { segments: 10, castShadow: false });
-  sphere(backdrop, 3.3, [-38, 30, -251], 0x7e9c85, { scale: [1, 0.6, 1], castShadow: false });
-  cone(backdrop, 1.1, 7, [-38, 35, -251], 0x8a9c96, { segments: 10, castShadow: false });
-  sphere(backdrop, 5.5, [49, 3.3, -246], 0xe8e5d7, { scale: [1.2, 0.72, 1.2], castShadow: false });
-  cylinder(backdrop, [0.35], 3.2, [49, 8.1, -246], 0xd5cda9, { segments: 8, castShadow: false });
-  for (const [x, y, z, scale] of [[-45, 28, -190, 2.2], [34, 34, -205, 2.8], [74, 25, -180, 1.8]]) {
-    sphere(backdrop, scale, [x, y, z], 0xe9f0e7, { scale: [2.2, 0.55, 1], castShadow: false, receiveShadow: false });
-    sphere(backdrop, scale * 0.75, [x + scale * 1.4, y + 0.3, z], 0xe9f0e7, { scale: [1.4, 0.6, 1], castShadow: false, receiveShadow: false });
-  }
-  return backdrop;
 }

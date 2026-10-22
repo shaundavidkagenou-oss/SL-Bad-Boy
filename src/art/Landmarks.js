@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { box, cylinder, sphere, cone, label, material, torus } from './MeshKit.js';
+import { createAdditionalDistrictLandmark } from './MoreLandmarks.js';
 
 let sailGeometry;
 
@@ -229,7 +230,7 @@ export function createDistrictLandmark(id) {
     case 'nine-arches': return nineArchesLandmark();
     case 'galle': return galleLandmark();
     case 'negombo': return negomboLandmark();
-    default: return landmark(id || 'island');
+    default: return createAdditionalDistrictLandmark(id) || landmark(id || 'island');
   }
 }
 
@@ -255,6 +256,19 @@ export function createLandscapeStrip(layout, length = 30) {
   } else if (layout === 'fort') {
     box(root, [1.1, 1.35, length], [0, 0.68, 0], 0xaa9c80, { surface: 'plaster' });
     for (let z = -length / 2 + 1; z < length / 2; z += 2.2) box(root, [1.2, 0.4, 1.1], [0, 1.53, z], 0xb5a789);
+  } else if (layout === 'ancient') {
+    box(root, [3.8, 0.13, length], [0, 0.065, 0], 0xb6a789, { surface: 'paving' });
+    for (let z = -length / 2 + 2; z < length / 2; z += 5) {
+      cylinder(root, [0.13], 1.8, [-1.25, 0.9, z], 0xb9ab90, { segments: 8 });
+      box(root, [0.4, 0.14, 0.4], [-1.25, 1.84, z], 0xd0c2a5);
+      sphere(root, 0.65, [1.1, 0.42, z + 1.5], 0x6f824c, { scale: [1.25, 0.65, 1.1] });
+    }
+  } else if (layout === 'palmyrah') {
+    box(root, [4.1, 0.11, length], [0, 0.055, 0], 0x9a8a5d);
+    for (let z = -length / 2 + 2; z < length / 2; z += 4.5) {
+      sphere(root, 0.55, [0.7, 0.34, z], 0x7c8148, { scale: [1.4, 0.62, 1.1] });
+      cylinder(root, [0.08], 1.15, [-1.3, 0.575, z], 0x746143, { segments: 7 });
+    }
   } else if (layout === 'hill') {
     box(root, [1.3, 1.1, length], [0, 0.55, 0], 0x8d8874, { surface: 'plaster' });
     for (let z = -length / 2 + 2; z < length / 2; z += 4) sphere(root, 1.3, [0.6, 0.6, z], 0x68715b, { scale: [1.3, 0.8, 1.4] });

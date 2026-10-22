@@ -5,11 +5,12 @@ const materialCache = new Map();
 const geometryCache = new Map();
 const labelMaterialCache = new Map();
 const surfaceTextureCache = new Map();
-const surfaceQuality = { bump: true };
+const surfaceQuality = { bump: true, anisotropy: 4 };
 const fallbackLabelMaterial = new THREE.MeshBasicMaterial({ color: 0x213b56, side: THREE.DoubleSide });
 
-export function configureSurfaceQuality({ bump = true } = {}) {
+export function configureSurfaceQuality({ bump = true, anisotropy = 4 } = {}) {
   surfaceQuality.bump = bump;
+  surfaceQuality.anisotropy = anisotropy;
 }
 
 export function material(color, options = {}) {
@@ -32,7 +33,7 @@ export function material(color, options = {}) {
 }
 
 function surfaceTexture(name, bump = false) {
-  const cacheKey = `${name}:${bump ? 'height' : 'color'}`;
+  const cacheKey = `${name}:${bump ? 'height' : 'color'}:${surfaceQuality.anisotropy}`;
   if (surfaceTextureCache.has(cacheKey)) return surfaceTextureCache.get(cacheKey);
   const size = 256;
   const canvas = document.createElement('canvas');
@@ -137,14 +138,14 @@ function surfaceTexture(name, bump = false) {
   const repeats = name === 'asphalt' ? [2, 9] : name === 'grass' ? [18, 42]
     : name === 'water' ? [3, 8] : name === 'roof' ? [3, 2] : [1, 3];
   texture.repeat.set(repeats[0], repeats[1]);
-  texture.anisotropy = 4;
+  texture.anisotropy = surfaceQuality.anisotropy;
   if (!bump) texture.colorSpace = THREE.SRGBColorSpace;
   surfaceTextureCache.set(cacheKey, texture);
   return texture;
 }
 
 function surfaceMaterial(name, color) {
-  const key = `surface:${name}:${color}`;
+  const key = `surface:${name}:${color}:${surfaceQuality.bump}:${surfaceQuality.anisotropy}`;
   if (!materialCache.has(key)) {
     materialCache.set(key, new THREE.MeshStandardMaterial({
       color,
@@ -168,8 +169,8 @@ function geometry(key, factory) {
 function finish(mesh, parent, position, rotation, options = {}) {
   mesh.position.set(...position);
   if (rotation) mesh.rotation.set(...rotation);
-  mesh.castShadow = options.castShadow ?? true;
-  mesh.receiveShadow = options.receiveShadow ?? true;
+  mesh.castShadow = false;
+  mesh.receiveShadow = false;
   parent.add(mesh);
   return mesh;
 }
@@ -197,6 +198,17 @@ export function cylinder(parent, radii, height, position, color, options = {}) {
     () => new THREE.CylinderGeometry(top, bottom, 1, segments));
   const mesh = new THREE.Mesh(geo, material(color, options));
   mesh.scale.y = height;
+  return finish(mesh, parent, position, options.rotation, options);
+}
+
+export function capsule(parent, radius, length, position, color, options = {}) {
+  const capSegments = options.capSegments ?? 4;
+  const radialSegments = options.radialSegments ?? 10;
+  const geo = geometry(`capsule:${radius},${length},${capSegments},${radialSegments}`,
+    () => new THREE.CapsuleGeometry(radius, length, capSegments, radialSegments));
+  const mesh = new THREE.Mesh(geo, material(color, options));
+  const scale = options.scale ?? [1, 1, 1];
+  mesh.scale.set(...scale);
   return finish(mesh, parent, position, options.rotation, options);
 }
 
@@ -289,5 +301,6 @@ export function getMeshKitStats() {
     labelMaterials: labelMaterialCache.size,
     surfaceTextures: surfaceTextureCache.size,
     bumpMapping: surfaceQuality.bump,
+    anisotropy: surfaceQuality.anisotropy,
   };
 }

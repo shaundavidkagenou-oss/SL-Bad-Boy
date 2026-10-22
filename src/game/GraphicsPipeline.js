@@ -126,7 +126,7 @@ export class GraphicsPipeline {
     this.quality = software ? 'compatibility-software' : coarsePointer ? 'balanced-mobile' : 'high-desktop';
     this.sky = createSky();
     scene.add(this.sky);
-    this.hdrSupported = !software && renderer.extensions.has('EXT_color_buffer_float');
+    this.hdrSupported = !software && !coarsePointer && renderer.extensions.has('EXT_color_buffer_float');
     this.environmentTarget = this.hdrSupported ? createReflectionEnvironment(renderer, scene) : null;
     this.clouds = [];
     if (typeof document !== 'undefined') {
@@ -137,7 +137,7 @@ export class GraphicsPipeline {
       this.cloudMaterial = cloudMaterial;
       const positions = [[-66, 30, -140, 34], [-24, 42, -190, 42], [31, 35, -165, 37],
         [72, 26, -125, 30], [-88, 48, -210, 45], [9, 53, -225, 48]];
-      const visiblePositions = software ? positions.filter((_, index) => index % 2 === 0) : positions;
+      const visiblePositions = software || coarsePointer ? positions.filter((_, index) => index % 3 === 0) : positions;
       for (const [x, y, z, size] of visiblePositions) {
         const cloud = new THREE.Sprite(cloudMaterial);
         cloud.position.set(x, y, z);
@@ -198,7 +198,7 @@ export class GraphicsPipeline {
     if (this.slowWindows < 2) return;
     this.slowWindows = 0;
     const current = this.renderer.getPixelRatio();
-    const minimum = this.coarsePointer ? 0.75 : 0.85;
+    const minimum = this.coarsePointer ? 0.6 : 0.8;
     if (current > minimum + 0.05) {
       const next = Math.max(minimum, current * 0.82);
       this.renderer.setPixelRatio(next);

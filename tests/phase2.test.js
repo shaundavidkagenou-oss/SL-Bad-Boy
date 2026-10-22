@@ -18,11 +18,11 @@ class FakeTarget {
   emit(type, event) { this.listeners.get(type)?.({ preventDefault() {}, ...event }); }
 }
 
-test('ten district schedules use longer eight-section blocks and wrap cleanly', () => {
+test('fourteen district schedules use longer eight-section blocks and wrap cleanly', () => {
   assert.equal(THEME_SECTIONS, 8);
   assert.equal(THEME_LENGTH, 240);
-  assert.equal(ENVIRONMENT_THEMES.length, 10);
-  const ids = ['colombo', 'suburb', 'market', 'kotte', 'kandy', 'kadugannawa', 'nuwara-eliya', 'ella', 'galle', 'negombo'];
+  assert.equal(ENVIRONMENT_THEMES.length, 14);
+  const ids = ['colombo', 'suburb', 'market', 'kotte', 'kandy', 'kadugannawa', 'nuwara-eliya', 'ella', 'galle', 'negombo', 'anuradhapura', 'polonnaruwa', 'jaffna', 'trincomalee'];
   ids.forEach((id, index) => {
     const start = index * THEME_SECTIONS;
     assert.equal(themeForSequence(start).id, id);

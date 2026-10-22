@@ -1,6 +1,6 @@
 # SL BAD BOY — Schoolboy Rush
 
-An original 3D Sri Lankan endless runner for **web and Android**, built with **Three.js, JavaScript, Vite and Capacitor**. It includes ten long themed districts, original landmark scenery, hill-country tunnels, articulated characters, a Sri Lankan police pursuit, a 10-second scooter boost, fair speed-scaled traffic, touch buttons/gestures and synthesized audio. Models, textures, signs and sounds are generated locally; the Android launcher and native splash use the supplied SL BAD BOY poster artwork. No branded game assets, CDN scripts or copyrighted Subway Surfers content are used.
+An original 3D Sri Lankan endless runner for **web and Android**, built with **Three.js, JavaScript, Vite and Capacitor**. It includes fourteen long themed districts, original approach and main landmark scenery, hill-country tunnels, organic articulated characters, a Sri Lankan police pursuit, a 10-second 1.2× scooter boost, fair speed-scaled traffic, touch buttons/gestures and synthesized audio. Models, textures, signs and sounds are generated locally; the Android launcher and native splash use the supplied SL BAD BOY poster artwork. No branded game assets, CDN scripts or copyrighted Subway Surfers content are used.
 
 ## Android APK
 
@@ -29,7 +29,7 @@ For Android Studio development, use `npm run android:sync`, then `npm run androi
 
 ### Automated APK build
 
-`.github/workflows/android-apk.yml` runs on this branch and through **Run workflow**. It uses Node 22 and Java 21, runs the logic tests and production build, compiles the APK, checks the ZIP structure and offline game files, verifies package name/app label/minimum SDK with `aapt`, uploads the artifact, and commits the verified APK/checksum back to the branch.
+`.github/workflows/android-apk.yml` runs on this branch and through **Run workflow**. It uses Node 22 and Java 21, runs the logic tests and production build, compiles the APK, checks the ZIP structure and offline game files, verifies package name/app label/version/minimum SDK with `aapt`, compares all supplied launcher/splash resources byte-for-byte, uploads the artifact, and commits the verified APK/checksum back to the branch.
 
 ## Play on Windows
 
@@ -78,21 +78,22 @@ Menus and the HUD pause button are clickable. The sound button toggles mute and 
 
 ### Sri Lankan world
 
-- Ten naturally transitioning **240 m districts**: Colombo, Maharagama, Pettah, Kotte, Kandy, Kadugannawa, Nuwara Eliya, Ella, Galle and Negombo.
-- Original procedural landmarks including Galle Face/Lotus Tower, Pettah clock tower, Diyawanna parliament, Kandy temple/lake, Galle lighthouse, Nine Arches Bridge, tea country, railway scenery and Negombo lagoon.
+- Fourteen naturally transitioning **240 m districts**: Colombo, Maharagama, Pettah, Kotte, Kandy, Kadugannawa, Nuwara Eliya, Ella, Galle, Negombo, Anuradhapura, Polonnaruwa, Jaffna and Trincomalee.
+- Original procedural landmarks including a visible **Colombo Fort approach**, Galle Face/Lotus Tower, Pettah Red Mosque/clock tower, Diyawanna parliament, Kandy temple/lake, Galle lighthouse, Nine Arches Bridge, tea country, railway scenery and Negombo lagoon. Anuradhapura and Polonnaruwa add distinct stupas/ancient pillars, Jaffna adds its fort/library and palmyrah landscape, and Trincomalee adds its harbor and Koneswaram hill temple.
 - Two consecutive-section tunnel runs in Kadugannawa and Ella, with portals, interior strip lights and camera-safe roof clearance.
 - Detailed commercial buildings with district-specific palettes, shopfronts, shutters, balconies, side windows, awnings, rooftop tanks and varied proportions.
 - Residential houses, tiled roofs, verandas, boundary walls, gates and gardens.
 - Market stalls with striped awnings, crates and procedural produce.
-- Coconut palms, banana plants, tropical trees, local advertising, bus shelters, pavements, drains, utility poles and continuous overhead wires.
-- Decorative junctions, traffic lights, parked cars/vans/tuk-tuks, street bins and an original distant island skyline.
+- Curved coconut and palmyrah palms with individual fronds, broad-leaf banana plants, branched tropical trees with irregular multi-cluster canopies, local advertising, bus shelters, pavements, drains, utility poles and continuous overhead wires.
+- Decorative junctions, traffic lights, parked cars/vans/tuk-tuks, street bins, district welcome gateways and black-and-white road-edge posts. District-specific distant skylines include hills, tea shapes, water horizons, towers and stupas.
+- King-coconut carts, Buddhist-flag rows, Ceylon tea chests, fishing-net racks, temple flower offerings and palmyrah produce baskets add roadside detail outside gameplay lanes.
 - Sinhala roadside boards throughout ordinary road sections, plus district-matched shopfronts, road names, school-zone signs and bus destinations.
 - Selected signs use correct Sinhala, Tamil and English text with locally bundled Noto fonts and an English fallback.
 - Procedural asphalt, grass, paving, plaster, roof-tile and water materials with local color/height textures, plus atmospheric color transitions and district announcements.
 
 ### Character and traffic
 
-- Detailed articulated schoolboy with connected shoulders, elbows, wrists, hips, knees and ankles, plus an improved face, hair, uniform, backpack, socks and shoes.
+- Detailed organic schoolboy with a shaped torso/head, capsule limbs, connected shoulders, elbows, wrists, hips, knees and ankles, plus layered hair, rounded clothing, uniform, backpack, socks and shoes.
 - Continuous running/control animation with foot roll, head movement, backpack bounce, jump tuck, landing compression, lean-back slide, lane-change lean and collision stumble. The former menu wave and coin arm celebration are intentionally removed.
 - Original Sri Lankan police officer in a khaki uniform, navy peaked cap, belt and boots, with detailed facial features, fingers, collar, seams, pockets, pouches, radio, boot laces and Sinhala/English back patch.
 - Pelvis/torso counter-motion, heel-to-toe movement, baton follow-through, a pursuit point, split-leg hurdles, landing compression, braced slides and a catch-breath stop reaction.
@@ -105,7 +106,7 @@ Menus and the HUD pause button are clickable. The sound button toggles mute and 
 ### Scooter boost and speed-scaled difficulty
 
 - An original scooter pickup appears on a reachable route. The schoolboy visibly sits on it, holds the handlebars and turns its wheels with travelled distance.
-- The boost is a literal **10× world/traffic speed multiplier for 10 game seconds**, with a live countdown and 10× HUD.
+- The boost is a literal **1.2× world/traffic speed multiplier for 10 game seconds**, with a live countdown and 1.2× HUD.
 - A temporary traffic shield clears contacted obstacles only during the boost; ordinary collisions still end the run. Swept pickup and traffic colliders cover high-speed travel.
 - The boost timer freezes on pause and clears on crash, restart or menu return. Another pickup cannot create unlimited overlapping boosts.
 - Higher cruise-speed tiers replace empty/single rows with denser two-lane rows and more oncoming buses. Every generated row retains a survivable route, adjacent free-lane choices and at least 0.95 seconds of closing-speed spacing.
@@ -115,7 +116,7 @@ Menus and the HUD pause button are clickable. The sound button toggles mute and 
 - A five-second black-and-white **Shaun David Studios** production ident with an original S/D monogram, scanlines, animated typography, timed progress and a readiness-based handoff.
 - The intro remains until local fonts and the 3D game are ready, then exits cleanly; it is responsive and respects reduced-motion preferences.
 - Smoothed third-person camera with restrained lane/jump following and a portrait-specific view.
-- Smooth PBR shading, procedural sky/sun and soft clouds, generated image-based reflections, tuned soft shadows and restrained bloom on supported hardware. Mobile and software-GPU fallbacks avoid unsupported HDR work.
+- Smooth shadow-free PBR shading, procedural sky/sun and soft clouds. **Real-time shadow maps and mesh/light shadow flags are disabled.** Generated reflections and restrained bloom are reserved for supported desktop hardware; mobile and software GPUs use a direct non-HDR path.
 - Fixed-pool road dust, coin/shield/crash particles and scooter speed lines provide feedback without creating new meshes every frame.
 - Polished title screen, HUD, district pill/banner, coin feedback, responsive scooter countdown, pause treatment, impact flash and game-over presentation.
 - Original Web Audio synthesis for coins, scooter pickup, shield impacts, jumping, landing, sliding, collisions, buttons, ambient traffic and distant bus horns.
@@ -126,10 +127,10 @@ Menus and the HUD pause button are clickable. The sound button toggles mute and 
 - The original nine connected road centers and gap-free recycling math are preserved.
 - Scenery uses seeded variants and changes only when sections recycle; queued rebuilds are limited to one per update.
 - Unit primitive geometries, shared materials/textures and bounded label caches prevent resource growth from procedural variation.
-- Compatible static and rigid-body meshes are batched with original colors preserved in vertex colors. Animated joints, wheels, signs and transparent effects remain independent.
+- Compatible static and rigid-body meshes are batched with original colors preserved in vertex colors. Static world/backdrop matrices are frozen; animated joints, wheels, signs and transparent effects remain independent.
 - Recycled scenery and removed traffic explicitly dispose owned batch geometry without disposing shared primitives; the effects pools have fixed typed-array capacity.
 - Obstacle spawning and decorative world generation remain separate.
-- Pixel ratio is capped, with a lower cap for coarse-pointer/mobile devices. Sustained slow hardware can reduce resolution and then shed post-processing; actual software GPUs use a direct compatibility path.
+- Pixel ratio is capped at 1 on coarse-pointer/mobile devices, with mobile antialiasing, HDR/bloom and bump mapping disabled and only two cloud sprites. HUD DOM writes are rate-limited. Sustained slow hardware can reduce resolution and then shed post-processing; actual software GPUs use a direct compatibility path.
 - Gameplay uses bounded real-time frames divided into collision-safe substeps, so low rendering FPS does not arbitrarily stretch the 10-second boost or cruise-speed progression.
 
 Scoring remains **10 points per metre + 100 points per coin**. Cruise speed rises from 14 to 36 world units/second; the temporary scooter multiplier applies on top of that cruise speed. Best score and mute preference use browser `localStorage`; blocked storage does not prevent play.
@@ -154,8 +155,12 @@ src/art/Schoolboy.js           Original detailed articulated schoolboy
 src/art/Scooter.js             Original rideable scooter and wheel assemblies
 src/art/Policeman.js           Original uniformed Sri Lankan police officer
 src/art/Vehicles.js            Original buses, cars, van, tuk-tuks and hazards
-src/art/Environment.js         Themed buildings, plants, signs and street furniture
+src/art/Environment.js         Themed buildings, signs and street furniture
+src/art/Vegetation.js           Organic trees, coconut/palmyrah palms and banana plants
+src/art/Roadside.js             Sri Lankan carts, offerings, flags and district gateways
+src/art/DistrictBackdrop.js     District-specific distant skylines and landscapes
 src/art/Landmarks.js           District landmarks, landscape strips and tunnels
+src/art/MoreLandmarks.js        Fort, ancient-city, Jaffna and Trincomalee detail
 src/game/Game.js               Game state, real-time substeps and single animation loop
 src/game/GraphicsPipeline.js   Atmosphere, reflections, bloom and adaptive quality
 src/game/VisualEffects.js      Fixed-pool particles and scooter speed lines
@@ -172,7 +177,7 @@ src/game/ScoreManager.js       Score and persistent best record
 src/ui/GameUI.js               HUD, menus, district and feedback presentation
 src/ui/SignFonts.js            Local Sinhala/Tamil font loading and fallback
 assets/icon.svg               Original web game icon
-assets/sl-bad-boy-logo.png     Supplied Android launcher and native splash artwork
+assets/sl-bad-boy-logo.jpg     Supplied Android launcher and native splash artwork
 tests/                        Gameplay, environment, character and browser regressions
 ```
 
@@ -185,7 +190,7 @@ npm test
 npm run build
 ```
 
-The suite retains the original physics, scoring, collision and persistence assertions and adds longer district scheduling, all landmark builders, consecutive tunnels, bounded geometry across repeated district cycles, speed-tier fairness, touch gestures, lazy audio, travel-driven wheels, absence of the schoolboy gestures, scooter pickup/duration/reset/shield behavior, literal 10× speed, police sprint/separation/return behavior, vertex-color batch/disposal, fixed effect pools, software-GPU detection, Android Back behavior and duplicate-listener prevention.
+The suite retains the original physics, scoring, collision and persistence assertions and adds longer district scheduling, all landmark builders, consecutive tunnels, bounded geometry across repeated district cycles, speed-tier fairness, touch gestures, lazy audio, travel-driven wheels, absence of the schoolboy gestures, scooter pickup/duration/reset/shield behavior, literal 1.2× speed, police sprint/separation/return behavior, vertex-color batch/disposal, fixed effect pools, software-GPU detection, Android Back behavior and duplicate-listener prevention.
 
 The optional real Chromium/WebGL suite starts its own Vite server:
 
@@ -194,6 +199,6 @@ npm install --no-save --package-lock=false puppeteer-core@25.15.0 @sparticuz/chr
 npm run test:browser
 ```
 
-It checks the five-second studio intro and desktop/mobile wordmark bounds, startup with no idle officer, audio unlock/mute, keyboard, real dispatched touch gestures and on-screen mobile buttons, regular and oncoming traffic, detailed police pursuit and pointing, coin pickup without an arm gesture, live scooter pickup and exact 10× speed, shield contact, natural expiry and police return, jump/slide collision behavior, game over, pause/resume, clean restart, saved best score, road/ground ordering, every district and both tunnel runs, real Sinhala sign meshes and local fonts, portrait mobile/HUD layout, a batched-scene draw-call ceiling, and 7,200 metres of themed recycling with stable scene/GPU resource counts. Screenshots are written to the ignored `test-results/` directory.
+It checks the five-second studio intro and desktop/mobile wordmark bounds, startup with no idle officer, audio unlock/mute, keyboard, real dispatched touch gestures and on-screen mobile buttons, regular and oncoming traffic, detailed police pursuit and pointing, coin pickup without an arm gesture, live scooter pickup and exact 1.2× speed, shield contact, natural expiry and police return, jump/slide collision behavior, game over, pause/resume, clean restart, saved best score, road/ground ordering, every district and both tunnel runs, real Sinhala sign meshes and local fonts, portrait mobile/HUD layout, a batched-scene draw-call ceiling, and 7,200 metres of themed recycling with stable scene/GPU resource counts. Screenshots are written to the ignored `test-results/` directory.
 
-To use an installed Chrome/Chromium instead of the optional package, set `CHROME_PATH` to its executable. For a deliberate visual check of the full HDR pipeline on a software renderer, append `?quality=high` to the development URL; normal automatic quality selection is recommended for play. The resource stress test and software-WebGL screenshots are not hardware-specific GTX 1660 Super or physical-mobile frame-rate benchmarks. Native APK compilation/package validation is separate from physical-device audio, lifecycle and FPS validation.
+To use an installed Chrome/Chromium instead of the optional package, set `CHROME_PATH` to its executable. The resource stress test and software-WebGL screenshots are not hardware-specific GTX 1660 Super or physical-mobile frame-rate benchmarks. Native APK compilation/package validation is separate from physical-device audio, lifecycle and FPS validation.

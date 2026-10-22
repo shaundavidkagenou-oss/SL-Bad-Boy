@@ -5,8 +5,8 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const resRoot = join(root, 'android/app/src/main/res');
-const logo = await readFile(join(root, 'assets/sl-bad-boy-logo.png'));
-const logoData = `data:image/png;base64,${logo.toString('base64')}`;
+const logo = await readFile(join(root, 'assets/sl-bad-boy-logo.jpg'));
+const logoData = `data:image/jpeg;base64,${logo.toString('base64')}`;
 
 function render(svg, width) {
   const renderer = new Resvg(svg, { fitTo: { mode: 'width', value: width } });
@@ -33,7 +33,7 @@ for (const [density, size, foreground] of densities) {
 }
 
 // Preserve the owner's complete portrait artwork on the native loading splash.
-const splash = `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1114" viewBox="0 0 1024 1114">${logoImage(1024, 1114, 'meet')}</svg>`;
+const splash = `<svg xmlns="http://www.w3.org/2000/svg" width="720" height="720" viewBox="0 0 720 720">${logoImage(720, 720, 'meet')}</svg>`;
 await mkdir(join(resRoot, 'drawable'), { recursive: true });
 await writeFile(join(resRoot, 'drawable/splash_logo.png'), render(splash, 320));
 

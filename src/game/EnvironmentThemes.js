@@ -5,16 +5,16 @@ export const THEME_LENGTH = THEME_SECTIONS * ROAD.sectionLength;
 
 export const ENVIRONMENT_THEMES = Object.freeze([
   Object.freeze({
-    id: 'colombo', name: 'COLOMBO', subtitle: 'GALLE FACE & CITY', roadName: 'GALLE ROAD',
-    sky: 0x9fcfd0, fog: 0xa8cfcb, ground: 0x68845a, layout: 'city', landmark: 'colombo',
+    id: 'colombo', name: 'COLOMBO', subtitle: 'FORT, GALLE FACE & CITY', roadName: 'GALLE ROAD',
+    sky: 0x9fcfd0, fog: 0xa8cfcb, ground: 0x68845a, layout: 'city', landmark: 'colombo', approachLandmark: 'colombo-fort',
   }),
   Object.freeze({
-    id: 'suburb', name: 'MAHARAGAMA', subtitle: 'GARDEN SUBURBS', roadName: 'HIGH LEVEL ROAD',
+    id: 'suburb', name: 'MAHARAGAMA', subtitle: 'SCHOOLS & GARDEN SUBURBS', roadName: 'HIGH LEVEL ROAD',
     sky: 0xb4d9ce, fog: 0xb4d4c3, ground: 0x5f8751, layout: 'suburb', landmark: 'school',
   }),
   Object.freeze({
-    id: 'market', name: 'PETTAH', subtitle: 'BAZAAR & CLOCK TOWER', roadName: 'MAIN STREET',
-    sky: 0xa8cbd0, fog: 0xbecbc0, ground: 0x75805a, layout: 'market', landmark: 'pettah',
+    id: 'market', name: 'PETTAH', subtitle: 'BAZAAR, MOSQUE & CLOCK TOWER', roadName: 'MAIN STREET',
+    sky: 0xa8cbd0, fog: 0xbecbc0, ground: 0x75805a, layout: 'market', landmark: 'pettah', approachLandmark: 'red-mosque',
   }),
   Object.freeze({
     id: 'kotte', name: 'KOTTE', subtitle: 'DIYAWANNA PARLIAMENT', roadName: 'KOTTE ROAD',
@@ -43,6 +43,22 @@ export const ENVIRONMENT_THEMES = Object.freeze([
   Object.freeze({
     id: 'negombo', name: 'NEGOMBO', subtitle: 'LAGOON & FISH MARKET', roadName: 'COLOMBO ROAD',
     sky: 0x9dd4d5, fog: 0xb4d5ca, ground: 0x758c5b, layout: 'coast', landmark: 'negombo',
+  }),
+  Object.freeze({
+    id: 'anuradhapura', name: 'ANURADHAPURA', subtitle: 'RUWANWELISEYA & SACRED CITY', roadName: 'SACRED CITY ROAD',
+    sky: 0xb9d8cf, fog: 0xc4d3ba, ground: 0x7d8b58, layout: 'ancient', landmark: 'anuradhapura',
+  }),
+  Object.freeze({
+    id: 'polonnaruwa', name: 'POLONNARUWA', subtitle: 'ANCIENT RUINS & STUPA', roadName: 'ANCIENT CITY ROAD',
+    sky: 0xb4d2c7, fog: 0xc3cfb5, ground: 0x7f8754, layout: 'ancient', landmark: 'polonnaruwa',
+  }),
+  Object.freeze({
+    id: 'jaffna', name: 'JAFFNA', subtitle: 'FORT, LIBRARY & PALMYRAH', roadName: 'KKS ROAD',
+    sky: 0xa8d3d1, fog: 0xc0d2bd, ground: 0x90905a, layout: 'palmyrah', landmark: 'jaffna',
+  }),
+  Object.freeze({
+    id: 'trincomalee', name: 'TRINCOMALEE', subtitle: 'HARBOUR & KONESWARAM', roadName: 'COAST ROAD',
+    sky: 0x8fcbd5, fog: 0xa9d2cf, ground: 0x758d5e, layout: 'coast', landmark: 'trincomalee',
   }),
 ]);
 
