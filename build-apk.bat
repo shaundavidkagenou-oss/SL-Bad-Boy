@@ -22,7 +22,7 @@ if errorlevel 1 (
 if not defined JAVA_HOME (
   where java >nul 2>nul
   if errorlevel 1 (
-    echo [ERROR] Java 17 is required. Install Android Studio or set JAVA_HOME.
+    echo [ERROR] Java 21 is required. Install Android Studio or set JAVA_HOME.
     exit /b 1
   )
 )

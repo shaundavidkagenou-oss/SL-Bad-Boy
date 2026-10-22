@@ -16,7 +16,7 @@ An original 3D Sri Lankan endless runner for **web and Android**, built with **T
 Install these prerequisites once:
 
 1. **Node.js 22+**.
-2. **Java 17** (available through Android Studio or a JDK) with `java` on PATH or `JAVA_HOME` set.
+2. **Java 21** (available through Android Studio or a JDK) with `java` on PATH or `JAVA_HOME` set. Capacitor 8 cannot compile with Java 17.
 3. **Android Studio/SDK** with Android SDK 36 and build tools, with `ANDROID_HOME`/`ANDROID_SDK_ROOT` set or `android/local.properties` configured by Android Studio.
 
 Then double-click **`build-apk.bat`**. It installs exact Node dependencies when needed, builds the full web game, regenerates original launcher/splash artwork, syncs Capacitor, runs Gradle, checks the resulting file, and copies it to:
@@ -29,7 +29,7 @@ For Android Studio development, use `npm run android:sync`, then `npm run androi
 
 ### Automated APK build
 
-`.github/workflows/android-apk.yml` runs on this branch and through **Run workflow**. It uses Node 22 and Java 17, runs the logic tests and production build, compiles the APK, checks the ZIP structure and offline game files, verifies package name/app label/minimum SDK with `aapt`, uploads the artifact, and commits the verified APK/checksum back to the branch.
+`.github/workflows/android-apk.yml` runs on this branch and through **Run workflow**. It uses Node 22 and Java 21, runs the logic tests and production build, compiles the APK, checks the ZIP structure and offline game files, verifies package name/app label/minimum SDK with `aapt`, uploads the artifact, and commits the verified APK/checksum back to the branch.
 
 ## Play on Windows
 
