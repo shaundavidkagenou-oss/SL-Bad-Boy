@@ -89,7 +89,8 @@ try {
   assert.equal(await page.$eval('#fatal-error', (node) => node.hidden), true);
   assert.equal(await page.$eval('#scene canvas', (node) => node.width > 0), true);
   await page.screenshot({ path: 'test-results/menu.png' });
-  passed.push('game opens and renders a WebGL canvas with the start menu');
+  assert.equal(await page.evaluate(() => window.__LANKA_RUN__.police.group.visible), false);
+  passed.push('game opens with a WebGL canvas, start menu and no idle officer');
 
   assert.equal(await page.evaluate(() => window.__LANKA_RUN__.audio.context === null), true);
   await page.click('#mute-button');
@@ -103,6 +104,7 @@ try {
   await page.click('#play-button');
   assert.equal(await page.evaluate(() => window.__LANKA_RUN__.audio.context === window.__testAudioContext), true);
   await waitForFunction(() => window.__LANKA_RUN__?.state === 'running');
+  await waitForFunction(() => window.__LANKA_RUN__.police.chaseStarted && window.__LANKA_RUN__.police.group.visible);
   const kinds = await page.evaluate(() => window.__LANKA_RUN__.spawner.getActiveKinds());
   for (const kind of ['public-bus', 'private-bus', 'car', 'tuk-tuk', 'cone', 'barrier']) {
     assert.ok(kinds.includes(kind), `${kind} missing from initial run`);
@@ -111,11 +113,15 @@ try {
     uniform: window.__LANKA_RUN__.police.visual.userData.uniform,
     gap: window.__LANKA_RUN__.police.getGap(),
     detailedJoints: Boolean(window.__LANKA_RUN__.police.joints.pelvis && window.__LANKA_RUN__.police.joints.baton),
+    visible: window.__LANKA_RUN__.police.group.visible,
+    chaseStarted: window.__LANKA_RUN__.police.chaseStarted,
     oncoming: window.__LANKA_RUN__.spawner.entries.some((entry) => entry.oncoming),
   }));
   assert.equal(pursuit.uniform, 'khaki-shirt-trousers-navy-peaked-cap');
   assert.ok(pursuit.gap >= 2.2);
   assert.equal(pursuit.detailedJoints, true);
+  assert.equal(pursuit.visible, true);
+  assert.equal(pursuit.chaseStarted, true);
   assert.equal(pursuit.oncoming, true);
   await new Promise((resolve) => setTimeout(resolve, 150));
   await page.screenshot({ path: 'test-results/police-chase.png' });
@@ -163,9 +169,53 @@ try {
   });
   await waitForFunction(() => window.__LANKA_RUN__.score.coins === 1);
   assert.equal(await page.evaluate(() => window.__LANKA_RUN__.spawner.getRowEntries(900).length), 0);
-  assert.ok(await page.evaluate(() => window.__LANKA_RUN__.player.coinTimer > 0));
-  await page.screenshot({ path: 'test-results/coin-reaction.png' });
-  passed.push('live coin overlap collects once, updates score and triggers character celebration');
+  assert.equal(await page.evaluate(() => 'coinTimer' in window.__LANKA_RUN__.player), false);
+  assert.ok(await page.evaluate(() => Math.abs(window.__LANKA_RUN__.player.joints.rightArm.rotation.z) < 0.02));
+  await page.screenshot({ path: 'test-results/coin-pickup.png' });
+  passed.push('live coin overlap collects once and updates score without a schoolboy arm gesture');
+
+  await page.evaluate(() => {
+    const game = window.__LANKA_RUN__;
+    game.spawner.clear();
+    game.player.reset();
+    game.spawner.collisionEnabled = true;
+    game.spawner.nextSpawnIn = 100000;
+    game.spawner.nextScooterIn = 100000;
+    game.spawner.spawnScooter(1, game.player.group.position.z - 3, 910);
+  });
+  await waitForFunction(() => window.__LANKA_RUN__.player.scooterActive && window.__LANKA_RUN__.speed > 100);
+  const boost = await page.evaluate(async () => {
+    const { GAME } = await import('/src/config.js');
+    const game = window.__LANKA_RUN__;
+    const cruise = Math.min(GAME.maxSpeed, GAME.baseSpeed + game.elapsed * GAME.acceleration);
+    return {
+      multiplier: game.speed / cruise,
+      timer: game.player.scooterTimer,
+      scooterVisible: game.player.scooter.visible,
+      shieldVisible: game.player.shield.visible,
+      hudVisible: document.getElementById('boost-hud').classList.contains('is-visible'),
+    };
+  });
+  assert.ok(Math.abs(boost.multiplier - 10) < 0.0001, `live boost multiplier was ${boost.multiplier}`);
+  assert.ok(boost.timer <= 10 && boost.timer > 8);
+  assert.equal(boost.scooterVisible, true);
+  assert.equal(boost.shieldVisible, true);
+  assert.equal(boost.hudVisible, true);
+  await page.evaluate(() => {
+    const game = window.__LANKA_RUN__;
+    game.spawner.spawnObstacle('car', 1, game.player.group.position.z - 8, 911);
+  });
+  await waitForFunction(() => window.__LANKA_RUN__.spawner.getRowEntries(911).length === 0);
+  assert.equal(await page.evaluate(() => window.__LANKA_RUN__.state), 'running');
+  await waitForFunction(() => window.__LANKA_RUN__.police.getGap() > 12 && !window.__LANKA_RUN__.police.group.visible);
+  await page.screenshot({ path: 'test-results/scooter-boost.png' });
+  passed.push('live scooter pickup gives 10× speed, shielded traffic contact and visible police separation');
+
+  await page.waitForFunction(() => !window.__LANKA_RUN__.player.scooterActive && window.__LANKA_RUN__.speed < 100, { timeout: 90000 });
+  assert.equal(await page.evaluate(() => window.__LANKA_RUN__.player.scooter.visible), false);
+  assert.equal(await page.$eval('#boost-hud', (node) => node.classList.contains('is-visible')), false);
+  await waitForFunction(() => window.__LANKA_RUN__.police.getGap() < 4 && window.__LANKA_RUN__.police.group.visible);
+  passed.push('scooter expires naturally after its countdown and the officer returns to the chase');
 
   await page.evaluate(() => {
     const game = window.__LANKA_RUN__;
@@ -320,16 +370,17 @@ try {
   assert.ok(stress.milliseconds < 30000, `6,000-step world stress took ${stress.milliseconds} ms`);
   passed.push(`7,200 metres of themed recycling kept scene and GPU resource counts stable (${Math.round(stress.milliseconds)} ms stress step)`);
 
-  for (const theme of ['market', 'suburb']) {
+  for (const theme of ['suburb', 'market', 'kotte', 'kandy', 'kadugannawa', 'nuwara-eliya', 'ella', 'galle', 'negombo']) {
     await page.evaluate((themeId) => {
       const game = window.__LANKA_RUN__;
       game.state = 'running';
       game.ui.showRunning();
       game.spawner.clear();
-      game.spawner.nextSpawnIn = 999;
+      game.spawner.nextSpawnIn = 100000;
+      game.spawner.nextScooterIn = 100000;
       game.spawner.collisionEnabled = false;
       let guard = 0;
-      while (game.world.getCurrentTheme().id !== themeId && guard < 2000) {
+      while (game.world.getCurrentTheme().id !== themeId && guard < 5000) {
         game.world.update(1 / 60, 36);
         guard += 1;
       }
@@ -338,7 +389,23 @@ try {
     assert.equal(await page.evaluate(() => window.__LANKA_RUN__.currentTheme.id), theme);
     await new Promise((resolve) => setTimeout(resolve, 350));
     await page.screenshot({ path: `test-results/${theme}.png` });
+    if (theme === 'kadugannawa' || theme === 'ella') {
+      await page.evaluate(() => {
+        const game = window.__LANKA_RUN__;
+        let guard = 0;
+        while (!game.world.sections.some((section) => section.userData.tunnel && Math.abs(section.position.z) <= 15) && guard < 1000) {
+          game.world.update(1 / 60, 36);
+          guard += 1;
+        }
+        for (let step = 0; step < 25; step += 1) game.world.update(1 / 60, 36);
+        game.updateTheme(0);
+      });
+      assert.equal(await page.evaluate(() => window.__LANKA_RUN__.world.sections.some((section) => section.userData.tunnel && Math.abs(section.position.z) <= 15)), true);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      await page.screenshot({ path: `test-results/${theme}-tunnel.png` });
+    }
   }
+  passed.push('all ten districts render with landmarks and both hill-country tunnel runs');
   assert.equal(await page.evaluate(() => document.fonts.check('700 48px "Noto Sans Sinhala"', 'බස්')), true);
   assert.equal(await page.evaluate(() => document.fonts.check('700 48px "Noto Sans Tamil"', 'பேருந்து')), true);
   const signTexts = await page.evaluate(() => {
@@ -368,11 +435,30 @@ try {
   await page.screenshot({ path: 'test-results/mobile-gameplay.png' });
   passed.push('portrait mobile layout, touch instructions and portrait camera remain usable');
 
+  await page.evaluate(() => {
+    const game = window.__LANKA_RUN__;
+    game.spawner.collisionEnabled = false;
+    game.player.startScooter();
+  });
+  await waitForFunction(() => document.getElementById('boost-hud').classList.contains('is-visible'));
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  const mobileBoostBounds = await page.$eval('#boost-hud', (node) => {
+    const bounds = node.getBoundingClientRect();
+    return { left: bounds.left, right: bounds.right, top: bounds.top, bottom: bounds.bottom };
+  });
+  assert.ok(mobileBoostBounds.left >= 0 && mobileBoostBounds.right <= 390 && mobileBoostBounds.top >= 0 && mobileBoostBounds.bottom <= 844,
+    `mobile boost HUD overflow: ${JSON.stringify(mobileBoostBounds)}`);
+  const mobileAudioTop = await page.$eval('#mute-button', (node) => node.getBoundingClientRect().top);
+  assert.ok(mobileBoostBounds.bottom < mobileAudioTop, 'mobile boost HUD overlaps the sound control');
+  await page.screenshot({ path: 'test-results/mobile-scooter-boost.png' });
+  await page.evaluate(() => window.__LANKA_RUN__.player.stopScooter());
+  passed.push('portrait scooter HUD and seated rider stay within the mobile layout');
+
   assert.deepEqual(runtimeErrors, []);
   passed.push('no browser runtime errors, page errors or missing-resource errors');
   console.log(`Browser playtest passed (${passed.length} checks):`);
   passed.forEach((message, index) => console.log(`${index + 1}. ${message}`));
-  console.log('Screenshots: test-results/ (police chase, coin reaction, traffic, poses, districts and mobile)');
+  console.log('Screenshots: test-results/ (police chase, scooter boost, traffic, poses, all districts, tunnels and mobile)');
 } catch (error) {
   await page.screenshot({ path: 'test-results/browser-failure.png' }).catch(() => {});
   console.error('Completed checks:', passed);

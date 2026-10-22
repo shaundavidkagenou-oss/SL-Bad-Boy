@@ -16,6 +16,13 @@ function coinLine(lane, count = 3, height = 1) {
  * jump/slide response. Two-lane rows choose an empty lane adjacent to the
  * previous one so high-speed rows cannot demand an impossible cross-road snap.
  */
+export function difficultyForSpeed(speed) {
+  if (speed >= 31) return 3;
+  if (speed >= 24) return 2;
+  if (speed >= 17) return 1;
+  return 0;
+}
+
 export class PatternPlanner {
   constructor(seed = Date.now()) {
     this.reset(seed);
@@ -42,8 +49,14 @@ export class PatternPlanner {
     return { obstacles, coins: coinLine(freeLane, coinCount), requiredAction: null, freeLane };
   }
 
-  next() {
+  randomLane() {
+    return Math.floor(this.random() * 3);
+  }
+
+  next(speed = 14) {
     const phase = this.rowIndex % 8;
+    const tier = difficultyForSpeed(speed);
+    const previousFreeLane = this.lastFreeLane;
     this.rowIndex += 1;
     let row;
 
@@ -104,6 +117,25 @@ export class PatternPlanner {
         break;
     }
 
+    // Speed tiers add decisions, not impossible reactions: every replacement
+    // still uses the same adjacent guaranteed free lane as the base planner.
+    if (tier >= 1 && phase === 0) {
+      this.lastFreeLane = previousFreeLane;
+      const vehicles = [pick(this.random, ['car', 'tuk-tuk', 'private-bus'])];
+      if (tier >= 2) vehicles.push(pick(this.random, ['cone', 'barrier', 'car']));
+      row = this.rowWithFreeLane(vehicles);
+    } else if (tier >= 2 && phase === 1) {
+      this.lastFreeLane = previousFreeLane;
+      row = this.rowWithFreeLane(['public-bus', pick(this.random, ['car', 'tuk-tuk', 'cone'])]);
+    }
+
+    if (tier > 0) {
+      for (const obstacle of row.obstacles) {
+        if (obstacle.kind !== 'public-bus' && obstacle.kind !== 'private-bus') continue;
+        obstacle.oncoming = tier === 3 || this.random() < 0.22 + tier * 0.16;
+      }
+    }
+    row.difficulty = tier;
     row.id = this.rowIndex - 1;
     return row;
   }

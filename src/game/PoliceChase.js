@@ -19,7 +19,9 @@ export class PoliceChase {
   }
 
   reset() {
-    this.group.position.set(LANES[1] + 0.55, 0, PLAYER_Z + 3.2);
+    this.group.position.set(LANES[1] + 0.55, 0, PLAYER_Z + 6.2);
+    this.group.visible = false;
+    this.chaseStarted = false;
     this.visual.position.set(0, 0, 0);
     this.visual.rotation.set(0, 0, 0);
     this.visual.scale.setScalar(this.baseScale);
@@ -95,6 +97,18 @@ export class PoliceChase {
 
   update(delta, speed, player, mode = 'running', entries = []) {
     if (mode === 'paused') return;
+    if (mode === 'menu') {
+      this.group.visible = false;
+      this.chaseStarted = false;
+      return;
+    }
+    if (mode === 'running' && !this.chaseStarted) {
+      this.chaseStarted = true;
+      this.group.visible = true;
+      this.group.position.z = PLAYER_Z + 6.2;
+      this.startTimer = 0.7;
+    }
+    if (mode === 'gameover') this.group.visible = this.chaseStarted;
     this.slideTimer = Math.max(0, this.slideTimer - delta);
     this.landingTimer = Math.max(0, this.landingTimer - delta);
     this.startTimer = Math.max(0, this.startTimer - delta);
@@ -112,8 +126,9 @@ export class PoliceChase {
 
     if (mode === 'running') {
       this.avoidTraffic(entries, player, delta);
-      const gap = 3.0 + THREE.MathUtils.clamp((speed - 14) / 22, 0, 1) * 0.25;
-      this.group.position.z = damp(this.group.position.z, PLAYER_Z + gap, 3.5, delta);
+      const gap = player.scooterActive ? 18 : 3.0 + THREE.MathUtils.clamp((speed - 14) / 22, 0, 1) * 0.25;
+      this.group.position.z = damp(this.group.position.z, PLAYER_Z + gap, player.scooterActive ? 4.5 : 3.5, delta);
+      this.group.visible = !player.scooterActive || this.group.position.z < 14.5;
     } else {
       this.targetLane = 1;
       this.avoiding = false;
@@ -137,7 +152,7 @@ export class PoliceChase {
     const running = mode === 'running';
     const stopped = mode === 'gameover';
     const menu = mode === 'menu';
-    this.runPhase += delta * (running ? 8.6 + speed * 0.27 : 1.6);
+    this.runPhase += delta * (running ? 8.6 + Math.min(speed, 36) * 0.27 : 1.6);
     const stride = running ? Math.sin(this.runPhase) : 0;
     const airborne = this.group.position.y > 0.02;
     const sliding = this.slideTimer > 0 && !airborne;

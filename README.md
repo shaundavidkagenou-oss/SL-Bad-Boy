@@ -1,6 +1,6 @@
 # Lanka Run: Schoolboy Rush
 
-An original 3D Sri Lankan endless runner built with **Three.js, JavaScript and Vite**. Phase 2 upgrades the playable Phase 1 game with themed districts, richer procedural art, articulated animation, a non-catching Sri Lankan police pursuit, oncoming buses, polished presentation, touch input and synthesized audio. All models, road textures, signs and sounds are generated locally; no branded game assets or CDN scripts are used.
+An original 3D Sri Lankan endless runner built with **Three.js, JavaScript and Vite**. It includes ten long themed districts, original landmark scenery, hill-country tunnels, articulated characters, a Sri Lankan police pursuit, a 10-second scooter boost, fair speed-scaled traffic, touch input and synthesized audio. Models, road textures, signs and sounds are generated locally; no branded game assets or CDN scripts are used.
 
 ## Play on Windows
 
@@ -43,39 +43,49 @@ The static production site is generated in `dist/`. Serve it over HTTP rather th
 
 Menus and the HUD pause button are clickable. The sound button toggles mute and remembers the preference. Audio is initialized only after user interaction to comply with browser autoplay rules.
 
-## Phase 2 features
+## Game features
 
 ### Sri Lankan world
 
-- Three naturally transitioning themes: **Colombo city streets**, **Maharagama garden suburbs**, and **Pettah town market**.
-- Detailed commercial buildings with shopfronts, shutters, balconies, side windows, awnings, rooftop tanks and varied proportions.
+- Ten naturally transitioning **240 m districts**: Colombo, Maharagama, Pettah, Kotte, Kandy, Kadugannawa, Nuwara Eliya, Ella, Galle and Negombo.
+- Original procedural landmarks including Galle Face/Lotus Tower, Pettah clock tower, Diyawanna parliament, Kandy temple/lake, Galle lighthouse, Nine Arches Bridge, tea country, railway scenery and Negombo lagoon.
+- Two consecutive-section tunnel runs in Kadugannawa and Ella, with portals, interior strip lights and camera-safe roof clearance.
+- Detailed commercial buildings with district-specific palettes, shopfronts, shutters, balconies, side windows, awnings, rooftop tanks and varied proportions.
 - Residential houses, tiled roofs, verandas, boundary walls, gates and gardens.
 - Market stalls with striped awnings, crates and procedural produce.
 - Coconut palms, tropical trees, local advertising, bus shelters, pavements, drains, utility poles and continuous overhead wires.
 - Decorative junctions, traffic lights, parked cars/vans/tuk-tuks, street bins and an original distant island skyline.
-- Guaranteed Sinhala roadside boards in every section, plus Sinhala shopfronts, road names, school-zone signs and bus destinations.
+- Sinhala roadside boards throughout ordinary road sections, plus district-matched shopfronts, road names, school-zone signs and bus destinations.
 - Selected signs use correct Sinhala, Tamil and English text with locally bundled Noto fonts and an English fallback.
 - Procedural asphalt, paving and plaster materials, atmospheric color transitions and district announcements.
 
 ### Character and traffic
 
 - Detailed articulated schoolboy with connected shoulders, elbows, wrists, hips, knees and ankles, plus an improved face, hair, uniform, backpack, socks and shoes.
-- Continuous running cycle, foot roll, wrist motion, head movement, backpack bounce, menu wave, coin celebration, jump tuck, landing compression, lean-back slide, lane-change lean and collision stumble.
+- Continuous running/control animation with foot roll, head movement, backpack bounce, jump tuck, landing compression, lean-back slide, lane-change lean and collision stumble. The former menu wave and coin arm celebration are intentionally removed.
 - Original Sri Lankan police officer in a khaki uniform, navy peaked cap, belt and boots, with detailed facial features, fingers, collar, seams, pockets, pouches, radio, boot laces and Sinhala/English back patch.
 - Pelvis/torso counter-motion, heel-to-toe movement, baton follow-through, a pursuit point, split-leg hurdles, landing compression, braced slides and a catch-breath stop reaction.
-- The officer follows at the player's shoulder, reacts to road hazards and always maintains a guaranteed gap; he never catches the player or causes a collision.
+- The officer is hidden on the menu, sprints in when the run starts, follows at the player's shoulder and reacts to road hazards. He never catches the player or causes a collision; a scooter boost lets him fall far behind before he returns.
 - Red-and-white public buses and four colourful private-bus palettes with windshields, doors, windows, trim, lights, mirrors and destination boards.
 - A deterministic subset of buses approaches under its own power with extra following space and swept collision coverage; other traffic retains road speed.
 - Cars, a compact van, improved three-wheeled tuk-tuks and travel-driven wheel rotation.
 - Original obstacle models remain matched to the Phase 1 collision dimensions and fair spawn patterns.
+
+### Scooter boost and speed-scaled difficulty
+
+- An original scooter pickup appears on a reachable route. The schoolboy visibly sits on it, holds the handlebars and turns its wheels with travelled distance.
+- The boost is a literal **10× world/traffic speed multiplier for 10 game seconds**, with a live countdown and 10× HUD.
+- A temporary traffic shield clears contacted obstacles only during the boost; ordinary collisions still end the run. Swept pickup and traffic colliders cover high-speed travel.
+- The boost timer freezes on pause and clears on crash, restart or menu return. Another pickup cannot create unlimited overlapping boosts.
+- Higher cruise-speed tiers replace empty/single rows with denser two-lane rows and more oncoming buses. Every generated row retains a survivable route, adjacent free-lane choices and at least 0.95 seconds of closing-speed spacing.
 
 ### Presentation and feedback
 
 - A five-second black-and-white **Shaun David Studios** production ident with an original S/D monogram, scanlines, animated typography, timed progress and a readiness-based handoff.
 - The intro remains until local fonts and the 3D game are ready, then exits cleanly; it is responsive and respects reduced-motion preferences.
 - Smoothed third-person camera with restrained lane/jump following and a portrait-specific view.
-- Polished title screen, HUD, district pill/banner, coin feedback, pause treatment, impact flash and game-over presentation.
-- Original Web Audio synthesis for coins, jumping, landing, sliding, collisions, buttons, ambient traffic and distant bus horns.
+- Polished title screen, HUD, district pill/banner, coin feedback, responsive scooter countdown, pause treatment, impact flash and game-over presentation.
+- Original Web Audio synthesis for coins, scooter pickup, shield impacts, jumping, landing, sliding, collisions, buttons, ambient traffic and distant bus horns.
 - Persistent mute preference, desktop keyboard input and mobile touch gestures.
 
 ### Endless performance design
@@ -87,7 +97,7 @@ Menus and the HUD pause button are clickable. The sound button toggles mute and 
 - Obstacle spawning and decorative world generation remain separate.
 - Pixel ratio is capped, with a lower cap for coarse-pointer/mobile devices.
 
-Scoring remains **10 points per metre + 100 points per coin**. Speed rises from 14 to 36 world units/second. Best score and mute preference use browser `localStorage`; blocked storage does not prevent play.
+Scoring remains **10 points per metre + 100 points per coin**. Cruise speed rises from 14 to 36 world units/second; the temporary scooter multiplier applies on top of that cruise speed. Best score and mute preference use browser `localStorage`; blocked storage does not prevent play.
 
 ## Project structure
 
@@ -99,24 +109,26 @@ src/styles.css                 Responsive desktop/mobile interface
 src/config.js                  Lane, physics and collider constants
 src/art/MeshKit.js             Shared geometry, procedural surfaces and sign textures
 src/art/Schoolboy.js           Original detailed articulated schoolboy
+src/art/Scooter.js             Original rideable scooter and wheel assemblies
 src/art/Policeman.js           Original uniformed Sri Lankan police officer
 src/art/Vehicles.js            Original buses, cars, van, tuk-tuks and hazards
 src/art/Environment.js         Themed buildings, plants, signs and street furniture
-src/game/Game.js               Game state and single animation loop
+src/art/Landmarks.js           District landmarks, landscape strips and tunnels
+src/game/Game.js               Game state, speed multiplier and single animation loop
 src/game/Player.js             Movement and articulated animation
 src/game/PoliceChase.js        Non-catching pursuit, hazard response and safe gap
 src/game/CameraRig.js          Smoothed desktop/portrait camera
 src/game/AudioManager.js       Gesture-unlocked synthesized audio
 src/game/WorldGenerator.js     Road recycling and seeded themed scenery
 src/game/EnvironmentThemes.js  Pure district schedule and theme definitions
-src/game/ObstacleSpawner.js    Traffic/coin lifecycle, collisions and wheel travel
-src/game/PatternPlanner.js     Fair gameplay-row generation
+src/game/ObstacleSpawner.js    Traffic, coin/scooter lifecycle, swept collisions and shield contact
+src/game/PatternPlanner.js     Fair speed-tier gameplay-row generation
 src/game/InputController.js    Keyboard and touch gestures
 src/game/ScoreManager.js       Score and persistent best record
 src/ui/GameUI.js               HUD, menus, district and feedback presentation
 src/ui/SignFonts.js            Local Sinhala/Tamil font loading and fallback
 assets/icon.svg               Original game icon
-tests/                        Phase 1 regressions and Phase 2 coverage
+tests/                        Gameplay, environment, character and browser regressions
 ```
 
 ## Verification
@@ -128,7 +140,7 @@ npm test
 npm run build
 ```
 
-The suite retains every Phase 1 assertion and adds district scheduling, bounded geometry caching, touch gestures, articulated landing and coin reactions, lazy audio/mute persistence, travel-driven wheels, genuinely oncoming buses, police uniform joints and a non-catching pursuit gap.
+The suite retains the original physics, scoring, collision and persistence assertions and adds longer district scheduling, all landmark builders, consecutive tunnels, bounded geometry across repeated district cycles, speed-tier fairness, touch gestures, lazy audio, travel-driven wheels, absence of the schoolboy gestures, scooter pickup/duration/reset/shield behavior, literal 10× speed, and police sprint/separation/return behavior.
 
 The optional real Chromium/WebGL suite starts its own Vite server:
 
@@ -137,6 +149,6 @@ npm install --no-save --package-lock=false puppeteer-core@25.15.0 @sparticuz/chr
 npm run test:browser
 ```
 
-It checks the five-second studio intro and desktop/mobile wordmark bounds, startup, audio unlock/mute, keyboard and real dispatched touch input, regular and oncoming traffic, detailed police pursuit and pointing, coins and celebration, jump/slide collision behavior, game over, pause/resume, clean restart, saved best score, road/ground ordering, real Sinhala sign meshes and local fonts, portrait mobile layout, and 7,200 metres of themed recycling with stable scene/GPU resource counts. Screenshots are written to the ignored `test-results/` directory.
+It checks the five-second studio intro and desktop/mobile wordmark bounds, startup with no idle officer, audio unlock/mute, keyboard and real dispatched touch input, regular and oncoming traffic, detailed police pursuit and pointing, coin pickup without an arm gesture, live scooter pickup and exact 10× speed, shield contact, natural expiry and police return, jump/slide collision behavior, game over, pause/resume, clean restart, saved best score, road/ground ordering, every district and both tunnel runs, real Sinhala sign meshes and local fonts, portrait mobile/HUD layout, and 7,200 metres of themed recycling with stable scene/GPU resource counts. Screenshots are written to the ignored `test-results/` directory.
 
 To use an installed Chrome/Chromium instead of the optional package, set `CHROME_PATH` to its executable. The resource stress test is not a hardware-specific GTX or mobile-device frame-rate benchmark.

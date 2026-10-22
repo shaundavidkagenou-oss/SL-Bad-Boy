@@ -2,11 +2,15 @@ import * as THREE from 'three';
 import { GAME, LANES, OBSTACLE_SPECS } from '../config.js';
 import { createObstacleModel } from '../art/Vehicles.js';
 import { createCoin } from '../art/MeshKit.js';
+import { createScooter } from '../art/Scooter.js';
 import { PatternPlanner } from './PatternPlanner.js';
 import { intersects, makeCollider } from './Collision.js';
 
+const SCOOTER_HALO_GEOMETRY = new THREE.TorusGeometry(1.05, 0.045, 6, 28);
+const SCOOTER_HALO_MATERIAL = new THREE.MeshBasicMaterial({ color: 0x73fff2, transparent: true, opacity: 0.72, depthWrite: false });
+
 export class ObstacleSpawner {
-  constructor(scene, { onCoin = () => {}, onHit = () => {} } = {}) {
+  constructor(scene, { onCoin = () => {}, onHit = () => {}, onScooter = () => {}, onShieldHit = () => {} } = {}) {
     this.group = new THREE.Group();
     this.group.name = 'Traffic, road hazards and coins';
     scene.add(this.group);
@@ -14,7 +18,10 @@ export class ObstacleSpawner {
     this.planner = new PatternPlanner();
     this.onCoin = onCoin;
     this.onHit = onHit;
+    this.onScooter = onScooter;
+    this.onShieldHit = onShieldHit;
     this.nextSpawnIn = 30;
+    this.nextScooterIn = 320;
     this.collisionEnabled = true;
   }
 
@@ -28,15 +35,18 @@ export class ObstacleSpawner {
     this.planner.reset(seed);
     this.collisionEnabled = true;
     this.nextSpawnIn = 30;
+    this.nextScooterIn = 320;
     for (let index = 0; index < 5; index += 1) {
       this.spawnPattern(this.planner.next(), -42 - index * 30);
     }
+    // The first pickup is centered between rows, so it is always reachable.
+    this.spawnScooter(1, -57);
   }
 
   spawnPattern(pattern, z) {
     let approachSpeed = 0;
     for (const obstacle of pattern.obstacles) {
-      const entry = this.spawnObstacle(obstacle.kind, obstacle.lane, z, pattern.id);
+      const entry = this.spawnObstacle(obstacle.kind, obstacle.lane, z, pattern.id, { oncoming: obstacle.oncoming });
       approachSpeed = Math.max(approachSpeed, entry.approachSpeed);
     }
     for (const coin of pattern.coins) {
@@ -77,6 +87,24 @@ export class ObstacleSpawner {
     return entry;
   }
 
+  spawnScooter(lane, z, rowId = -1) {
+    const mesh = createScooter(0x159c91);
+    mesh.position.set(LANES[lane], 0, z);
+    const halo = new THREE.Mesh(SCOOTER_HALO_GEOMETRY, SCOOTER_HALO_MATERIAL);
+    halo.rotation.x = Math.PI / 2;
+    halo.position.y = 0.07;
+    mesh.add(halo);
+    mesh.userData.pickupHalo = halo;
+    this.group.add(mesh);
+    const entry = {
+      type: 'scooter', kind: 'scooter', lane, rowId, mesh, baseY: 0,
+      spec: { width: 1.2, depth: 2.1, minY: 0, maxY: 1.75 },
+      spin: 0,
+    };
+    this.entries.push(entry);
+    return entry;
+  }
+
   removeEntry(index) {
     this.group.remove(this.entries[index].mesh);
     this.entries.splice(index, 1);
@@ -95,6 +123,7 @@ export class ObstacleSpawner {
   update(delta, speed, player) {
     const travel = speed * delta;
     this.nextSpawnIn -= travel;
+    if (!player.scooterActive) this.nextScooterIn -= travel;
     const playerCollider = player.getCollider();
 
     for (let index = this.entries.length - 1; index >= 0; index -= 1) {
@@ -106,6 +135,14 @@ export class ObstacleSpawner {
         entry.spin += delta * 5;
         entry.mesh.rotation.y = entry.spin;
         entry.mesh.position.y = entry.baseY + Math.sin(entry.spin * 1.4) * 0.055;
+      } else if (entry.type === 'scooter') {
+        entry.spin += delta * 2.4;
+        const pulse = 1 + Math.sin(entry.spin * 2) * 0.08;
+        entry.mesh.userData.pickupHalo.scale.setScalar(pulse);
+        entry.mesh.userData.pickupHalo.rotation.z += delta * 0.8;
+        for (const wheel of entry.mesh.userData.wheels) {
+          wheel.rotation.x -= entryTravel / (wheel.userData.radius || 0.34);
+        }
       } else if (entry.mesh.userData.wheels) {
         for (const wheel of entry.mesh.userData.wheels) {
           wheel.rotation.x -= entryTravel / (wheel.userData.radius || 0.4);
@@ -117,12 +154,19 @@ export class ObstacleSpawner {
         continue;
       }
 
-      if (!this.collisionEnabled || Math.abs(entry.mesh.position.z - player.group.position.z) > 6) continue;
+      const relativeZ = entry.mesh.position.z - player.group.position.z;
+      if (!this.collisionEnabled || relativeZ < -6 || relativeZ > 6 + entryTravel) continue;
       if (!intersects(playerCollider, this.getCollider(entry, entryTravel))) continue;
 
       if (entry.type === 'coin') {
         this.removeEntry(index);
         this.onCoin(entry);
+      } else if (entry.type === 'scooter') {
+        this.removeEntry(index);
+        this.onScooter(entry);
+      } else if (player.scooterActive) {
+        this.removeEntry(index);
+        this.onShieldHit(entry);
       } else {
         this.onHit(entry);
         return 'hit';
@@ -130,9 +174,13 @@ export class ObstacleSpawner {
     }
 
     if (this.nextSpawnIn <= 0) {
-      const approachSpeed = this.spawnPattern(this.planner.next(), GAME.spawnZ);
+      const approachSpeed = this.spawnPattern(this.planner.next(speed), GAME.spawnZ);
       // Extra following distance preserves reaction time after a faster bus row.
       this.nextSpawnIn = this.planner.spacingForSpeed(speed + approachSpeed);
+    }
+    if (this.nextScooterIn <= 0 && !player.scooterActive) {
+      this.spawnScooter(this.planner.randomLane(), GAME.spawnZ + 12);
+      this.nextScooterIn = 280 + Math.floor(this.planner.random() * 140);
     }
     return 'running';
   }

@@ -9,6 +9,8 @@ export const GAME = Object.freeze({
   gravity: 24,
   jumpVelocity: 9.2,
   slideDuration: 0.78,
+  scooterDuration: 10,
+  scooterMultiplier: 10,
   spawnZ: -162,
 });
 

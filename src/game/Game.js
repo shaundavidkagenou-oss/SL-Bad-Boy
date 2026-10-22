@@ -10,6 +10,11 @@ import { CameraRig } from './CameraRig.js';
 import { AudioManager } from './AudioManager.js';
 import { GameUI } from '../ui/GameUI.js';
 
+export function speedForElapsed(elapsed, scooterActive = false) {
+  const cruiseSpeed = Math.min(GAME.maxSpeed, GAME.baseSpeed + Math.max(0, elapsed) * GAME.acceleration);
+  return cruiseSpeed * (scooterActive ? GAME.scooterMultiplier : 1);
+}
+
 export class Game {
   constructor(container) {
     this.container = container;
@@ -58,13 +63,21 @@ export class Game {
     this.spawner = new ObstacleSpawner(this.scene, {
       onCoin: () => {
         this.score.addCoin();
-        this.player.celebrate();
         this.audio.play('coin');
         this.ui?.pulseCoin();
       },
       onHit: () => {
         this.audio.play('collision');
         this.endRun();
+      },
+      onScooter: () => {
+        if (!this.player.startScooter()) return;
+        this.audio.play('powerup');
+        this.ui?.updateHud(this.score, this.speed, true, this.player);
+      },
+      onShieldHit: () => {
+        this.audio.play('shield');
+        this.ui?.flashShield();
       },
     });
     this.ui = new GameUI({
@@ -129,7 +142,7 @@ export class Game {
     this.spawner.reset(seed);
     this.audio.setState('running');
     this.ui.showRunning();
-    this.ui.updateHud(this.score, this.speed, true);
+    this.ui.updateHud(this.score, this.speed, true, this.player);
   }
 
   pause() {
@@ -220,13 +233,13 @@ export class Game {
 
     if (this.state === 'running') {
       this.elapsed += delta;
-      this.speed = Math.min(GAME.maxSpeed, GAME.baseSpeed + this.elapsed * GAME.acceleration);
+      this.speed = speedForElapsed(this.elapsed, this.player.scooterActive);
       this.world.update(delta, this.speed);
       this.player.update(delta, this.speed, 'running');
       const result = this.spawner.update(delta, this.speed, this.player);
       if (result !== 'hit' && this.state === 'running') {
         this.score.update(delta, this.speed);
-        this.ui.updateHud(this.score, this.speed);
+        this.ui.updateHud(this.score, this.speed, false, this.player);
       }
     } else if (this.state === 'menu') {
       this.player.update(delta, 0, 'menu');

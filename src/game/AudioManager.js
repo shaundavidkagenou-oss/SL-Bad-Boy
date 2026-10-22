@@ -126,6 +126,14 @@ export class AudioManager {
       case 'jump': this.tone(240, 520, 0.17, 0.1, 'triangle'); break;
       case 'land': this.noise(0.09, 0.12, 520); break;
       case 'slide': this.noise(0.28, 0.13, 1250); break;
+      case 'powerup':
+        this.tone(260, 780, 0.34, 0.13, 'sawtooth');
+        this.tone(520, 1240, 0.28, 0.09, 'triangle', 0.12);
+        break;
+      case 'shield':
+        this.noise(0.12, 0.09, 1800);
+        this.tone(180, 90, 0.16, 0.07, 'square');
+        break;
       case 'collision':
         this.noise(0.42, 0.32, 360);
         this.tone(115, 42, 0.38, 0.2, 'sawtooth');

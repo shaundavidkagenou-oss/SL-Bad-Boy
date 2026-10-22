@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GAME, LANES, PLAYER_Z } from '../config.js';
 import { createSchoolboy } from '../art/Schoolboy.js';
+import { createScooter } from '../art/Scooter.js';
 import { makeCollider } from './Collision.js';
 
 const damp = THREE.MathUtils.damp;
@@ -12,6 +13,15 @@ export class Player {
     this.group.name = 'Player schoolboy';
     this.visual = createSchoolboy();
     this.group.add(this.visual);
+    this.scooter = createScooter();
+    this.group.add(this.scooter);
+    this.shield = new THREE.Mesh(
+      new THREE.SphereGeometry(1.25, 16, 10),
+      new THREE.MeshBasicMaterial({ color: 0x72fff0, wireframe: true, transparent: true, opacity: 0.2, depthWrite: false }),
+    );
+    this.shield.position.y = 1.05;
+    this.shield.scale.set(0.72, 1, 1.05);
+    this.group.add(this.shield);
     scene.add(this.group);
     this.joints = this.visual.userData.joints;
     this.reset();
@@ -23,11 +33,15 @@ export class Player {
     this.visual.position.set(0, 0, 0);
     this.visual.rotation.set(0, 0, 0);
     this.visual.scale.set(1, 1, 1);
+    this.scooterActive = false;
+    this.scooterTimer = 0;
+    this.scooter.visible = false;
+    this.scooter.rotation.set(0, 0, 0);
+    this.shield.visible = false;
     this.velocityY = 0;
     this.slideTimer = 0;
     this.landingTimer = 0;
     this.crashTimer = 0;
-    this.coinTimer = 0;
     this.startTimer = 0.45;
     this.sliding = false;
     this.crashed = false;
@@ -54,8 +68,26 @@ export class Player {
     return true;
   }
 
-  slide() {
+  startScooter(duration = GAME.scooterDuration) {
     if (this.crashed) return false;
+    this.scooterActive = true;
+    this.scooterTimer = duration;
+    this.scooter.visible = true;
+    this.shield.visible = true;
+    this.sliding = false;
+    this.slideTimer = 0;
+    return true;
+  }
+
+  stopScooter() {
+    this.scooterActive = false;
+    this.scooterTimer = 0;
+    this.scooter.visible = false;
+    this.shield.visible = false;
+  }
+
+  slide() {
+    if (this.crashed || this.scooterActive) return false;
     if (this.group.position.y > 0.02 || Math.abs(this.velocityY) > 0.01) {
       this.velocityY = Math.min(this.velocityY, -11);
       return false;
@@ -66,13 +98,9 @@ export class Player {
     return true;
   }
 
-  celebrate() {
-    if (!this.crashed) this.coinTimer = 0.42;
-  }
-
   crash() {
     this.crashed = true;
-    this.coinTimer = 0;
+    this.stopScooter();
     this.crashTimer = 0;
     this.sliding = false;
     this.velocityY = 0;
@@ -115,16 +143,18 @@ export class Player {
       this.joints.body.position.y = Math.sin(this.runPhase) * 0.012;
       this.joints.head.rotation.y = Math.sin(this.runPhase * 0.45) * 0.18;
       this.joints.head.rotation.x = Math.sin(this.runPhase * 0.7) * 0.025;
-      const wave = THREE.MathUtils.clamp((Math.sin(this.runPhase * 0.42) - 0.62) / 0.38, 0, 1);
-      this.joints.rightArm.rotation.z = wave * 1.22;
-      this.joints.rightElbow.rotation.x = -0.12 - wave * 0.75;
-      this.joints.rightWrist.rotation.z = Math.sin(this.runPhase * 5) * 0.28 * wave;
+      this.joints.rightArm.rotation.z = 0;
+      this.joints.rightElbow.rotation.x = -0.12;
+      this.joints.rightWrist.rotation.z = 0;
       this.joints.leftWrist.rotation.z = 0;
       this.joints.backpack.rotation.x = 0;
       return;
     }
 
-    this.coinTimer = Math.max(0, this.coinTimer - delta);
+    if (this.scooterActive) {
+      this.scooterTimer = Math.max(0, this.scooterTimer - delta);
+      if (this.scooterTimer <= 0) this.stopScooter();
+    }
     this.startTimer = Math.max(0, this.startTimer - delta);
     const wasAirborne = this.group.position.y > 0 || this.velocityY > 0;
     if (wasAirborne) {
@@ -138,6 +168,7 @@ export class Player {
       }
     }
     this.landingTimer = Math.max(0, this.landingTimer - delta);
+    const airborne = this.group.position.y > 0.02;
 
     if (this.sliding) {
       this.slideTimer -= delta;
@@ -147,9 +178,42 @@ export class Player {
       }
     }
 
+    if (this.scooterActive) {
+      this.runPhase += delta * 8;
+      this.visual.scale.y = damp(this.visual.scale.y, 1, 18, delta);
+      this.visual.rotation.x = damp(this.visual.rotation.x, airborne ? -0.2 : -0.12, 16, delta);
+      this.visual.position.y = 0;
+      this.visual.position.z = damp(this.visual.position.z, 0.12, 16, delta);
+      for (const side of ['left', 'right']) {
+        this.joints[`${side}Leg`].rotation.x = damp(this.joints[`${side}Leg`].rotation.x, 0.95, 18, delta);
+        this.joints[`${side}Knee`].rotation.x = damp(this.joints[`${side}Knee`].rotation.x, -0.65, 18, delta);
+        this.joints[`${side}Arm`].rotation.x = damp(this.joints[`${side}Arm`].rotation.x, 0.75, 18, delta);
+        this.joints[`${side}Elbow`].rotation.x = damp(this.joints[`${side}Elbow`].rotation.x, -0.2, 18, delta);
+        this.joints[`${side}Arm`].rotation.z = damp(this.joints[`${side}Arm`].rotation.z, 0, 18, delta);
+        this.joints[`${side}Ankle`].rotation.x = damp(this.joints[`${side}Ankle`].rotation.x, 0.1, 18, delta);
+        this.joints[`${side}Wrist`].rotation.z = damp(this.joints[`${side}Wrist`].rotation.z, 0, 18, delta);
+      }
+      const laneOffset = LANES[this.lane] - this.group.position.x;
+      this.visual.rotation.z = damp(this.visual.rotation.z, laneOffset * -0.075, 12, delta);
+      this.visual.rotation.y = damp(this.visual.rotation.y, laneOffset * -0.03, 10, delta);
+      this.scooter.rotation.z = this.visual.rotation.z * 0.65;
+      this.scooter.rotation.y = this.visual.rotation.y;
+      this.joints.body.rotation.z = Math.sin(this.runPhase) * 0.008;
+      this.joints.body.rotation.y = 0;
+      this.joints.body.position.y = 0;
+      this.joints.head.rotation.x = damp(this.joints.head.rotation.x, -0.06, 12, delta);
+      this.joints.head.rotation.y = damp(this.joints.head.rotation.y, laneOffset * -0.06, 10, delta);
+      this.joints.backpack.rotation.x = damp(this.joints.backpack.rotation.x, -0.04, 12, delta);
+      for (const wheel of this.scooter.userData.wheels) {
+        wheel.rotation.x -= speed * delta / (wheel.userData.radius || 0.34);
+      }
+      this.shield.rotation.y += delta * 1.8;
+      this.shield.material.opacity = 0.16 + Math.sin(this.runPhase * 0.7) * 0.045;
+      return;
+    }
+
     this.runPhase += delta * (8 + speed * 0.28);
     const stride = Math.sin(this.runPhase);
-    const airborne = this.group.position.y > 0.02;
     const landing = this.landingTimer > 0 && !airborne;
     const scaleTarget = this.sliding ? 0.68 : landing ? 0.92 : 1;
     this.visual.scale.y = damp(this.visual.scale.y, scaleTarget, 22, delta);
@@ -193,16 +257,9 @@ export class Player {
       this.joints.rightElbow.rotation.x = -0.35 - Math.max(0, -stride) * 0.32;
     }
 
-    const celebrating = this.coinTimer > 0 && !this.sliding && !airborne && !landing;
     this.joints.leftArm.rotation.z = damp(this.joints.leftArm.rotation.z, 0, 14, delta);
-    this.joints.rightArm.rotation.z = damp(this.joints.rightArm.rotation.z, celebrating ? 1.22 : 0, 18, delta);
-    if (celebrating) {
-      this.joints.rightArm.rotation.x = damp(this.joints.rightArm.rotation.x, -0.38, 20, delta);
-      this.joints.rightElbow.rotation.x = damp(this.joints.rightElbow.rotation.x, -1.25, 20, delta);
-      this.joints.rightWrist.rotation.z = -0.25 + Math.sin(this.runPhase * 2) * 0.12;
-    } else {
-      this.joints.rightWrist.rotation.z = damp(this.joints.rightWrist.rotation.z, 0, 14, delta);
-    }
+    this.joints.rightArm.rotation.z = damp(this.joints.rightArm.rotation.z, 0, 18, delta);
+    this.joints.rightWrist.rotation.z = damp(this.joints.rightWrist.rotation.z, 0, 14, delta);
     this.joints.leftWrist.rotation.z = damp(this.joints.leftWrist.rotation.z, 0, 14, delta);
     this.joints.leftWrist.rotation.x = this.sliding ? 0.12 : stride * 0.13;
     this.joints.rightWrist.rotation.x = this.sliding ? 0.12 : -stride * 0.13;
@@ -218,7 +275,7 @@ export class Player {
     this.joints.body.rotation.y = this.sliding ? 0 : stride * 0.018;
     this.joints.body.position.y = this.sliding ? 0 : Math.abs(Math.cos(this.runPhase)) * 0.012;
     this.joints.head.rotation.y = damp(this.joints.head.rotation.y,
-      this.sliding ? 0 : laneOffset * -0.075 + (celebrating ? -0.12 : 0), 9, delta);
+      this.sliding ? 0 : laneOffset * -0.075, 9, delta);
     this.joints.head.rotation.x = damp(this.joints.head.rotation.x,
       this.sliding ? -0.12 : landing ? 0.13 : airborne ? -0.08 : stride * 0.018, 10, delta);
     this.joints.head.rotation.z = damp(this.joints.head.rotation.z, 0, 10, delta);
@@ -229,8 +286,9 @@ export class Player {
 
   getCollider() {
     const height = this.sliding ? 0.82 : 2.12;
-    const depth = this.sliding ? 1.35 : 0.76;
+    const depth = this.scooterActive ? 1.8 : this.sliding ? 1.35 : 0.76;
+    const width = this.scooterActive ? 0.9 : 0.74;
     const z = this.group.position.z + (this.sliding ? -0.2 : 0);
-    return makeCollider(this.group.position.x, this.group.position.y, z, 0.74, 0.03, height, depth);
+    return makeCollider(this.group.position.x, this.group.position.y, z, width, 0.03, height, depth);
   }
 }

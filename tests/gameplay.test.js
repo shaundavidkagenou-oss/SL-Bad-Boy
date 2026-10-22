@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import { PatternPlanner, isPatternSurvivable } from '../src/game/PatternPlanner.js';
+import { PatternPlanner, difficultyForSpeed, isPatternSurvivable } from '../src/game/PatternPlanner.js';
 import { OBSTACLE_SPECS, GAME, LANES, PLAYER_Z, ROAD, STORAGE_KEY } from '../src/config.js';
 import { Player } from '../src/game/Player.js';
 import { ScoreManager } from '../src/game/ScoreManager.js';
@@ -45,6 +45,34 @@ test('row spacing remains reactable as running speed increases', () => {
       assert.ok(spacing >= 25);
     }
   }
+});
+
+test('higher speed tiers add fair two-lane and oncoming-bus pressure', () => {
+  assert.deepEqual([10, 17, 24, 31, 180].map(difficultyForSpeed), [0, 1, 2, 3, 3]);
+  const low = new PatternPlanner(90210);
+  const high = new PatternPlanner(90210);
+  let lowObstacles = 0;
+  let highObstacles = 0;
+  let highBuses = 0;
+  let previousFreeLane = 1;
+  for (let index = 0; index < 64; index += 1) {
+    const lowRow = low.next(14);
+    const highRow = high.next(34);
+    lowObstacles += lowRow.obstacles.length;
+    highObstacles += highRow.obstacles.length;
+    assert.equal(isPatternSurvivable(highRow), true, `high-speed row ${index} was not survivable`);
+    assert.ok(Math.abs(highRow.freeLane - previousFreeLane) <= 1, `high-speed row ${index} needs a two-lane snap`);
+    previousFreeLane = highRow.freeLane;
+    for (const obstacle of highRow.obstacles) {
+      if (obstacle.kind.includes('bus')) {
+        highBuses += 1;
+        assert.equal(obstacle.oncoming, true);
+      }
+    }
+    assert.ok(high.spacingForSpeed(34 + 7) / (34 + 7) >= 0.95);
+  }
+  assert.ok(highObstacles > lowObstacles, `${highObstacles} should exceed ${lowObstacles}`);
+  assert.ok(highBuses > 0);
 });
 
 test('lane changes are responsive, smooth and clamped to three lanes', () => {

@@ -5,6 +5,7 @@ const materialCache = new Map();
 const geometryCache = new Map();
 const labelMaterialCache = new Map();
 const surfaceTextureCache = new Map();
+const fallbackLabelMaterial = new THREE.MeshBasicMaterial({ color: 0x213b56, side: THREE.DoubleSide });
 
 export function material(color, options = {}) {
   if (options.surface && typeof document !== 'undefined') return surfaceMaterial(options.surface, color);
@@ -141,7 +142,8 @@ export function cone(parent, radius, height, position, color, options = {}) {
 }
 
 export function torus(parent, radius, tube, position, color, options = {}) {
-  const geo = geometry(`torus:${radius},${tube}`, () => new THREE.TorusGeometry(radius, tube, 6, 16));
+  const arc = options.arc ?? Math.PI * 2;
+  const geo = geometry(`torus:${radius},${tube},${arc}`, () => new THREE.TorusGeometry(radius, tube, 6, 16, arc));
   return finish(new THREE.Mesh(geo, material(color, options)), parent, position, options.rotation, options);
 }
 
@@ -152,6 +154,13 @@ export function label(parent, text, size, position, options = {}) {
   const fontFamily = options.fontFamily ?? 'Arial, sans-serif';
   const lines = String(text).split('\n');
   const fontSize = options.fontSize ?? (lines.length > 1 ? 42 : 58);
+  if (typeof document === 'undefined') {
+    const mesh = new THREE.Mesh(geometry('plane:unit', () => new THREE.PlaneGeometry(1, 1)), fallbackLabelMaterial);
+    mesh.userData.text = String(text);
+    mesh.userData.fontFamily = fontFamily;
+    mesh.scale.set(size[0], size[1], 1);
+    return finish(mesh, parent, position, options.rotation, { castShadow: false, receiveShadow: false });
+  }
   const key = `${lines.join('|')}:${background}:${foreground}:${border}:${fontFamily}:${fontSize}`;
   if (!labelMaterialCache.has(key)) {
     const canvas = document.createElement('canvas');

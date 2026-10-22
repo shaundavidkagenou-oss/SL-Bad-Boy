@@ -97,16 +97,25 @@ export function createTree(scale = 1, variant = 0) {
 
 function commercialBuilding(variant, style) {
   const root = new THREE.Group();
-  const market = style === 'market';
+  const market = style === 'market' || style === 'negombo';
+  const fort = style === 'galle';
+  const hill = ['kandy', 'kadugannawa', 'ella', 'nuwara-eliya'].includes(style);
   const widths = [4.8, 5.4, 5.9, 4.6, 6.1, 5.2];
   const cityHeights = [6.3, 7.8, 5.6, 8.6, 6.9, 7.4];
   const marketHeights = [4.1, 5.2, 4.6, 5.8, 4.3, 5.1];
+  const fortHeights = [3.8, 4.6, 4.2, 5.1, 4.4, 4.8];
+  const hillHeights = [3.6, 4.8, 4.1, 5.2, 3.9, 4.5];
   const width = widths[variant % widths.length];
-  const height = (market ? marketHeights : cityHeights)[variant % 6];
+  const heights = fort ? fortHeights : hill ? hillHeights : market ? marketHeights : cityHeights;
+  const height = heights[variant % 6];
   const depth = [3.8, 4.2, 3.6][variant % 3];
-  const colors = market
-    ? [0xe2b778, 0xc7d9a5, 0xe2a18f, 0xa9ccd2, 0xe3cf8a, 0xc7b1d2]
-    : [0xe8c98e, 0xb9d8c0, 0xe5b2a0, 0xb9cce2, 0xe7dcb8, 0xd1b8d8];
+  const colors = fort
+    ? [0xeee3c7, 0xe4d2a5, 0xf0e8d5, 0xd9c49c, 0xe7d8b9, 0xf1e5ca]
+    : hill
+      ? [0xd7d9b5, 0xc0d5c0, 0xe2c2a5, 0xb8ced0, 0xe5d7ae, 0xc8c0d2]
+      : market
+        ? [0xe2b778, 0xc7d9a5, 0xe2a18f, 0xa9ccd2, 0xe3cf8a, 0xc7b1d2]
+        : [0xe8c98e, 0xb9d8c0, 0xe5b2a0, 0xb9cce2, 0xe7dcb8, 0xd1b8d8];
   const front = depth / 2;
   box(root, [width, height, depth], [0, height / 2, 0], colors[variant % colors.length], { surface: 'plaster' });
   box(root, [width + 0.16, 0.18, depth + 0.15], [0, height + 0.02, 0], 0xe8dfc9);
@@ -114,9 +123,15 @@ function commercialBuilding(variant, style) {
     box(root, [0.18, height, 0.18], [x, height / 2, front + 0.02], 0xe3d7bd);
   }
 
-  const shopNames = market
-    ? ['KOTTE POLA', 'KING COCONUT', 'SPICE HOUSE', 'MARKET TEXTILES', 'FRESH FRUIT', 'ISLAND RICE']
-    : ['CEYLON TEA', 'LOTUS KADE', 'SHORT EATS', 'COLOMBO BAKERY', 'GALLE BOOKS', 'CITY STORES'];
+  const shopNames = fort
+    ? ['FORT BOOKS', 'RAMPART CAFE', 'GALLE STORES', 'LIGHTHOUSE TEA', 'DUTCH LANE', 'FORT BAKERY']
+    : hill
+      ? ['HILL TEA', 'KANDY BAKERY', 'RAIL VIEW STORE', 'TEA & SPICE', 'HORTON KADE', 'ELLA SHORT EATS']
+      : style === 'negombo'
+        ? ['LAGOON FISH', 'KING COCONUT', 'SEAFOOD STORE', 'CANAL BAKERY', 'FISH MARKET', 'NEGOMBO STORES']
+        : market
+          ? ['KOTTE POLA', 'KING COCONUT', 'SPICE HOUSE', 'MARKET TEXTILES', 'FRESH FRUIT', 'ISLAND RICE']
+          : ['CEYLON TEA', 'LOTUS KADE', 'SHORT EATS', 'COLOMBO BAKERY', 'GALLE BOOKS', 'CITY STORES'];
   const sinhalaShopNames = market
     ? ['තැඹිලි', 'එළවළු', 'කුළු බඩු', 'රෙදි කඩේ', 'පළතුරු', 'සහල් කඩේ']
     : ['තේ කඩේ', 'පොත් කඩේ', 'කෑම කඩේ', 'පාසල් උපකරණ', 'ඖෂධ කඩේ', 'ආයුබෝවන්'];
@@ -288,8 +303,15 @@ const SINHALA_BOARDS = Object.freeze({
   colombo: ['ආයුබෝවන්', 'කොළඹ', 'තේ කඩේ', 'පොත් කඩේ', 'විවෘතයි'],
   suburb: ['ආයුබෝවන්', 'මහරගම', 'පාසල් උපකරණ', 'විවෘතයි', 'ගෘහ ආහාර'],
   market: ['පිටකොටුව', 'තැඹිලි', 'පළතුරු', 'එළවළු', 'අඩු මිලට'],
+  kotte: ['කෝට්ටේ', 'දියවන්න', 'ආයුබෝවන්', 'තේ කඩේ', 'විවෘතයි'],
+  kandy: ['මහනුවර', 'දලදා මාළිගාව', 'තේ කඩේ', 'ආයුබෝවන්', 'විවෘතයි'],
+  kadugannawa: ['කඩුගන්නාව', 'දුම්රිය', 'තේ කඩේ', 'ආයුබෝවන්', 'විවෘතයි'],
+  'nuwara-eliya': ['නුවරඑළිය', 'තේ', 'කෑම කඩේ', 'ආයුබෝවන්', 'විවෘතයි'],
+  ella: ['ඇල්ල', 'නව ආරුක්කු', 'තේ කඩේ', 'ආයුබෝවන්', 'විවෘතයි'],
+  galle: ['ගාල්ල', 'කොටුව', 'පොත් කඩේ', 'තේ කඩේ', 'ආයුබෝවන්'],
+  negombo: ['මීගමුව', 'මාළු', 'තැඹිලි', 'කෑම කඩේ', 'ආයුබෝවන්'],
 });
-const BOARD_FALLBACKS = ['WELCOME', 'COLOMBO', 'TEA SHOP', 'BOOK SHOP', 'OPEN'];
+const BOARD_FALLBACKS = ['WELCOME', 'ISLAND TOWN', 'TEA SHOP', 'FOOD STORE', 'OPEN'];
 
 /** A guaranteed readable Sinhala roadside board in every recycled section. */
 export function createSinhalaBoard(variant = 0, theme = 'colombo') {

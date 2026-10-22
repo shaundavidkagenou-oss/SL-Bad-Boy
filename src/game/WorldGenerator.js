@@ -22,7 +22,8 @@ import {
 } from '../art/Environment.js';
 import { mulberry32 } from './Random.js';
 import { advanceSectionCenter } from './RoadMath.js';
-import { themeForDistance, themeForSequence } from './EnvironmentThemes.js';
+import { themeForDistance, themeForSequence, themeSectionIndex, THEME_SECTIONS } from './EnvironmentThemes.js';
+import { createDistrictLandmark, createLandscapeStrip, createTunnelSection } from '../art/Landmarks.js';
 
 export class WorldGenerator {
   constructor(scene) {
@@ -85,13 +86,23 @@ export class WorldGenerator {
     this.rebuildCount += 1;
 
     const theme = themeForSequence(sequence);
+    const localIndex = themeSectionIndex(sequence);
+    const isTunnel = Boolean(theme.tunnelSections?.includes(localIndex));
+    const landmarkSide = Math.floor(sequence / THEME_SECTIONS) % 2 ? -1 : 1;
+    const stripSide = localIndex === 1 ? -landmarkSide : sequence % 2 ? 1 : -1;
+    const residential = ['suburb', 'garden', 'tea'].includes(theme.layout);
+    const hasLandscapeStrip = ['tea', 'rail', 'coast', 'fort', 'hill'].includes(theme.layout);
     section.userData.theme = theme.id;
+    section.userData.tunnel = isTunnel;
+    section.userData.landmark = localIndex === 1 ? theme.landmark : null;
     const random = mulberry32(9203 + sequence * 97);
     const variant = sequence * 7;
 
     for (const side of [-1, 1]) {
       const z = -5 + random() * 9 + (side > 0 ? 2 : -1);
-      if (theme.id === 'suburb') {
+      if (localIndex === 1 && side === landmarkSide) {
+        // Reserve a clear, grounded footprint for the district landmark.
+      } else if (residential || (['hill', 'rail'].includes(theme.layout) && sequence % 2 === 0)) {
         const house = createHouse(variant + (side > 0 ? 2 : 0));
         house.position.set(side * (10.2 + random()), 0.02, z);
         house.rotation.y = -side * Math.PI / 2;
@@ -108,12 +119,12 @@ export class WorldGenerator {
         building.position.set(side * (9.8 + random() * 1.1), 0.02, z);
         building.rotation.y = -side * Math.PI / 2;
         scenery.add(building);
-        if (theme.id === 'market') {
+        if (theme.layout === 'market' || theme.layout === 'coast') {
           const stall = createMarketStall(sequence + (side > 0 ? 1 : 0));
           stall.position.set(side * 7.1, 0.02, z + 7);
           stall.rotation.y = -side * Math.PI / 2;
           scenery.add(stall);
-        } else if (sequence % 2 === 0 && side > 0) {
+        } else if (theme.layout === 'city' && sequence % 2 === 0 && side > 0) {
           const annex = createBuilding(variant + 3, 'colombo');
           annex.scale.setScalar(0.82);
           annex.position.set(side * 10.4, 0.02, z + 9);
@@ -122,39 +133,58 @@ export class WorldGenerator {
         }
       }
 
-      const palm = createPalm([5.8, 6.5, 7.2, 6.1][(sequence + (side > 0 ? 1 : 0)) % 4], (random() - 0.5) * 1.3);
-      palm.position.set(side * (7.2 + random() * 1.1), 0, -12 + random() * 24);
-      scenery.add(palm);
-      if (theme.id !== 'market' || sequence % 2 === 0) {
+      if (!isTunnel) {
+        const palm = createPalm([5.8, 6.5, 7.2, 6.1][(sequence + (side > 0 ? 1 : 0)) % 4], (random() - 0.5) * 1.3);
+        palm.position.set(side * (7.2 + random() * 1.1), 0, -12 + random() * 24);
+        scenery.add(palm);
+      }
+      if (!(localIndex === 1 && side === landmarkSide)
+        && (!hasLandscapeStrip || side !== stripSide) && (theme.layout !== 'market' || sequence % 2 === 0)) {
         const tree = createTree(0.65 + random() * 0.25, sequence + (side > 0 ? 2 : 0));
         tree.position.set(side * (13 + random() * 3), 0, -10 + random() * 20);
         scenery.add(tree);
       }
-      const light = createStreetlight(side);
-      light.position.set(side * 6.48, 0.16, side > 0 ? -10 : 10);
-      scenery.add(light);
+      if (!isTunnel) {
+        const light = createStreetlight(side);
+        light.position.set(side * 6.48, 0.16, side > 0 ? -10 : 10);
+        scenery.add(light);
+      }
 
-      if ((theme.id === 'suburb' && sequence % 2 === 0) || (theme.id !== 'suburb' && sequence % 3 === 1)) {
-        const parked = createParkedVehicle(theme.id === 'market' ? 'tuk-tuk' : 'car', sequence + (side > 0 ? 1 : 0));
+      if (!isTunnel && ((residential && sequence % 2 === 0) || (!residential && sequence % 3 === 1))) {
+        const parked = createParkedVehicle(['market', 'coast'].includes(theme.layout) ? 'tuk-tuk' : 'car', sequence + (side > 0 ? 1 : 0));
         parked.position.set(side * 8.1, 0.02, 11 - random() * 4);
         parked.rotation.y = side > 0 ? 0.08 : -0.08;
         scenery.add(parked);
       }
     }
 
-    const sinhalaBoard = createSinhalaBoard(sequence, theme.id);
-    sinhalaBoard.position.set(sequence % 2 ? 6.95 : -6.95, 0.02, 1.5);
-    scenery.add(sinhalaBoard);
+    if (hasLandscapeStrip) {
+      const strip = createLandscapeStrip(theme.layout, ROAD.sectionLength);
+      strip.position.set(stripSide * 15.2, 0, 0);
+      scenery.add(strip);
+    }
+    if (localIndex === 1 && theme.landmark) {
+      const districtLandmark = createDistrictLandmark(theme.landmark);
+      districtLandmark.position.set(landmarkSide * 14.2, 0.02, -1);
+      districtLandmark.rotation.y = theme.landmark === 'nine-arches' ? 0 : -landmarkSide * Math.PI / 2;
+      scenery.add(districtLandmark);
+    }
 
-    // One continuous utility run per section; the wires meet at section edges.
-    const pole = createUtilityPole();
-    pole.position.set(-7.25, 0.02, 0);
-    scenery.add(pole);
-    const wires = createUtilityWires(ROAD.sectionLength);
-    wires.position.set(-7.25, 0, 0);
-    scenery.add(wires);
+    if (!isTunnel) {
+      const sinhalaBoard = createSinhalaBoard(sequence, theme.id);
+      sinhalaBoard.position.set(sequence % 2 ? 6.95 : -6.95, 0.02, 1.5);
+      scenery.add(sinhalaBoard);
 
-    if (sequence % 4 === 2) {
+      // One continuous utility run per section; the wires meet at section edges.
+      const pole = createUtilityPole();
+      pole.position.set(-7.25, 0.02, 0);
+      scenery.add(pole);
+      const wires = createUtilityWires(ROAD.sectionLength);
+      wires.position.set(-7.25, 0, 0);
+      scenery.add(wires);
+    }
+
+    if (!isTunnel && sequence % 4 === 2) {
       const stop = createBusStop();
       const side = sequence % 8 === 2 ? 1 : -1;
       stop.position.set(side * 8.25, 0.02, 5);
@@ -166,18 +196,17 @@ export class WorldGenerator {
       board.position.set(sequence % 2 ? 8.2 : -8.2, 0.02, -11);
       scenery.add(board);
     }
-    if (sequence % 3 === 0) {
-      const names = ['GALLE ROAD', 'SCHOOL ZONE', 'KOTTE ROAD'];
-      const sign = createRoadSign(names[Math.floor(sequence / 3) % names.length]);
+    if (!isTunnel && sequence % 3 === 0) {
+      const sign = createRoadSign(sequence % 6 === 0 ? theme.roadName : 'SCHOOL ZONE');
       sign.position.set(sequence % 2 ? -6.85 : 6.85, 0.02, -10);
       scenery.add(sign);
     }
-    if (sequence % 2 === 0) {
+    if (!isTunnel && sequence % 2 === 0) {
       const bin = createRoadsideBin();
       bin.position.set(sequence % 4 ? 6.25 : -6.25, 0.16, 12);
       scenery.add(bin);
     }
-    if (sequence % 6 === 5) {
+    if (!isTunnel && sequence % 6 === 5) {
       // Decorative side junction: the three-lane gameplay surface stays unchanged.
       box(scenery, [38, 0.045, 5.2], [0, -0.005, 1], 0x414648, { surface: 'asphalt', castShadow: false });
       for (const side of [-1, 1]) {
@@ -188,6 +217,13 @@ export class WorldGenerator {
       for (let x = -4.2; x <= 4.2; x += 1.2) {
         box(scenery, [0.58, 0.028, 1.7], [x, 0.025, -3.2], 0xe8e2cf, { castShadow: false });
       }
+    }
+    if (isTunnel) {
+      const tunnel = createTunnelSection(ROAD.sectionLength, {
+        portalStart: localIndex === theme.tunnelSections[0],
+        portalEnd: localIndex === theme.tunnelSections[theme.tunnelSections.length - 1],
+      });
+      scenery.add(tunnel);
     }
   }
 

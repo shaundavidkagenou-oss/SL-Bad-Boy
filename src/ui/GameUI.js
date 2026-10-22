@@ -1,3 +1,5 @@
+import { GAME } from '../config.js';
+
 const byId = (id) => document.getElementById(id);
 
 export class GameUI {
@@ -10,6 +12,9 @@ export class GameUI {
     this.coins = byId('coin-value');
     this.coinPill = byId('coin-pill');
     this.speed = byId('speed-value');
+    this.boostHud = byId('boost-hud');
+    this.boostTime = byId('boost-time');
+    this.boostFill = byId('boost-fill');
     this.lastHudUpdate = 0;
 
     byId('play-button').addEventListener('click', actions.play);
@@ -40,6 +45,7 @@ export class GameUI {
   }
 
   showMenu(bestScore) {
+    this.updateBoost(null);
     byId('menu-best').textContent = bestScore.toLocaleString();
     this.hud.classList.remove('is-visible');
     this.showScreen('menu');
@@ -58,6 +64,7 @@ export class GameUI {
   }
 
   showGameOver(score) {
+    this.updateBoost(null);
     byId('final-score').textContent = score.score.toLocaleString();
     byId('final-distance').textContent = `${Math.floor(score.distance)} m`;
     byId('final-coins').textContent = String(score.coins);
@@ -68,7 +75,18 @@ export class GameUI {
     document.body.dataset.gameState = 'gameover';
   }
 
-  updateHud(score, speed, force = false) {
+  updateBoost(player) {
+    const active = Boolean(player?.scooterActive);
+    this.boostHud.classList.toggle('is-visible', active);
+    this.boostHud.setAttribute('aria-hidden', String(!active));
+    document.body.classList.toggle('scooter-active', active);
+    if (!active) return;
+    this.boostTime.textContent = `${player.scooterTimer.toFixed(1)} s`;
+    this.boostFill.style.transform = `scaleX(${Math.max(0, player.scooterTimer / GAME.scooterDuration)})`;
+  }
+
+  updateHud(score, speed, force = false, player = null) {
+    this.updateBoost(player);
     const now = performance.now();
     if (!force && now - this.lastHudUpdate < 80) return;
     this.lastHudUpdate = now;
@@ -100,6 +118,12 @@ export class GameUI {
 
   flashImpact() {
     byId('impact-flash').animate?.([{ opacity: 0.65 }, { opacity: 0 }], { duration: 420, easing: 'ease-out' });
+  }
+
+  flashShield() {
+    this.boostHud.animate?.([
+      { filter: 'brightness(1)' }, { filter: 'brightness(1.8)' }, { filter: 'brightness(1)' },
+    ], { duration: 180, easing: 'ease-out' });
   }
 
   setMuted(muted) {
