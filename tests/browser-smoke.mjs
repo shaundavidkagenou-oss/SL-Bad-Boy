@@ -123,6 +123,8 @@ try {
   assert.equal(pursuit.visible, true);
   assert.equal(pursuit.chaseStarted, true);
   assert.equal(pursuit.oncoming, true);
+  // Keep the idle actor safe while the software renderer captures animated poses.
+  await page.evaluate(() => { window.__LANKA_RUN__.spawner.collisionEnabled = false; });
   await new Promise((resolve) => setTimeout(resolve, 150));
   await page.screenshot({ path: 'test-results/police-chase.png' });
   await page.evaluate(() => { window.__LANKA_RUN__.police.pointTimer = 0.75; });
@@ -130,7 +132,6 @@ try {
     && window.__LANKA_RUN__.police.joints.rightArm.rotation.x > 1.05);
   await page.screenshot({ path: 'test-results/police-gesture.png' });
   passed.push('detailed police pursuit, safe gap, articulated pointing and initial oncoming traffic');
-  await page.evaluate(() => { window.__LANKA_RUN__.spawner.collisionEnabled = false; });
   passed.push('buses, cars, tuk-tuks and road hazards spawn in the live game');
 
   await page.keyboard.press('ArrowLeft');
@@ -344,8 +345,10 @@ try {
       textures: game.renderer.info.memory.textures,
       children: game.world.group.children.length,
       rebuilds: game.world.rebuildCount,
+      drawCalls: game.renderer.info.render.calls,
     };
   });
+  assert.ok(resourcesBefore.drawCalls < 700, `batched scene used ${resourcesBefore.drawCalls} draw calls`);
   const stress = await page.evaluate(() => {
     const game = window.__LANKA_RUN__;
     const started = performance.now();
@@ -431,9 +434,22 @@ try {
   await page.screenshot({ path: 'test-results/mobile-menu.png' });
   await page.click('#play-button');
   await waitForFunction(() => window.__LANKA_RUN__.state === 'running');
+  await page.evaluate(() => { window.__LANKA_RUN__.spawner.collisionEnabled = false; });
   await new Promise((resolve) => setTimeout(resolve, 250));
   await page.screenshot({ path: 'test-results/mobile-gameplay.png' });
   passed.push('portrait mobile layout, touch instructions and portrait camera remain usable');
+
+  await page.click('#touch-controls button[data-action="left"]');
+  await waitForFunction(() => window.__LANKA_RUN__.player.lane === 0);
+  await page.click('#touch-controls button[data-action="right"]');
+  await waitForFunction(() => window.__LANKA_RUN__.player.lane === 1);
+  await page.click('#touch-controls button[data-action="jump"]');
+  await waitForFunction(() => window.__LANKA_RUN__.player.group.position.y > 0.5);
+  await waitForFunction(() => window.__LANKA_RUN__.player.group.position.y === 0);
+  await page.click('#touch-controls button[data-action="slide"]');
+  await waitForFunction(() => window.__LANKA_RUN__.player.sliding);
+  await waitForFunction(() => !window.__LANKA_RUN__.player.sliding);
+  passed.push('on-screen mobile left, right, jump and slide buttons drive the live player');
 
   await page.evaluate(() => {
     const game = window.__LANKA_RUN__;

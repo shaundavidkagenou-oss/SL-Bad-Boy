@@ -31,7 +31,7 @@ function colomboLandmark() {
   const root = landmark('colombo');
   box(root, [11, 0.18, 7], [0, 0.09, 0], 0x6f9a61);
   box(root, [11, 0.12, 1.15], [0, 0.16, 2.75], 0xd0c7ae, { surface: 'paving' });
-  box(root, [11, 0.06, 2.1], [0, 0.04, -4.2], 0x4c9fa9, { roughness: 0.28 });
+  box(root, [11, 0.06, 2.1], [0, 0.04, -4.2], 0x4c9fa9, { surface: 'water' });
   cylinder(root, [0.42, 0.82], 9.2, [-2.2, 4.75, -0.8], 0xd9d7c5, { segments: 10 });
   sphere(root, 1.45, [-2.2, 9.4, -0.8], 0x71956f, { scale: [0.9, 1.15, 0.9] });
   for (let i = 0; i < 8; i += 1) {
@@ -86,7 +86,7 @@ function pettahLandmark() {
 
 function parliamentLandmark() {
   const root = landmark('parliament');
-  box(root, [12, 0.07, 8], [0, 0.04, 0], 0x579da3, { roughness: 0.25 });
+  box(root, [12, 0.07, 8], [0, 0.04, 0], 0x579da3, { surface: 'water' });
   box(root, [9.8, 0.2, 6.2], [0, 0.14, -0.3], 0x738e59);
   box(root, [7.8, 2.3, 4.1], [0, 1.4, -0.6], 0xe8e3d2, { surface: 'plaster' });
   for (const x of [-3.1, -2.05, -1, 0, 1, 2.05, 3.1]) {
@@ -105,7 +105,7 @@ function parliamentLandmark() {
 
 function kandyLandmark() {
   const root = landmark('kandy');
-  box(root, [11.5, 0.07, 7.5], [0, 0.04, 0], 0x559aa0, { roughness: 0.25 });
+  box(root, [11.5, 0.07, 7.5], [0, 0.04, 0], 0x559aa0, { surface: 'water' });
   box(root, [9.5, 0.18, 5.8], [0, 0.13, -0.8], 0xc9c3aa);
   box(root, [6.7, 2.5, 3.8], [-0.8, 1.48, -0.9], 0xf0ead9, { surface: 'plaster' });
   addWindows(root, 6.2, 1.04, 1);
@@ -174,7 +174,7 @@ function nineArchesLandmark() {
 
 function galleLandmark() {
   const root = landmark('galle');
-  box(root, [11.5, 0.06, 7.5], [0, 0.03, -0.2], 0x4e9eaa, { roughness: 0.25 });
+  box(root, [11.5, 0.06, 7.5], [0, 0.03, -0.2], 0x4e9eaa, { surface: 'water' });
   box(root, [8.7, 1.25, 4.4], [-1.2, 0.65, -0.6], 0xa99b7f, { surface: 'plaster' });
   for (let x = -5; x <= 2.8; x += 1.1) box(root, [0.7, 0.42, 0.8], [x, 1.48, 1.2], 0xb7a98a);
   cylinder(root, [0.72, 1.05], 6.2, [3.25, 3.25, -0.8], 0xf0eee0, { segments: 14 });
@@ -200,7 +200,7 @@ function getSailGeometry() {
 
 function negomboLandmark() {
   const root = landmark('negombo');
-  box(root, [11.5, 0.07, 7.5], [0, 0.04, 0], 0x4e9da5, { roughness: 0.22 });
+  box(root, [11.5, 0.07, 7.5], [0, 0.04, 0], 0x4e9da5, { surface: 'water' });
   sphere(root, 1, [-0.7, 0.35, 0], 0x31778a, { scale: [2.8, 0.48, 0.82] });
   box(root, [3.8, 0.16, 0.8], [-0.7, 0.58, 0], 0x6e472e);
   cylinder(root, [0.055], 3.5, [-0.8, 2.1, 0], 0x6b4c31, { segments: 7 });
@@ -249,7 +249,7 @@ export function createLandscapeStrip(layout, length = 30) {
     for (const x of [-0.72, 0.72]) box(root, [0.075, 0.09, length], [x, 0.18, 0], 0x555c5c, { metalness: 0.4 });
     for (let z = -length / 2 + 0.5; z < length / 2; z += 1.5) box(root, [2.05, 0.09, 0.18], [0, 0.12, z], 0x684b34);
   } else if (layout === 'coast') {
-    box(root, [4.4, 0.07, length], [0, 0.04, 0], 0x4d9da2, { roughness: 0.25 });
+    box(root, [4.4, 0.07, length], [0, 0.04, 0], 0x4d9da2, { surface: 'water' });
     for (const x of [-2.3, 2.3]) box(root, [0.35, 0.4, length], [x, 0.2, 0], 0xa99c7d);
     for (let z = -12; z <= 12; z += 6) cylinder(root, [0.06], 1.4, [1.7, 0.7, z], 0x6e5137, { segments: 6 });
   } else if (layout === 'fort') {

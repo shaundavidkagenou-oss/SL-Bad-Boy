@@ -5,13 +5,18 @@ const materialCache = new Map();
 const geometryCache = new Map();
 const labelMaterialCache = new Map();
 const surfaceTextureCache = new Map();
+const surfaceQuality = { bump: true };
 const fallbackLabelMaterial = new THREE.MeshBasicMaterial({ color: 0x213b56, side: THREE.DoubleSide });
+
+export function configureSurfaceQuality({ bump = true } = {}) {
+  surfaceQuality.bump = bump;
+}
 
 export function material(color, options = {}) {
   if (options.surface && typeof document !== 'undefined') return surfaceMaterial(options.surface, color);
   const key = JSON.stringify([color, options.roughness ?? 0.82, options.metalness ?? 0,
     options.emissive ?? 0, options.emissiveIntensity ?? 0, options.side ?? THREE.FrontSide,
-    options.flatShading ?? true]);
+    options.flatShading ?? false]);
   if (!materialCache.has(key)) {
     materialCache.set(key, new THREE.MeshStandardMaterial({
       color,
@@ -20,52 +25,121 @@ export function material(color, options = {}) {
       emissive: options.emissive ?? 0x000000,
       emissiveIntensity: options.emissiveIntensity ?? 0,
       side: options.side ?? THREE.FrontSide,
-      flatShading: options.flatShading ?? true,
+      flatShading: options.flatShading ?? false,
     }));
   }
   return materialCache.get(key);
 }
 
-function surfaceTexture(name) {
-  if (surfaceTextureCache.has(name)) return surfaceTextureCache.get(name);
+function surfaceTexture(name, bump = false) {
+  const cacheKey = `${name}:${bump ? 'height' : 'color'}`;
+  if (surfaceTextureCache.has(cacheKey)) return surfaceTextureCache.get(cacheKey);
+  const size = 256;
   const canvas = document.createElement('canvas');
-  canvas.width = 128;
-  canvas.height = 128;
+  canvas.width = size;
+  canvas.height = size;
   const context = canvas.getContext('2d');
-  context.fillStyle = '#eeeeea';
-  context.fillRect(0, 0, 128, 128);
+  context.fillStyle = bump ? '#808080' : '#eeeeea';
+  context.fillRect(0, 0, size, size);
   let seed = 9137;
   const random = () => {
     seed = (seed * 16807) % 2147483647;
     return seed / 2147483647;
   };
-  const dots = name === 'asphalt' ? 1500 : 350;
+  const dots = name === 'asphalt' ? 5200 : name === 'grass' ? 2800 : name === 'water' ? 250 : 950;
   for (let i = 0; i < dots; i += 1) {
-    const shade = 170 + Math.floor(random() * 80);
-    context.fillStyle = `rgba(${shade},${shade},${shade},${name === 'asphalt' ? 0.34 : 0.18})`;
-    const size = name === 'asphalt' ? 1 : 2;
-    context.fillRect(random() * 128, random() * 128, size, size);
+    const shade = bump ? 90 + Math.floor(random() * 85) : 155 + Math.floor(random() * 96);
+    context.fillStyle = bump
+      ? `rgb(${shade},${shade},${shade})`
+      : `rgba(${shade},${shade},${shade},${name === 'asphalt' ? 0.38 : 0.2})`;
+    const dotSize = name === 'asphalt' ? (random() > 0.92 ? 2 : 1) : 2;
+    context.fillRect(random() * size, random() * size, dotSize, dotSize);
   }
-  if (name === 'paving') {
-    context.strokeStyle = 'rgba(115,115,110,.42)';
-    context.lineWidth = 2;
-    for (let i = 0; i <= 128; i += 32) {
-      context.beginPath(); context.moveTo(i, 0); context.lineTo(i, 128); context.stroke();
-      context.beginPath(); context.moveTo(0, i); context.lineTo(128, i); context.stroke();
+  if (name === 'asphalt') {
+    // Fine repaired cracks and aggregate remain subtle at running speed.
+    for (let crack = 0; crack < 7; crack += 1) {
+      let x = random() * size;
+      let y = random() * size;
+      context.beginPath();
+      context.moveTo(x, y);
+      for (let part = 0; part < 4; part += 1) {
+        x += (random() - 0.5) * 22;
+        y += 8 + random() * 14;
+        context.lineTo(x, y);
+      }
+      context.strokeStyle = bump ? 'rgba(45,45,45,.65)' : 'rgba(55,58,56,.2)';
+      context.lineWidth = bump ? 1.4 : 0.8;
+      context.stroke();
+    }
+  } else if (name === 'grass') {
+    for (let blade = 0; blade < 1100; blade += 1) {
+      const x = random() * size;
+      const y = random() * size;
+      context.strokeStyle = bump ? 'rgba(190,190,190,.45)' : 'rgba(85,115,70,.24)';
+      context.lineWidth = 1;
+      context.beginPath();
+      context.moveTo(x, y + 2);
+      context.lineTo(x + (random() - 0.5) * 2, y - 2 - random() * 3);
+      context.stroke();
+    }
+  } else if (name === 'water') {
+    for (let wave = 0; wave < 34; wave += 1) {
+      const y = random() * size;
+      const x = random() * size;
+      context.strokeStyle = bump ? 'rgba(210,210,210,.5)' : 'rgba(235,245,235,.22)';
+      context.lineWidth = 1 + random();
+      context.beginPath();
+      context.moveTo(x, y);
+      context.bezierCurveTo(x + 12, y - 3, x + 28, y + 3, x + 44, y);
+      context.stroke();
+    }
+  } else if (name === 'roof') {
+    for (let y = 0; y <= size; y += 32) {
+      context.strokeStyle = bump ? '#4d4d4d' : 'rgba(85,60,48,.32)';
+      context.lineWidth = 2;
+      context.beginPath(); context.moveTo(0, y); context.lineTo(size, y); context.stroke();
+      for (let x = (y / 32) % 2 ? 16 : 0; x <= size; x += 32) {
+        context.beginPath(); context.moveTo(x, y); context.lineTo(x, y + 32); context.stroke();
+      }
+    }
+  } else if (name === 'paving') {
+    for (let i = 0; i <= size; i += 64) {
+      context.strokeStyle = bump ? '#484848' : 'rgba(105,105,100,.48)';
+      context.lineWidth = 3;
+      context.beginPath(); context.moveTo(i, 0); context.lineTo(i, size); context.stroke();
+      context.beginPath(); context.moveTo(0, i); context.lineTo(size, i); context.stroke();
+      context.strokeStyle = bump ? '#a8a8a8' : 'rgba(255,255,250,.26)';
+      context.lineWidth = 1;
+      context.beginPath(); context.moveTo(i + 3, 0); context.lineTo(i + 3, size); context.stroke();
+      context.beginPath(); context.moveTo(0, i + 3); context.lineTo(size, i + 3); context.stroke();
     }
   } else if (name === 'plaster') {
-    const gradient = context.createLinearGradient(0, 0, 0, 128);
-    gradient.addColorStop(0, 'rgba(255,255,255,.14)');
-    gradient.addColorStop(1, 'rgba(115,105,90,.13)');
+    const gradient = context.createLinearGradient(0, 0, 0, size);
+    gradient.addColorStop(0, bump ? 'rgba(180,180,180,.12)' : 'rgba(255,255,255,.18)');
+    gradient.addColorStop(1, bump ? 'rgba(55,55,55,.12)' : 'rgba(100,92,78,.16)');
     context.fillStyle = gradient;
-    context.fillRect(0, 0, 128, 128);
+    context.fillRect(0, 0, size, size);
+    for (let stain = 0; stain < 9; stain += 1) {
+      const x = random() * size;
+      const y = random() * size;
+      const radius = 8 + random() * 24;
+      const patch = context.createRadialGradient(x, y, 0, x, y, radius);
+      patch.addColorStop(0, bump ? 'rgba(70,70,70,.14)' : 'rgba(110,105,90,.1)');
+      patch.addColorStop(1, 'rgba(128,128,128,0)');
+      context.fillStyle = patch;
+      context.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+    }
   }
   const texture = new THREE.CanvasTexture(canvas);
+  texture.name = `Procedural ${cacheKey}`;
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(name === 'asphalt' ? 2 : 1, name === 'asphalt' ? 9 : 3);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  surfaceTextureCache.set(name, texture);
+  const repeats = name === 'asphalt' ? [2, 9] : name === 'grass' ? [18, 42]
+    : name === 'water' ? [3, 8] : name === 'roof' ? [3, 2] : [1, 3];
+  texture.repeat.set(repeats[0], repeats[1]);
+  texture.anisotropy = 4;
+  if (!bump) texture.colorSpace = THREE.SRGBColorSpace;
+  surfaceTextureCache.set(cacheKey, texture);
   return texture;
 }
 
@@ -75,9 +149,12 @@ function surfaceMaterial(name, color) {
     materialCache.set(key, new THREE.MeshStandardMaterial({
       color,
       map: surfaceTexture(name),
-      roughness: name === 'asphalt' ? 0.96 : 0.88,
-      metalness: 0,
-      flatShading: true,
+      bumpMap: surfaceQuality.bump ? surfaceTexture(name, true) : null,
+      bumpScale: surfaceQuality.bump ? (name === 'water' ? 0.075 : name === 'asphalt' ? 0.055 : 0.035) : 0,
+      roughness: name === 'water' ? 0.2 : name === 'asphalt' || name === 'grass' ? 0.91 : 0.84,
+      metalness: name === 'water' ? 0.12 : 0,
+      envMapIntensity: name === 'water' ? 1.1 : name === 'asphalt' || name === 'grass' ? 0.32 : 0.5,
+      flatShading: false,
     }));
   }
   return materialCache.get(key);
@@ -211,5 +288,6 @@ export function getMeshKitStats() {
     materials: materialCache.size,
     labelMaterials: labelMaterialCache.size,
     surfaceTextures: surfaceTextureCache.size,
+    bumpMapping: surfaceQuality.bump,
   };
 }

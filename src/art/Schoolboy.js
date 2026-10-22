@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { box, roundedBox, cylinder, sphere, torus } from './MeshKit.js';
+import { batchArticulatedModel } from './StaticBatcher.js';
 
 const SKIN = 0xb97850;
 const SKIN_LIGHT = 0xc98a60;
@@ -151,5 +152,5 @@ export function createSchoolboy() {
     leftAnkle: leftLeg.ankle,
     rightAnkle: rightLeg.ankle,
   };
-  return visual;
+  return batchArticulatedModel(visual);
 }

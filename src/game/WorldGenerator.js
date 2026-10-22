@@ -4,6 +4,7 @@ import { box, cylinder } from '../art/MeshKit.js';
 import {
   createAdvertisingBoard,
   createBackdrop,
+  createBananaPlant,
   createBoundaryWall,
   createBuilding,
   createBusStop,
@@ -24,6 +25,7 @@ import { mulberry32 } from './Random.js';
 import { advanceSectionCenter } from './RoadMath.js';
 import { themeForDistance, themeForSequence, themeSectionIndex, THEME_SECTIONS } from './EnvironmentThemes.js';
 import { createDistrictLandmark, createLandscapeStrip, createTunnelSection } from '../art/Landmarks.js';
+import { batchStaticGroup, disposeBatchedGeometry } from '../art/StaticBatcher.js';
 
 export class WorldGenerator {
   constructor(scene) {
@@ -38,9 +40,10 @@ export class WorldGenerator {
     this.groundTarget = new THREE.Color();
 
     this.ground = box(this.group, [150, 0.35, 370], [0, -0.175, -85], 0x68845a, {
-      castShadow: false, receiveShadow: true,
+      castShadow: false, receiveShadow: true, surface: 'grass',
     });
-    this.group.add(createBackdrop());
+    const backdrop = batchStaticGroup(createBackdrop());
+    this.group.add(backdrop);
     for (let i = 0; i < ROAD.sectionCount; i += 1) {
       const section = this.createSection(i);
       this.sections.push(section);
@@ -73,11 +76,16 @@ export class WorldGenerator {
       }
     }
     cylinder(section, [0.36], 0.025, [3.95, 0.02, -5], 0x495052, { segments: 16, castShadow: false });
+    // Keep the asphalt slab first for collider-independent road diagnostics.
+    batchStaticGroup(section, { preserve: new Set([section.children[0]]) });
     return section;
   }
 
   buildScenery(section, sequence) {
-    if (section.userData.scenery) section.remove(section.userData.scenery);
+    if (section.userData.scenery) {
+      disposeBatchedGeometry(section.userData.scenery);
+      section.remove(section.userData.scenery);
+    }
     const scenery = new THREE.Group();
     scenery.name = `Seeded ${themeForSequence(sequence).id} scenery ${sequence}`;
     section.userData.scenery = scenery;
@@ -134,9 +142,12 @@ export class WorldGenerator {
       }
 
       if (!isTunnel) {
-        const palm = createPalm([5.8, 6.5, 7.2, 6.1][(sequence + (side > 0 ? 1 : 0)) % 4], (random() - 0.5) * 1.3);
-        palm.position.set(side * (7.2 + random() * 1.1), 0, -12 + random() * 24);
-        scenery.add(palm);
+        const variant = sequence + (side > 0 ? 1 : 0);
+        const vegetation = variant % 3 === 0
+          ? createBananaPlant(0.9 + random() * 0.25, variant)
+          : createPalm([5.8, 6.5, 7.2, 6.1][variant % 4], (random() - 0.5) * 1.3);
+        vegetation.position.set(side * (7.2 + random() * 1.1), 0, -12 + random() * 24);
+        scenery.add(vegetation);
       }
       if (!(localIndex === 1 && side === landmarkSide)
         && (!hasLandscapeStrip || side !== stripSide) && (theme.layout !== 'market' || sequence % 2 === 0)) {
@@ -225,6 +236,7 @@ export class WorldGenerator {
       });
       scenery.add(tunnel);
     }
+    batchStaticGroup(scenery);
   }
 
   reset() {

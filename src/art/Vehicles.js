@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { box, roundedBox, cylinder, sphere, cone, label } from './MeshKit.js';
 import { hasLocalSignFonts, LOCAL_SIGN_FONT } from '../ui/SignFonts.js';
+import { batchStaticGroup } from './StaticBatcher.js';
 
 const DARK = 0x17202b;
 const GLASS = 0x183c52;
@@ -201,14 +202,16 @@ function createOverhead() {
 }
 
 export function createObstacleModel(kind, variant = 0) {
+  let model;
   switch (kind) {
-    case 'public-bus': return createBus(false, variant);
-    case 'private-bus': return createBus(true, variant);
-    case 'car': return createCar(variant);
-    case 'tuk-tuk': return createTukTuk(variant);
-    case 'cone': return createCone();
-    case 'barrier': return createBarrier();
-    case 'overhead': return createOverhead();
+    case 'public-bus': model = createBus(false, variant); break;
+    case 'private-bus': model = createBus(true, variant); break;
+    case 'car': model = createCar(variant); break;
+    case 'tuk-tuk': model = createTukTuk(variant); break;
+    case 'cone': model = createCone(); break;
+    case 'barrier': model = createBarrier(); break;
+    case 'overhead': model = createOverhead(); break;
     default: throw new Error(`Unknown obstacle model: ${kind}`);
   }
+  return batchStaticGroup(model, { preserve: new Set(model.userData.wheels || []) });
 }

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { box, roundedBox, cylinder, sphere, label } from './MeshKit.js';
 import { hasLocalSignFonts, LOCAL_SIGN_FONT } from '../ui/SignFonts.js';
+import { batchArticulatedModel } from './StaticBatcher.js';
 
 const SKIN = 0xa96f4b;
 const SKIN_LIGHT = 0xbd8158;
@@ -174,5 +175,5 @@ export function createPoliceOfficer() {
     leftAnkle: leftLeg.ankle,
     rightAnkle: rightLeg.ankle,
   };
-  return visual;
+  return batchArticulatedModel(visual);
 }

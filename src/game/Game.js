@@ -9,6 +9,9 @@ import { InputController } from './InputController.js';
 import { CameraRig } from './CameraRig.js';
 import { AudioManager } from './AudioManager.js';
 import { GameUI } from '../ui/GameUI.js';
+import { GraphicsPipeline, isSoftwareRenderer } from './GraphicsPipeline.js';
+import { configureSurfaceQuality } from '../art/MeshKit.js';
+import { VisualEffects } from './VisualEffects.js';
 
 export function speedForElapsed(elapsed, scooterActive = false) {
   const cruiseSpeed = Math.min(GAME.maxSpeed, GAME.baseSpeed + Math.max(0, elapsed) * GAME.acceleration);
@@ -26,30 +29,44 @@ export class Game {
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     const coarsePointer = window.matchMedia?.('(pointer: coarse)').matches ?? false;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, coarsePointer ? 1.25 : 1.5));
+    const requestedQuality = new URLSearchParams(window.location.search).get('quality');
+    this.softwareRenderer = requestedQuality === 'high' ? false : isSoftwareRenderer(this.renderer);
+    if (this.softwareRenderer) {
+      this.renderer.dispose();
+      this.renderer.forceContextLoss();
+      this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
+    }
+    configureSurfaceQuality({ bump: !this.softwareRenderer });
+    const pixelRatioLimit = this.softwareRenderer ? 0.75 : coarsePointer ? 1.25 : 1.5;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelRatioLimit));
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = this.softwareRenderer ? THREE.BasicShadowMap : THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.03;
     container.appendChild(this.renderer.domElement);
 
-    const hemisphere = new THREE.HemisphereLight(0xe8f5ff, 0x716344, 1.7);
+    const hemisphere = new THREE.HemisphereLight(0xe8f5ff, 0x716344, 1.35);
     this.scene.add(hemisphere);
-    const sun = new THREE.DirectionalLight(0xffe4b0, 2.45);
-    sun.position.set(-18, 28, 16);
+    const sun = new THREE.DirectionalLight(0xffe4b0, 2.6);
+    sun.position.set(26, 34, -45);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(1024, 1024);
-    sun.shadow.camera.left = -24;
-    sun.shadow.camera.right = 24;
-    sun.shadow.camera.top = 24;
-    sun.shadow.camera.bottom = -16;
+    const shadowSize = this.softwareRenderer ? 512 : coarsePointer ? 1024 : 2048;
+    sun.shadow.mapSize.set(shadowSize, shadowSize);
+    sun.shadow.camera.left = -27;
+    sun.shadow.camera.right = 27;
+    sun.shadow.camera.top = 28;
+    sun.shadow.camera.bottom = -18;
     sun.shadow.camera.near = 1;
-    sun.shadow.camera.far = 90;
-    sun.shadow.bias = -0.00025;
-    sun.shadow.normalBias = 0.025;
+    sun.shadow.camera.far = 115;
+    sun.shadow.bias = -0.00022;
+    sun.shadow.normalBias = 0.022;
     sun.target.position.set(0, 0, -18);
     this.scene.add(sun, sun.target);
+    this.sun = sun;
+    this.graphics = new GraphicsPipeline(this.renderer, this.scene, this.camera, {
+      coarsePointer, software: this.softwareRenderer,
+    });
 
     this.score = new ScoreManager();
     this.audio = new AudioManager();
@@ -60,27 +77,33 @@ export class Game {
       slide: () => this.audio.play('slide'),
     });
     this.police = new PoliceChase(this.scene);
+    this.effects = new VisualEffects(this.scene, { capacity: coarsePointer ? 112 : 144 });
     this.spawner = new ObstacleSpawner(this.scene, {
       onCoin: () => {
         this.score.addCoin();
         this.audio.play('coin');
+        this.effects.coin(this.player.group.position);
         this.ui?.pulseCoin();
       },
       onHit: () => {
         this.audio.play('collision');
+        this.effects.crash(this.player.group.position);
         this.endRun();
       },
       onScooter: () => {
         if (!this.player.startScooter()) return;
         this.audio.play('powerup');
+        this.effects.scooter(this.player.group.position);
         this.ui?.updateHud(this.score, this.speed, true, this.player);
       },
       onShieldHit: () => {
         this.audio.play('shield');
+        this.effects.shield(this.player.group.position);
         this.ui?.flashShield();
       },
     });
     this.ui = new GameUI({
+      control: (action) => this.handleAction(action),
       play: () => { this.buttonFeedback(); this.startRun(); },
       restart: () => { this.buttonFeedback(); this.startRun(); },
       pause: () => { this.buttonFeedback(); this.pause(); },
@@ -127,6 +150,7 @@ export class Game {
     const height = this.container.clientHeight || window.innerHeight;
     this.cameraRig.resize(width, height);
     this.renderer.setSize(width, height, false);
+    this.graphics.resize(width, height);
   }
 
   startRun(seed = (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0) {
@@ -136,6 +160,7 @@ export class Game {
     this.score.reset();
     this.player.reset();
     this.police.reset();
+    this.effects.reset(this.player);
     this.world.reset();
     this.currentTheme = null;
     this.updateTheme(0);
@@ -176,6 +201,7 @@ export class Game {
     this.elapsed = 0;
     this.player.reset();
     this.police.reset();
+    this.effects.reset(this.player);
     this.world.reset();
     this.currentTheme = null;
     this.updateTheme(0);
@@ -225,35 +251,46 @@ export class Game {
       this.scene.background.lerp(this.themeTargets.sky, blend);
       this.scene.fog.color.lerp(this.themeTargets.fog, blend);
     }
+    this.graphics.setTheme(this.scene.background, this.scene.fog.color);
   }
 
   animate(time) {
-    const delta = Math.min(Math.max((time - this.lastTime) / 1000, 0), 0.05);
+    // Preserve real-time speed on slow devices, but keep physics/collision steps
+    // small and bounded. Swept collisions and the scenery queue handle each step.
+    const frameDelta = Math.min(Math.max((time - this.lastTime) / 1000, 0), 0.25);
     this.lastTime = time;
 
+    let policeAdvanced = false;
     if (this.state === 'running') {
-      this.elapsed += delta;
-      this.speed = speedForElapsed(this.elapsed, this.player.scooterActive);
-      this.world.update(delta, this.speed);
-      this.player.update(delta, this.speed, 'running');
-      const result = this.spawner.update(delta, this.speed, this.player);
-      if (result !== 'hit' && this.state === 'running') {
-        this.score.update(delta, this.speed);
-        this.ui.updateHud(this.score, this.speed, false, this.player);
+      const steps = Math.max(1, Math.ceil(frameDelta / 0.05));
+      const stepDelta = frameDelta / steps;
+      for (let step = 0; step < steps && this.state === 'running'; step += 1) {
+        this.elapsed += stepDelta;
+        this.speed = speedForElapsed(this.elapsed, this.player.scooterActive);
+        this.world.update(stepDelta, this.speed);
+        this.player.update(stepDelta, this.speed, 'running');
+        const result = this.spawner.update(stepDelta, this.speed, this.player);
+        if (result !== 'hit' && this.state === 'running') {
+          this.score.update(stepDelta, this.speed);
+          this.ui.updateHud(this.score, this.speed, false, this.player);
+        }
+        this.police.update(stepDelta, this.speed, this.player, this.state, this.spawner.entries);
+        policeAdvanced = true;
       }
     } else if (this.state === 'menu') {
-      this.player.update(delta, 0, 'menu');
+      this.player.update(frameDelta, 0, 'menu');
       for (const entry of this.spawner.entries) {
-        if (entry.type === 'coin') entry.mesh.rotation.y += delta * 1.8;
+        if (entry.type === 'coin') entry.mesh.rotation.y += frameDelta * 1.8;
       }
     } else if (this.state === 'gameover') {
-      this.player.update(delta, this.speed, 'gameover');
+      this.player.update(frameDelta, this.speed, 'gameover');
     }
 
-    this.police.update(delta, this.speed, this.player, this.state, this.spawner.entries);
-    this.updateTheme(delta);
-    this.audio.update(delta, this.state);
-    this.cameraRig.update(delta, this.player);
-    this.renderer.render(this.scene, this.camera);
+    if (!policeAdvanced) this.police.update(frameDelta, this.speed, this.player, this.state, this.spawner.entries);
+    this.updateTheme(frameDelta);
+    this.audio.update(frameDelta, this.state);
+    this.cameraRig.update(frameDelta, this.player);
+    this.effects.update(frameDelta, this.speed, this.player, this.state, this.renderer.getPixelRatio());
+    this.graphics.render(frameDelta);
   }
 }

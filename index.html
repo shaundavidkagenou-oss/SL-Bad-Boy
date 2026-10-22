@@ -4,14 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#050505" />
-    <meta name="description" content="Lanka Run: Schoolboy Rush — an original 3D Sri Lankan endless runner." />
+    <meta name="description" content="SL BAD BOY — an original 3D Sri Lankan mobile endless runner." />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="icon" type="image/svg+xml" href="/assets/icon.svg" />
     <style>
       html, body { margin: 0; background: #050505; }
       #studio-loading { position: fixed; inset: 0; z-index: 1000; background: #050505; color: #fff; }
       #studio-loading[hidden] { display: none; }
     </style>
-    <title>Lanka Run: Schoolboy Rush</title>
+    <title>SL BAD BOY — Schoolboy Rush</title>
   </head>
   <body data-game-state="loading">
     <div id="studio-loading" class="studio-loading" role="status" aria-label="Shaun David Studios loading screen" aria-live="polite">
@@ -31,7 +34,7 @@
           <div class="studio-progress" aria-hidden="true"><i id="studio-progress-bar"></i></div>
           <strong id="studio-percent">000%</strong>
         </div>
-        <div class="studio-status"><span id="studio-status">IGNITING THE ISLAND</span><b>LANKA RUN</b></div>
+        <div class="studio-status"><span id="studio-status">IGNITING THE ISLAND</span><b>SL BAD BOY</b></div>
       </section>
       <span class="studio-corner studio-corner-a" aria-hidden="true"></span>
       <span class="studio-corner studio-corner-b" aria-hidden="true"></span>
@@ -45,7 +48,7 @@
       <header id="hud" class="hud" aria-label="Run status">
         <div class="hud-brand">
           <img src="/assets/icon.svg" alt="" />
-          <div><strong>LANKA RUN</strong><span>SCHOOLBOY RUSH</span></div>
+          <div><strong>SL BAD BOY</strong><span>SCHOOLBOY RUSH</span></div>
         </div>
         <div id="district-pill" class="district-pill"><span id="district-name">COLOMBO</span><small id="district-subtitle">CITY STREETS</small></div>
         <div class="hud-metrics">
@@ -65,6 +68,17 @@
         <small>TRAFFIC SHIELD ACTIVE</small>
       </div>
 
+      <div id="touch-controls" class="touch-controls" aria-label="Touch game controls">
+        <div class="touch-control-group">
+          <button type="button" data-action="left" aria-label="Move left"><span>←</span><small>LEFT</small></button>
+          <button type="button" data-action="right" aria-label="Move right"><span>→</span><small>RIGHT</small></button>
+        </div>
+        <div class="touch-control-group">
+          <button type="button" data-action="jump" aria-label="Jump"><span>↑</span><small>JUMP</small></button>
+          <button type="button" data-action="slide" aria-label="Slide"><span>↓</span><small>SLIDE</small></button>
+        </div>
+      </div>
+
       <div id="district-banner" class="district-banner" aria-live="polite">
         <small>NOW ENTERING</small><strong id="district-banner-name">COLOMBO</strong><span id="district-banner-subtitle">CITY STREETS</span>
       </div>
@@ -72,7 +86,7 @@
       <main id="menu-screen" class="screen menu-screen is-visible" aria-hidden="false">
         <section class="panel hero-panel">
           <div class="eyebrow"><span></span> FROM CLASSROOM TO CITY STREETS</div>
-          <h1>LANKA <em>RUN</em></h1>
+          <h1>SL BAD <em>BOY</em></h1>
           <h2>SCHOOLBOY RUSH</h2>
           <div class="route-line"><span>LK</span><b>ISLAND ROUTE 01</b><i>COLOMBO • KANDY • ELLA • GALLE</i></div>
           <p class="hero-copy">Race through ten detailed Sri Lankan districts, dodge island traffic, and grab a scooter for 10 seconds of 10× speed with a traffic shield.</p>
@@ -85,7 +99,7 @@
             <div><span class="key-pair"><kbd>S</kbd><kbd>↓</kbd></span><p><strong>SLIDE</strong></p></div>
           </div>
           <p class="menu-tip"><span>ESC</span> pauses the run. Every traffic row has a way through.</p>
-          <p class="touch-tip">Swipe left/right to change lanes. Swipe up to jump and down to slide.</p>
+          <p class="touch-tip">Swipe or use the on-screen buttons to move, jump and slide.</p>
         </section>
         <div class="world-tag" aria-hidden="true"><span>10 DISTRICTS</span><strong id="world-tag-name">GALLE ROAD</strong><small id="world-tag-theme">CITY STREETS</small></div>
       </main>
@@ -121,7 +135,7 @@
       </section>
 
       <button id="mute-button" class="audio-button" aria-label="Mute sound" aria-pressed="false"><span id="audio-icon">♪</span><span id="audio-label">SOUND ON</span></button>
-      <div id="fatal-error" role="alert" hidden><strong>WebGL could not start.</strong><span>Enable hardware acceleration in your browser and reload.</span></div>
+      <div id="fatal-error" role="alert" hidden><strong>WebGL could not start.</strong><span>Enable hardware acceleration and use a current browser or Android WebView, then reload.</span></div>
       <noscript>This game needs JavaScript enabled.</noscript>
     </div>
     <script type="module" src="/src/main.js"></script>

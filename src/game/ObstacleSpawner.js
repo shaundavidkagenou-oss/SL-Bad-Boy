@@ -5,6 +5,7 @@ import { createCoin } from '../art/MeshKit.js';
 import { createScooter } from '../art/Scooter.js';
 import { PatternPlanner } from './PatternPlanner.js';
 import { intersects, makeCollider } from './Collision.js';
+import { disposeBatchedGeometry } from '../art/StaticBatcher.js';
 
 const SCOOTER_HALO_GEOMETRY = new THREE.TorusGeometry(1.05, 0.045, 6, 28);
 const SCOOTER_HALO_MATERIAL = new THREE.MeshBasicMaterial({ color: 0x73fff2, transparent: true, opacity: 0.72, depthWrite: false });
@@ -26,7 +27,10 @@ export class ObstacleSpawner {
   }
 
   clear() {
-    for (const entry of this.entries) this.group.remove(entry.mesh);
+    for (const entry of this.entries) {
+      disposeBatchedGeometry(entry.mesh);
+      this.group.remove(entry.mesh);
+    }
     this.entries.length = 0;
   }
 
@@ -106,6 +110,7 @@ export class ObstacleSpawner {
   }
 
   removeEntry(index) {
+    disposeBatchedGeometry(this.entries[index].mesh);
     this.group.remove(this.entries[index].mesh);
     this.entries.splice(index, 1);
   }

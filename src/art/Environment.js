@@ -81,6 +81,32 @@ export function createPalm(height = 6.5, lean = 0.5) {
   return palm;
 }
 
+export function createBananaPlant(scale = 1, variant = 0) {
+  const plant = new THREE.Group();
+  plant.name = 'Original tropical banana plant';
+  cylinder(plant, [0.12, 0.19], 1.65, [0, 0.825, 0], 0x7e9448, { segments: 7 });
+  for (let ring = 0; ring < 4; ring += 1) {
+    cylinder(plant, [0.15 - ring * 0.008], 0.12, [0, 0.35 + ring * 0.34, 0], 0xa1a75a, { segments: 7 });
+  }
+  const crown = new THREE.Group();
+  crown.position.y = 1.58;
+  plant.add(crown);
+  for (let index = 0; index < 8; index += 1) {
+    const leaf = new THREE.Mesh(getFrondGeometry(), material(index % 3 ? 0x3d8d45 : 0x6da34b, {
+      side: THREE.DoubleSide, roughness: 0.76,
+    }));
+    leaf.rotation.y = index * Math.PI / 4 + variant * 0.17;
+    leaf.rotation.x = index % 2 ? 0.18 : -0.08;
+    leaf.scale.set(0.88, 0.72, index % 2 ? 0.62 : 0.72);
+    leaf.castShadow = true;
+    crown.add(leaf);
+  }
+  const blossom = cone(crown, 0.13, 0.36, [0.18, -0.35, 0.1], 0x7e3547, { segments: 7 });
+  blossom.rotation.z = Math.PI;
+  plant.scale.setScalar(scale);
+  return plant;
+}
+
 export function createTree(scale = 1, variant = 0) {
   const tree = new THREE.Group();
   cylinder(tree, [0.22, 0.34], 2.8 * scale, [0, 1.4 * scale, 0], 0x765035, { segments: 7 });
@@ -186,7 +212,7 @@ export function createHouse(variant = 0) {
   const height = [2.8, 3.2, 2.95][variant % 3];
   const colors = [0xf0d7ac, 0xc4dbc1, 0xe6bdb0, 0xc1d4e0];
   box(house, [width, height, depth], [0, height / 2, 0], colors[variant % 4], { surface: 'plaster' });
-  const roof = cone(house, width * 0.74, 1.35, [0, height + 0.63, 0], variant % 2 ? 0x92503c : 0xa9583e, { segments: 4 });
+  const roof = cone(house, width * 0.74, 1.35, [0, height + 0.63, 0], variant % 2 ? 0x92503c : 0xa9583e, { segments: 4, surface: 'roof' });
   roof.rotation.y = Math.PI / 4;
   roof.scale.z *= 0.72;
   box(house, [1.0, 1.85, 0.1], [0, 0.94, depth / 2 + 0.06], 0x31554e);

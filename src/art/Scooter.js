@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { box, roundedBox, cylinder, sphere, torus } from './MeshKit.js';
+import { batchStaticGroup } from './StaticBatcher.js';
 
 function scooterWheel(parent, z) {
   const wheel = new THREE.Group();
@@ -51,5 +52,5 @@ export function createScooter(color = 0x16877d) {
   sphere(scooter, 0.1, [0, 0.83, 0.88], 0xe34d42, { scale: [1.25, 0.75, 0.35], emissive: 0x8a140c, emissiveIntensity: 0.3 });
   box(scooter, [0.36, 0.18, 0.035], [0, 0.58, 0.93], 0xf1e2a4);
   torus(scooter, 0.37, 0.025, [0, 0.35, -0.82], 0x6e7b80, { rotation: [0, Math.PI / 2, 0], metalness: 0.5 });
-  return scooter;
+  return batchStaticGroup(scooter, { preserve: new Set(scooter.userData.wheels) });
 }
