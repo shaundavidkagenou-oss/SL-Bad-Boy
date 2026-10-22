@@ -17,7 +17,7 @@ export function isSoftwareRenderer(renderer) {
   }
 }
 
-function createReflectionEnvironment(renderer, scene) {
+function createReflectionEnvironment(renderer, scene, compact = false) {
   if (typeof document === 'undefined') return null;
   const canvas = document.createElement('canvas');
   canvas.width = 512;
@@ -42,7 +42,7 @@ function createReflectionEnvironment(renderer, scene) {
   const generator = new THREE.PMREMGenerator(renderer);
   const target = generator.fromEquirectangular(texture);
   scene.environment = target.texture;
-  scene.environmentIntensity = 0.42;
+  scene.environmentIntensity = compact ? 0.32 : 0.42;
   texture.dispose();
   generator.dispose();
   return target;
@@ -127,7 +127,17 @@ export class GraphicsPipeline {
     this.sky = createSky();
     scene.add(this.sky);
     this.hdrSupported = !software && !coarsePointer && renderer.extensions.has('EXT_color_buffer_float');
-    this.environmentTarget = this.hdrSupported ? createReflectionEnvironment(renderer, scene) : null;
+    this.environmentTarget = null;
+    if (!software) {
+      try {
+        // One generated PMREM gives paint, glass and water restrained highlights.
+        // It is created once, including on hardware mobile, never per frame.
+        this.environmentTarget = createReflectionEnvironment(renderer, scene, coarsePointer);
+      } catch {
+        this.environmentTarget = null;
+        scene.environment = null;
+      }
+    }
     this.clouds = [];
     if (typeof document !== 'undefined') {
       const cloudMaterial = new THREE.SpriteMaterial({

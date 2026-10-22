@@ -5,6 +5,7 @@ import { ObstacleSpawner } from './ObstacleSpawner.js';
 import { Player } from './Player.js';
 import { PoliceChase } from './PoliceChase.js';
 import { ScoreManager } from './ScoreManager.js';
+import { ProgressionManager } from './ProgressionManager.js';
 import { InputController } from './InputController.js';
 import { CameraRig } from './CameraRig.js';
 import { AudioManager } from './AudioManager.js';
@@ -12,6 +13,7 @@ import { GameUI } from '../ui/GameUI.js';
 import { GraphicsPipeline, isSoftwareRenderer } from './GraphicsPipeline.js';
 import { configureSurfaceQuality } from '../art/MeshKit.js';
 import { VisualEffects } from './VisualEffects.js';
+import { ContactShadows } from './ContactShadows.js';
 
 export function speedForElapsed(elapsed, scooterActive = false) {
   const cruiseSpeed = Math.min(GAME.maxSpeed, GAME.baseSpeed + Math.max(0, elapsed) * GAME.acceleration);
@@ -38,6 +40,7 @@ export class Game {
     }
     configureSurfaceQuality({
       bump: !this.softwareRenderer && !coarsePointer,
+      roadBump: !this.softwareRenderer,
       anisotropy: this.softwareRenderer ? 1 : coarsePointer ? 2 : 4,
     });
     const pixelRatioLimit = this.softwareRenderer ? 0.75 : coarsePointer ? 1.5 : 1.4;
@@ -52,6 +55,7 @@ export class Game {
 
     const hemisphere = new THREE.HemisphereLight(0xf2f8ff, 0x8a7c60, 1.65);
     this.scene.add(hemisphere);
+    this.hemisphere = hemisphere;
     const sun = new THREE.DirectionalLight(0xffe9c4, 3.0);
     sun.position.set(26, 34, -45);
     sun.castShadow = false;
@@ -71,14 +75,19 @@ export class Game {
     });
 
     this.score = new ScoreManager();
+    this.progress = new ProgressionManager();
+    this.runRewards = null;
     this.audio = new AudioManager();
     this.world = new WorldGenerator(this.scene);
     this.player = new Player(this.scene, {
-      jump: () => this.audio.play('jump'),
-      land: () => this.audio.play('land'),
+      jump: () => { this.audio.play('jump'); this.cameraRig.pulse(0.08); },
+      land: () => { this.audio.play('land'); this.cameraRig.pulse(0.2); },
       slide: () => this.audio.play('slide'),
+      lane: (direction) => { this.audio.play('lane'); this.cameraRig.pulse(0.06, direction); },
+      step: () => this.audio.play('step'),
     });
     this.police = new PoliceChase(this.scene);
+    this.contactShadows = new ContactShadows(this.scene, { capacity: coarsePointer ? 40 : 48 });
     this.effects = new VisualEffects(this.scene, { capacity: coarsePointer ? 112 : 144 });
     this.spawner = new ObstacleSpawner(this.scene, {
       onCoin: () => {
@@ -90,6 +99,7 @@ export class Game {
       onHit: () => {
         this.audio.play('collision');
         this.effects.crash(this.player.group.position);
+        this.cameraRig.pulse(0.65);
         this.endRun();
       },
       onScooter: () => {
@@ -102,6 +112,13 @@ export class Game {
         this.audio.play('shield');
         this.effects.shield(this.player.group.position);
         this.ui?.flashShield();
+      },
+      onNearMiss: (entry, clearance, direction) => {
+        this.score.addNearMiss();
+        this.audio.play('nearMiss');
+        this.effects.nearMiss(this.player.group.position);
+        this.cameraRig.pulse(0.16, direction);
+        this.ui?.showFeedback('NEAR MISS', '+250');
       },
     });
     this.ui = new GameUI({
@@ -117,6 +134,8 @@ export class Game {
         this.ui.setMuted(muted);
         if (!muted) this.audio.play('button');
       },
+      musicVolume: (value) => this.audio.setMusicVolume(value),
+      sfxVolume: (value) => this.audio.setSfxVolume(value),
     });
     this.input = new InputController((action) => this.handleAction(action));
     this.input.attachTouch(container);
@@ -124,9 +143,14 @@ export class Game {
     this.state = 'menu';
     this.speed = GAME.baseSpeed;
     this.elapsed = 0;
+    this.nextMilestone = 500;
     this.lastTime = performance.now();
     this.currentTheme = null;
-    this.themeTargets = { sky: new THREE.Color(), fog: new THREE.Color(), fogNear: 82, fogFar: 285 };
+    this.themeTargets = {
+      sky: new THREE.Color(), fog: new THREE.Color(), fogNear: 82, fogFar: 285,
+      sun: new THREE.Color(0xffe9c4), fill: new THREE.Color(0xd9ecff),
+      exposure: 1.16, sunIntensity: 3, hemisphereIntensity: 1.65,
+    };
     this.handleResize = () => this.resize();
     this.handleVisibility = () => {
       if (document.hidden && this.state === 'running') this.pause();
@@ -135,8 +159,9 @@ export class Game {
     document.addEventListener('visibilitychange', this.handleVisibility);
     this.resize();
     this.spawner.reset();
-    this.ui.showMenu(this.score.bestScore);
+    this.ui.showMenu(this.score.bestScore, this.progress.getSnapshot());
     this.ui.setMuted(this.audio.muted);
+    this.ui.setVolumes(this.audio.musicVolume, this.audio.sfxVolume);
     this.updateTheme(0);
     this.animate = this.animate.bind(this);
     this.renderer.setAnimationLoop(this.animate);
@@ -159,8 +184,11 @@ export class Game {
     this.state = 'running';
     this.speed = GAME.baseSpeed;
     this.elapsed = 0;
+    this.nextMilestone = 500;
+    this.runRewards = null;
     this.score.reset();
     this.player.reset();
+    this.cameraRig.reset();
     this.police.reset();
     this.effects.reset(this.player);
     this.world.reset();
@@ -192,9 +220,10 @@ export class Game {
     this.state = 'gameover';
     this.player.crash();
     this.score.finish();
+    this.runRewards = this.progress.recordRun(this.score);
     this.audio.setState('gameover');
     this.ui.flashImpact();
-    this.ui.showGameOver(this.score);
+    this.ui.showGameOver(this.score, this.runRewards, this.progress.getSnapshot());
   }
 
   goToMenu() {
@@ -202,6 +231,7 @@ export class Game {
     this.speed = GAME.baseSpeed;
     this.elapsed = 0;
     this.player.reset();
+    this.cameraRig.reset();
     this.police.reset();
     this.effects.reset(this.player);
     this.world.reset();
@@ -209,7 +239,7 @@ export class Game {
     this.updateTheme(0);
     this.spawner.reset();
     this.audio.setState('menu');
-    this.ui.showMenu(this.score.bestScore);
+    this.ui.showMenu(this.score.bestScore, this.progress.getSnapshot());
   }
 
   handleAction(action) {
@@ -246,8 +276,23 @@ export class Game {
       this.themeTargets.fog.set(theme.fog);
       this.themeTargets.fogNear = theme.fogNear ?? 82;
       this.themeTargets.fogFar = theme.fogFar ?? 285;
+      const hot = ['ancient', 'palmyrah'].includes(theme.layout);
+      const mist = ['hill', 'rail', 'tea'].includes(theme.layout);
+      this.themeTargets.sun.set(hot ? 0xffd39a : mist ? 0xe4efff : 0xffe9c4);
+      this.themeTargets.fill.set(mist ? 0xd5e7ff : 0xd9ecff);
+      this.themeTargets.exposure = hot ? 1.12 : mist ? 1.14 : 1.16;
+      this.themeTargets.sunIntensity = hot ? 2.75 : mist ? 2.65 : 3;
+      this.themeTargets.hemisphereIntensity = mist ? 1.55 : 1.65;
       this.ui.setDistrict(theme, announce);
     }
+    const lightBlend = delta === 0 ? 1 : 1 - Math.exp(-delta * 0.9);
+    this.sun.color.lerp(this.themeTargets.sun, lightBlend);
+    this.fillLight.color.lerp(this.themeTargets.fill, lightBlend);
+    this.sun.intensity = THREE.MathUtils.lerp(this.sun.intensity, this.themeTargets.sunIntensity, lightBlend);
+    this.hemisphere.intensity = THREE.MathUtils.lerp(this.hemisphere.intensity, this.themeTargets.hemisphereIntensity, lightBlend);
+    this.renderer.toneMappingExposure = THREE.MathUtils.lerp(
+      this.renderer.toneMappingExposure, this.themeTargets.exposure, lightBlend,
+    );
     if (delta === 0) {
       this.scene.background.copy(this.themeTargets.sky);
       this.scene.fog.color.copy(this.themeTargets.fog);
@@ -284,7 +329,15 @@ export class Game {
         policeAdvanced = true;
       }
       // Avoid repeating DOM writes for every physics catch-up substep.
-      if (this.state === 'running') this.ui.updateHud(this.score, this.speed, false, this.player);
+      if (this.state === 'running') {
+        this.ui.updateHud(this.score, this.speed, false, this.player);
+        if (this.score.distance >= this.nextMilestone) {
+          const milestone = this.nextMilestone;
+          this.nextMilestone += 500;
+          this.audio.play('milestone');
+          this.ui.showFeedback(`${milestone.toLocaleString()} M`, 'ISLAND MILESTONE');
+        }
+      }
     } else if (this.state === 'menu') {
       this.player.update(frameDelta, 0, 'menu');
       for (const entry of this.spawner.entries) {
@@ -297,8 +350,9 @@ export class Game {
     if (!policeAdvanced) this.police.update(frameDelta, this.speed, this.player, this.state, this.spawner.entries);
     this.updateTheme(frameDelta);
     this.audio.update(frameDelta, this.state);
-    this.cameraRig.update(frameDelta, this.player);
+    this.cameraRig.update(frameDelta, this.player, this.speed, this.state);
     this.effects.update(frameDelta, this.speed, this.player, this.state, this.renderer.getPixelRatio());
+    this.contactShadows.update(this.player, this.police, this.spawner.entries);
     this.graphics.render(frameDelta);
   }
 }

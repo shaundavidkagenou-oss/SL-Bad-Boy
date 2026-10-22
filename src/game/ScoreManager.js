@@ -19,6 +19,7 @@ export class ScoreManager {
   reset() {
     this.distance = 0;
     this.coins = 0;
+    this.nearMisses = 0;
     this.score = 0;
     this.newBest = false;
   }
@@ -33,8 +34,13 @@ export class ScoreManager {
     this.recalculate();
   }
 
+  addNearMiss() {
+    this.nearMisses += 1;
+    this.recalculate();
+  }
+
   recalculate() {
-    this.score = Math.floor(this.distance * 10) + this.coins * 100;
+    this.score = Math.floor(this.distance * 10) + this.coins * 100 + this.nearMisses * 250;
   }
 
   finish() {

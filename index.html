@@ -71,6 +71,9 @@
       <div id="district-banner" class="district-banner" aria-live="polite">
         <small>NOW ENTERING</small><strong id="district-banner-name">COLOMBO</strong><span id="district-banner-subtitle">CITY STREETS</span>
       </div>
+      <div id="game-feedback" class="game-feedback" role="status" aria-live="polite">
+        <strong id="feedback-title">NEAR MISS</strong><span id="feedback-subtitle">+250</span>
+      </div>
 
       <main id="menu-screen" class="screen menu-screen is-visible" aria-hidden="false">
         <section class="panel hero-panel">
@@ -87,6 +90,15 @@
             <div><kbd>SPACE</kbd><p><strong>JUMP</strong></p></div>
             <div><span class="key-pair"><kbd>S</kbd><kbd>↓</kbd></span><p><strong>SLIDE</strong></p></div>
           </div>
+          <section class="mission-panel" aria-label="Daily island goals">
+            <div class="mission-header"><span>DAILY ISLAND GOALS</span><strong><b id="island-stars">0</b> ★</strong></div>
+            <div class="rank-line"><span id="island-rank">LEVEL 1 • EXPLORER</span><div class="rank-track"><i id="rank-fill"></i></div></div>
+            <div class="mission-list">
+              <div class="mission-row"><div><span id="mission-0-label">DISTANCE</span><strong id="mission-0-progress">0 / 1000 m</strong></div><div class="mission-track"><i id="mission-0-fill"></i></div></div>
+              <div class="mission-row"><div><span id="mission-1-label">COINS</span><strong id="mission-1-progress">0 / 35</strong></div><div class="mission-track"><i id="mission-1-fill"></i></div></div>
+              <div class="mission-row"><div><span id="mission-2-label">NEAR MISS</span><strong id="mission-2-progress">0 / 2</strong></div><div class="mission-track"><i id="mission-2-fill"></i></div></div>
+            </div>
+          </section>
           <p class="menu-tip"><span>ESC</span> pauses the run. Every traffic row has a way through.</p>
           <p class="touch-tip">Swipe left or right to change lanes. Swipe up to jump and down to slide.</p>
         </section>
@@ -104,6 +116,10 @@
             <button id="pause-restart-button" class="secondary-button">RESTART</button>
             <button id="pause-menu-button" class="secondary-button">MAIN MENU</button>
           </div>
+          <div class="audio-settings" aria-label="Audio settings">
+            <label for="music-volume"><span>MUSIC</span><input id="music-volume" type="range" min="0" max="1" step="0.05" value="0.55" /></label>
+            <label for="sfx-volume"><span>SOUND FX</span><input id="sfx-volume" type="range" min="0" max="1" step="0.05" value="0.85" /></label>
+          </div>
         </div>
       </section>
 
@@ -118,6 +134,7 @@
             <div><span>COINS</span><strong id="final-coins">0</strong></div>
             <div><span>BEST</span><strong id="final-best">0</strong></div>
           </div>
+          <div id="run-rewards" class="run-rewards"><strong id="reward-stars">0 ★</strong><span id="reward-copy">DAILY GOALS IN PROGRESS</span></div>
           <button id="restart-button" class="primary-button"><span>RUN AGAIN</span><kbd>ENTER</kbd></button>
           <button id="gameover-menu-button" class="text-button">BACK TO MAIN MENU</button>
         </div>

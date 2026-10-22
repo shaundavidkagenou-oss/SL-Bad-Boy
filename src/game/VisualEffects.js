@@ -112,6 +112,10 @@ export class VisualEffects {
   }
 
   coin(position) { this.burst(position, 0xffcf45, 16, 2.1); }
+  nearMiss(position) {
+    this.burst(position, 0x8fe8ff, 7, 1.35);
+    this.burst(position, 0xffcf45, 5, 1.1);
+  }
   scooter(position) { this.burst(position, 0x73fff0, 26, 3.1); }
   shield(position) { this.burst(position, 0x8afff3, 24, 3.5); }
   crash(position) {

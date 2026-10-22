@@ -46,17 +46,26 @@ export class Player {
     this.sliding = false;
     this.crashed = false;
     this.runPhase = 0;
+    this.stepMarker = 0;
     Object.values(this.joints).forEach((joint) => joint.rotation.set(0, 0, 0));
     this.joints.body.position.set(0, 0, 0);
     this.joints.backpack.position.set(0, 0, 0);
   }
 
   moveLeft() {
-    this.lane = Math.max(0, this.lane - 1);
+    const next = Math.max(0, this.lane - 1);
+    if (next === this.lane) return false;
+    this.lane = next;
+    this.callbacks.lane?.(-1);
+    return true;
   }
 
   moveRight() {
-    this.lane = Math.min(LANES.length - 1, this.lane + 1);
+    const next = Math.min(LANES.length - 1, this.lane + 1);
+    if (next === this.lane) return false;
+    this.lane = next;
+    this.callbacks.lane?.(1);
+    return true;
   }
 
   jump() {
@@ -213,6 +222,11 @@ export class Player {
     }
 
     this.runPhase += delta * (8 + speed * 0.28);
+    const stepMarker = Math.floor(this.runPhase / Math.PI);
+    if (stepMarker !== this.stepMarker) {
+      this.stepMarker = stepMarker;
+      if (!airborne && !this.sliding && this.startTimer <= 0) this.callbacks.step?.(stepMarker % 2);
+    }
     const stride = Math.sin(this.runPhase);
     const landing = this.landingTimer > 0 && !airborne;
     const scaleTarget = this.sliding ? 0.68 : landing ? 0.92 : 1;

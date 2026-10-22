@@ -1,15 +1,17 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const materialCache = new Map();
 const geometryCache = new Map();
 const labelMaterialCache = new Map();
 const surfaceTextureCache = new Map();
-const surfaceQuality = { bump: true, anisotropy: 4 };
+const surfaceQuality = { bump: true, roadBump: false, anisotropy: 4 };
 const fallbackLabelMaterial = new THREE.MeshBasicMaterial({ color: 0x213b56, side: THREE.DoubleSide });
 
-export function configureSurfaceQuality({ bump = true, anisotropy = 4 } = {}) {
+export function configureSurfaceQuality({ bump = true, roadBump = false, anisotropy = 4 } = {}) {
   surfaceQuality.bump = bump;
+  surfaceQuality.roadBump = roadBump;
   surfaceQuality.anisotropy = anisotropy;
 }
 
@@ -59,6 +61,19 @@ function surfaceTexture(name, bump = false) {
     context.fillRect(random() * size, random() * size, dotSize, dotSize);
   }
   if (name === 'asphalt') {
+    // Broad, low-contrast repairs break up tiling without obscuring lane paint.
+    if (!bump) {
+      for (let patch = 0; patch < 9; patch += 1) {
+        const x = random() * size;
+        const y = random() * size;
+        const radius = 22 + random() * 58;
+        const gradient = context.createRadialGradient(x, y, 0, x, y, radius);
+        gradient.addColorStop(0, patch % 2 ? 'rgba(65,70,68,.075)' : 'rgba(255,255,245,.055)');
+        gradient.addColorStop(1, 'rgba(128,128,128,0)');
+        context.fillStyle = gradient;
+        context.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+      }
+    }
     // Fine repaired cracks and aggregate remain subtle at running speed.
     for (let crack = 0; crack < 7; crack += 1) {
       let x = random() * size;
@@ -160,13 +175,14 @@ function surfaceTexture(name, bump = false) {
 
 function surfaceMaterial(name, color, options = {}) {
   const defaultRoughness = name === 'water' ? 0.2 : name === 'asphalt' || name === 'grass' ? 0.91 : 0.84;
-  const key = `surface:${name}:${color}:${surfaceQuality.bump}:${surfaceQuality.anisotropy}:${options.roughness ?? defaultRoughness}:${options.side ?? THREE.FrontSide}:${options.vertexColors ?? false}`;
+  const bumpEnabled = surfaceQuality.bump || (name === 'asphalt' && surfaceQuality.roadBump);
+  const key = `surface:${name}:${color}:${bumpEnabled}:${surfaceQuality.anisotropy}:${options.roughness ?? defaultRoughness}:${options.side ?? THREE.FrontSide}:${options.vertexColors ?? false}`;
   if (!materialCache.has(key)) {
     materialCache.set(key, new THREE.MeshStandardMaterial({
       color,
       map: surfaceTexture(name),
-      bumpMap: surfaceQuality.bump ? surfaceTexture(name, true) : null,
-      bumpScale: surfaceQuality.bump ? (name === 'water' ? 0.075 : name === 'asphalt' ? 0.055 : 0.035) : 0,
+      bumpMap: bumpEnabled ? surfaceTexture(name, true) : null,
+      bumpScale: bumpEnabled ? (name === 'water' ? 0.075 : name === 'asphalt' ? 0.055 : 0.035) : 0,
       roughness: options.roughness ?? defaultRoughness,
       metalness: options.metalness ?? (name === 'water' ? 0.12 : 0),
       side: options.side ?? THREE.FrontSide,
@@ -302,12 +318,52 @@ export function label(parent, text, size, position, options = {}) {
 }
 
 export function createCoin() {
-  const coin = new THREE.Group();
-  cylinder(coin, [0.23], 0.08, [0, 0, 0], 0xf6b91f, {
-    segments: 16, rotation: [Math.PI / 2, 0, 0], metalness: 0.6, roughness: 0.28,
+  const geo = geometry('coin:raised-lotus-sun-v1', () => {
+    const paint = (source, color) => {
+      const value = new THREE.Color(color);
+      const colors = new Float32Array(source.attributes.position.count * 3);
+      for (let index = 0; index < source.attributes.position.count; index += 1) {
+        colors[index * 3] = value.r;
+        colors[index * 3 + 1] = value.g;
+        colors[index * 3 + 2] = value.b;
+      }
+      source.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      return source;
+    };
+    const disc = new THREE.CylinderGeometry(0.23, 0.23, 0.08, 20);
+    disc.rotateX(Math.PI / 2);
+    const rim = new THREE.TorusGeometry(0.235, 0.035, 6, 20);
+    rim.translate(0, 0, 0.045);
+    const inset = new THREE.BoxGeometry(0.045, 0.21, 0.026);
+    inset.translate(0, 0, 0.085);
+    const crestShape = new THREE.Shape();
+    for (let point = 0; point < 12; point += 1) {
+      const angle = point / 12 * Math.PI * 2 + Math.PI / 2;
+      const radius = point % 2 ? 0.052 : 0.105;
+      const x = Math.cos(angle) * radius;
+      const y = Math.sin(angle) * radius;
+      if (point === 0) crestShape.moveTo(x, y);
+      else crestShape.lineTo(x, y);
+    }
+    crestShape.closePath();
+    const crest = new THREE.ShapeGeometry(crestShape);
+    crest.translate(0, 0, 0.105);
+    const pieces = [paint(disc, 0xf6b91f), paint(rim, 0xffdf63),
+      paint(inset, 0xffd34f), paint(crest, 0xfff0a0)];
+    const merged = mergeGeometries(pieces, false);
+    pieces.forEach((piece) => piece.dispose());
+    if (!merged) throw new Error('Unable to build the lotus-sun coin');
+    merged.computeBoundingSphere();
+    merged.userData.crest = 'lotus-sun';
+    return merged;
   });
-  torus(coin, 0.235, 0.035, [0, 0, 0.045], 0xffdf63, { metalness: 0.55, roughness: 0.25 });
-  box(coin, [0.055, 0.23, 0.035], [0, 0, 0.09], 0xfff0a0, { castShadow: false });
+  const coinMaterial = material(0xffffff, { metalness: 0.58, roughness: 0.24, vertexColors: true });
+  coinMaterial.envMapIntensity = 0.85;
+  const coin = new THREE.Mesh(geo, coinMaterial);
+  coin.name = 'Sri Lankan lotus-sun coin';
+  coin.userData.coin = true;
+  coin.castShadow = false;
+  coin.receiveShadow = false;
   return coin;
 }
 
@@ -318,6 +374,7 @@ export function getMeshKitStats() {
     labelMaterials: labelMaterialCache.size,
     surfaceTextures: surfaceTextureCache.size,
     bumpMapping: surfaceQuality.bump,
+    roadBumpMapping: surfaceQuality.roadBump,
     anisotropy: surfaceQuality.anisotropy,
   };
 }

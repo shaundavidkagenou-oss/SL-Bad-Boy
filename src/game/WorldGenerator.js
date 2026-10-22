@@ -83,6 +83,9 @@ export class WorldGenerator {
       });
       box(section, [0.18, 0.35, length], [side * 5.25, 0.05, 0], 0xe2d7bd, { castShadow: false });
       box(section, [0.1, 0.025, length], [side * 4.92, 0.012, 0], 0xe8dfbf, { castShadow: false });
+      for (const z of [-10, -5, 0, 5, 10]) {
+        box(section, [1.32, 0.012, 0.035], [side * 5.95, 0.165, z], 0x8f8b81, { castShadow: false });
+      }
       for (const z of [-10, 5]) {
         box(section, [0.32, 0.035, 0.8], [side * 5.08, 0.025, z], 0x3a4445, { castShadow: false });
       }
@@ -91,8 +94,21 @@ export class WorldGenerator {
       for (let z = -12; z <= 12; z += 6) {
         box(section, [0.12, 0.025, 3.1], [x, 0.015, z], 0xf4eed8, { castShadow: false });
       }
+      for (const z of [-9, 3]) {
+        box(section, [0.15, 0.045, 0.11], [x, 0.038, z], 0xf4b942, { castShadow: false });
+      }
+    }
+    // Subtle repaired tar seams and a detailed cast manhole add scale without
+    // changing the collision surface or the three-lane readability.
+    for (let seam = 0; seam < 2; seam += 1) {
+      box(section, [0.045, 0.012, 2.1 + (index % 3) * 0.35],
+        [-2.25 + seam * 4.45 + (index % 2) * 0.25, 0.017, -8 + seam * 13 + (index % 3)],
+        0x3a4445, { castShadow: false, rotation: [0, seam ? -0.16 : 0.12, 0] });
     }
     cylinder(section, [0.36], 0.025, [3.95, 0.02, -5], 0x495052, { segments: 16, castShadow: false });
+    for (const offset of [-0.15, 0, 0.15]) {
+      box(section, [0.38, 0.012, 0.025], [3.95, 0.037, -5 + offset], 0x3a4445, { castShadow: false });
+    }
     // Familiar Sri Lankan black-and-white road edge posts, outside traffic lanes.
     for (const side of [-1, 1]) {
       for (const z of [-12, 12]) {
@@ -135,6 +151,8 @@ export class WorldGenerator {
     section.userData.approachLandmark = localIndex === 0 ? theme.approachLandmark || null : null;
     section.userData.featureLandmark = localIndex === 4 ? theme.featureLandmark || null : null;
     section.userData.animatedScenery = [];
+    section.userData.animatedVegetation = [];
+    const swayRoots = new Set();
     const nextTheme = transitionTunnel ? themeForSequence(sequence + THEME_SECTIONS - localIndex) : null;
     const nextLandmarkSide = Math.floor((sequence + 1) / THEME_SECTIONS) % 2 ? -1 : 1;
     const approachVistaSide = nextTheme?.approachLandmark ? -nextLandmarkSide : null;
@@ -187,6 +205,17 @@ export class WorldGenerator {
             : createPalm([5.8, 6.5, 7.2, 6.1][variant % 4], (random() - 0.5) * 1.3);
         vegetation.position.set(side * (7.2 + random() * 1.1), 0, -12 + random() * 24);
         scenery.add(vegetation);
+        const swayRoot = vegetation.userData.swayRoot;
+        if (swayRoot) {
+          swayRoots.add(swayRoot);
+          section.userData.animatedVegetation.push({
+            root: swayRoot,
+            phase: random() * Math.PI * 2,
+            baseX: swayRoot.rotation.x,
+            baseZ: swayRoot.rotation.z,
+            amplitude: 0.018 + random() * 0.012,
+          });
+        }
       }
       if (!isTunnel) {
         const light = createStreetlight(side);
@@ -294,7 +323,12 @@ export class WorldGenerator {
       });
       scenery.add(tunnel);
     }
-    batchStaticGroup(scenery, { freeze: true });
+    for (const sway of section.userData.animatedVegetation) batchStaticGroup(sway.root);
+    batchStaticGroup(scenery, { preserve: swayRoots, freeze: true });
+    for (const sway of section.userData.animatedVegetation) {
+      sway.root.matrixAutoUpdate = true;
+      sway.root.updateMatrix();
+    }
     if (elephantSide) {
       const elephant = createElephant(sequence);
       elephant.position.set(elephantSide * 10.1, 0, 1.5);
@@ -341,6 +375,10 @@ export class WorldGenerator {
     this.ground.material.color.lerp(this.groundTarget, Math.min(1, delta * 1.5));
     for (const section of this.sections) {
       for (const elephant of section.userData.animatedScenery || []) updateElephant(elephant, this.animationTime);
+      for (const sway of section.userData.animatedVegetation || []) {
+        sway.root.rotation.z = sway.baseZ + Math.sin(this.animationTime * 0.82 + sway.phase) * sway.amplitude;
+        sway.root.rotation.x = sway.baseX + Math.cos(this.animationTime * 0.63 + sway.phase) * sway.amplitude * 0.55;
+      }
     }
   }
 
@@ -359,6 +397,7 @@ export class WorldGenerator {
       pendingScenery: this.pendingScenery.length,
       rebuildCount: this.rebuildCount,
       animatedElephants: this.sections.reduce((count, section) => count + (section.userData.animatedScenery?.length || 0), 0),
+      animatedVegetation: this.sections.reduce((count, section) => count + (section.userData.animatedVegetation?.length || 0), 0),
       travelled: this.travelled,
       theme: this.getCurrentTheme().id,
     };

@@ -85,8 +85,8 @@ jobs:
           "$AAPT" dump badging "$APK" | tee apk-badging.txt
           grep -F "package: name='lk.shaun.slbadboy'" apk-badging.txt
           grep -F "application-label:'SL BAD BOY'" apk-badging.txt
-          grep -F "versionCode='6'" apk-badging.txt
-          grep -F "versionName='2.3.1'" apk-badging.txt
+          grep -F "versionCode='7'" apk-badging.txt
+          grep -F "versionName='2.4.0'" apk-badging.txt
           grep -F "sdkVersion:'24'" apk-badging.txt
           unzip -l "$APK" | grep -F 'assets/public/index.html'
           unzip -l "$APK" | grep -F 'assets/public/assets/'

@@ -9,9 +9,10 @@ import { disposeBatchedGeometry } from '../art/StaticBatcher.js';
 
 const SCOOTER_HALO_GEOMETRY = new THREE.TorusGeometry(1.05, 0.045, 6, 28);
 const SCOOTER_HALO_MATERIAL = new THREE.MeshBasicMaterial({ color: 0x73fff2, transparent: true, opacity: 0.72, depthWrite: false });
+const NEAR_MISS_VEHICLES = new Set(['public-bus', 'private-bus', 'car', 'tuk-tuk']);
 
 export class ObstacleSpawner {
-  constructor(scene, { onCoin = () => {}, onHit = () => {}, onScooter = () => {}, onShieldHit = () => {} } = {}) {
+  constructor(scene, { onCoin = () => {}, onHit = () => {}, onScooter = () => {}, onShieldHit = () => {}, onNearMiss = () => {} } = {}) {
     this.group = new THREE.Group();
     this.group.name = 'Traffic, road hazards and coins';
     scene.add(this.group);
@@ -21,6 +22,7 @@ export class ObstacleSpawner {
     this.onHit = onHit;
     this.onScooter = onScooter;
     this.onShieldHit = onShieldHit;
+    this.onNearMiss = onNearMiss;
     this.nextSpawnIn = 30;
     this.nextScooterIn = 320;
     this.collisionEnabled = true;
@@ -166,6 +168,20 @@ export class ObstacleSpawner {
     }
   }
 
+  checkNearMiss(entry, previousRelativeZ, relativeZ, playerCollider, player) {
+    if (entry.nearMissAwarded || entry.type !== 'obstacle' || !NEAR_MISS_VEHICLES.has(entry.kind)) return;
+    const threshold = entry.spec.depth * 0.5 + 0.3;
+    if (previousRelativeZ > threshold || relativeZ <= threshold) return;
+    entry.nearMissAwarded = true;
+    const playerWidth = playerCollider.maxX - playerCollider.minX;
+    const clearance = Math.abs(entry.mesh.position.x - player.group.position.x)
+      - (entry.spec.width + playerWidth) * 0.5;
+    if (clearance >= 0 && clearance < 0.8) {
+      const direction = Math.sign(player.group.position.x - entry.mesh.position.x);
+      this.onNearMiss(entry, clearance, direction);
+    }
+  }
+
   update(delta, speed, player) {
     const travel = speed * delta;
     this.updateTrafficFlow(delta);
@@ -175,6 +191,7 @@ export class ObstacleSpawner {
 
     for (let index = this.entries.length - 1; index >= 0; index -= 1) {
       const entry = this.entries[index];
+      const previousRelativeZ = entry.mesh.position.z - player.group.position.z;
       const entryTravel = travel + (entry.currentApproachSpeed || 0) * delta;
       entry.mesh.position.z += entryTravel;
 
@@ -203,7 +220,10 @@ export class ObstacleSpawner {
 
       const relativeZ = entry.mesh.position.z - player.group.position.z;
       if (!this.collisionEnabled || relativeZ < -6 || relativeZ > 6 + entryTravel) continue;
-      if (!intersects(playerCollider, this.getCollider(entry, entryTravel))) continue;
+      if (!intersects(playerCollider, this.getCollider(entry, entryTravel))) {
+        this.checkNearMiss(entry, previousRelativeZ, relativeZ, playerCollider, player);
+        continue;
+      }
 
       if (entry.type === 'coin') {
         this.removeEntry(index);

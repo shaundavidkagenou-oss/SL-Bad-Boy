@@ -25,6 +25,8 @@ export class GameUI {
     byId('pause-menu-button').addEventListener('click', actions.menu);
     byId('gameover-menu-button').addEventListener('click', actions.menu);
     byId('mute-button').addEventListener('click', actions.mute);
+    byId('music-volume').addEventListener('input', (event) => actions.musicVolume?.(Number(event.target.value)));
+    byId('sfx-volume').addEventListener('input', (event) => actions.sfxVolume?.(Number(event.target.value)));
   }
 
   hideScreens() {
@@ -44,12 +46,29 @@ export class GameUI {
     }
   }
 
-  showMenu(bestScore) {
+  showMenu(bestScore, progress = null) {
     this.updateBoost(null);
+    this.feedbackAnimation?.cancel();
     byId('menu-best').textContent = bestScore.toLocaleString();
+    this.updateProgress(progress);
     this.hud.classList.remove('is-visible');
     this.showScreen('menu');
     document.body.dataset.gameState = 'menu';
+  }
+
+  updateProgress(progress) {
+    if (!progress) return;
+    byId('island-stars').textContent = progress.stars.toLocaleString();
+    byId('island-rank').textContent = `LEVEL ${progress.level} • ${progress.rank || 'EXPLORER'}`;
+    byId('rank-fill').style.transform = `scaleX(${progress.levelProgress})`;
+    progress.missions.slice(0, 3).forEach((mission, index) => {
+      byId(`mission-${index}-label`).textContent = mission.completed ? `${mission.shortLabel} ✓` : mission.shortLabel;
+      byId(`mission-${index}-progress`).textContent = mission.completed
+        ? `COMPLETE • +${mission.reward} ★`
+        : `${Math.floor(mission.progress).toLocaleString()} / ${mission.target.toLocaleString()}${mission.unit ? ` ${mission.unit}` : ''}`;
+      byId(`mission-${index}-fill`).style.transform = `scaleX(${mission.ratio})`;
+      byId(`mission-${index}-fill`).closest('.mission-row').classList.toggle('is-complete', mission.completed);
+    });
   }
 
   showRunning() {
@@ -63,13 +82,20 @@ export class GameUI {
     document.body.dataset.gameState = 'paused';
   }
 
-  showGameOver(score) {
+  showGameOver(score, rewards = null, progress = null) {
     this.updateBoost(null);
+    this.feedbackAnimation?.cancel();
     byId('final-score').textContent = score.score.toLocaleString();
     byId('final-distance').textContent = `${Math.floor(score.distance)} m`;
     byId('final-coins').textContent = String(score.coins);
     byId('final-best').textContent = score.bestScore.toLocaleString();
     byId('new-best').classList.toggle('is-visible', score.newBest);
+    const earned = rewards?.starsEarned || 0;
+    byId('reward-stars').textContent = earned > 0 ? `+${earned} ★` : `${progress?.stars || 0} ★`;
+    byId('reward-copy').textContent = rewards?.completed?.length
+      ? rewards.completed.map((mission) => mission.shortLabel).join(' • ')
+      : `${score.nearMisses || 0} NEAR MISSES • DAILY GOALS IN PROGRESS`;
+    byId('run-rewards').classList.toggle('has-reward', earned > 0);
     this.hud.classList.remove('is-visible');
     this.showScreen('gameover');
     document.body.dataset.gameState = 'gameover';
@@ -110,6 +136,19 @@ export class GameUI {
     this.districtTimer = setTimeout(() => banner.classList.remove('is-visible'), 2200);
   }
 
+  showFeedback(title, subtitle = '') {
+    byId('feedback-title').textContent = title;
+    byId('feedback-subtitle').textContent = subtitle;
+    this.feedbackAnimation?.cancel();
+    const feedback = byId('game-feedback');
+    this.feedbackAnimation = feedback.animate?.([
+      { opacity: 0, transform: 'translate(-50%, -8px) scale(.94)' },
+      { opacity: 1, transform: 'translate(-50%, 0) scale(1)', offset: 0.14 },
+      { opacity: 1, transform: 'translate(-50%, 0) scale(1)', offset: 0.72 },
+      { opacity: 0, transform: 'translate(-50%, 5px) scale(.98)' },
+    ], { duration: 1450, easing: 'ease-out' });
+  }
+
   pulseCoin() {
     this.coinPill.animate?.([
       { transform: 'scale(1)' }, { transform: 'scale(1.16)', offset: 0.45 }, { transform: 'scale(1)' },
@@ -131,5 +170,10 @@ export class GameUI {
     byId('audio-label').textContent = muted ? 'MUTED' : 'SOUND ON';
     byId('mute-button').setAttribute('aria-label', muted ? 'Unmute sound' : 'Mute sound');
     byId('mute-button').setAttribute('aria-pressed', String(muted));
+  }
+
+  setVolumes(music, sfx) {
+    byId('music-volume').value = String(music);
+    byId('sfx-volume').value = String(sfx);
   }
 }

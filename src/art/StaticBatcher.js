@@ -4,6 +4,19 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 const inverseRoot = new THREE.Matrix4();
 const relativeMatrix = new THREE.Matrix4();
 const sharedMaterials = new Map();
+const UV_MAPS = [
+  'map', 'alphaMap', 'aoMap', 'lightMap', 'bumpMap', 'normalMap', 'displacementMap',
+  'emissiveMap', 'metalnessMap', 'roughnessMap', 'specularMap', 'specularColorMap',
+  'specularIntensityMap', 'clearcoatMap', 'clearcoatNormalMap', 'clearcoatRoughnessMap',
+  'transmissionMap', 'thicknessMap', 'sheenColorMap', 'sheenRoughnessMap',
+  'iridescenceMap', 'iridescenceThicknessMap', 'anisotropyMap',
+];
+
+function materialUsesUV(material) {
+  // Custom shaders may read uv directly without declaring a texture map.
+  if (!material.isMeshStandardMaterial && !material.isMeshBasicMaterial) return true;
+  return UV_MAPS.some((key) => Boolean(material[key]));
+}
 
 function renderingMaterial(source) {
   // Combined canopies already carry their palette in the color attribute.
@@ -60,14 +73,15 @@ export function batchStaticGroup(root, { preserve = new Set(), freeze = false } 
       && !node.userData.text && !Array.isArray(node.material)
       && !node.material.transparent && node.visible) {
       const batch = renderingMaterial(node.material);
+      const usesUV = materialUsesUV(batch.material);
       const attributeKey = Object.entries(node.geometry.attributes)
-        .filter(([name]) => name !== 'color')
+        .filter(([name]) => name !== 'color' && (usesUV || name !== 'uv'))
         .map(([name, attribute]) => `${name}:${attribute.itemSize}:${attribute.normalized}`)
         .sort().join('|');
       const colorKey = batch.vertexColors ? 'generated' : Boolean(node.geometry.attributes.color);
       const key = [batch.material.uuid, batch.vertexColors, colorKey, node.castShadow, node.receiveShadow,
         Boolean(node.geometry.index), attributeKey].join(':');
-      if (!groups.has(key)) groups.set(key, { ...batch, meshes: [] });
+      if (!groups.has(key)) groups.set(key, { ...batch, usesUV, meshes: [] });
       groups.get(key).meshes.push(node);
     }
     for (const child of node.children) visit(child);
@@ -75,11 +89,15 @@ export function batchStaticGroup(root, { preserve = new Set(), freeze = false } 
   for (const child of root.children) visit(child);
 
   for (const group of groups.values()) {
-    const { meshes, material, vertexColors } = group;
+    const { meshes, material, vertexColors, usesUV } = group;
     if (meshes.length < 2) continue;
     const copies = [];
     for (const mesh of meshes) {
       const copy = mesh.geometry.clone();
+      // Primitive UVs are unused on flat/vertex-colored materials. Removing
+      // only those unused attributes lets crowns and other matte parts share
+      // one draw; textured asphalt, labels and signs retain their UVs.
+      if (!usesUV) copy.deleteAttribute('uv');
       relativeMatrix.copy(inverseRoot).multiply(mesh.matrixWorld);
       copy.applyMatrix4(relativeMatrix);
       if (vertexColors) addVertexColor(copy, mesh.material.color);

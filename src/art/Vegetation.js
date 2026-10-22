@@ -152,6 +152,7 @@ function buildPalm(height, lean, palmyrah = false) {
   const crown = new THREE.Group();
   crown.position.set(...points[points.length - 1]);
   palm.add(crown);
+  palm.userData.swayRoot = crown;
   const colors = palmyrah ? [0x376e3d, 0x4b7f42, 0x2f6338] : [0x247843, 0x3b914e, 0x55a457];
   const fronds = palmyrah ? 9 : 8;
   for (let index = 0; index < fronds; index += 1) {
@@ -164,7 +165,7 @@ function buildPalm(height, lean, palmyrah = false) {
     for (let index = 0; index < 4; index += 1) {
       const angle = index * Math.PI * 0.5;
       sphere(crown, 0.17, [Math.cos(angle) * 0.24, -0.2, Math.sin(angle) * 0.24], 0x73813b, {
-        scale: [0.9, 1.15, 0.9], widthSegments: 8, heightSegments: 6,
+        scale: [0.9, 1.15, 0.9], widthSegments: 8, heightSegments: 6, side: THREE.DoubleSide,
       });
     }
   }
@@ -190,16 +191,17 @@ export function createBananaPlant(scale = 1, variant = 0) {
   const crown = new THREE.Group();
   crown.position.y = 1.52;
   plant.add(crown);
+  plant.userData.swayRoot = crown;
   for (let index = 0; index < 7; index += 1) {
     addLeaf(crown, 'banana', index * Math.PI * 2 / 7 + variant * 0.13,
       index % 2 ? 0.15 : -0.11, [0.9, 1, index % 2 ? 0.85 : 1],
       [0x3c8b45, 0x5a9f4b, 0x347b3e][index % 3]);
   }
-  const blossom = cone(crown, 0.13, 0.34, [0.17, -0.32, 0.08], 0x7e3547, { segments: 8 });
+  const blossom = cone(crown, 0.13, 0.34, [0.17, -0.32, 0.08], 0x7e3547, { segments: 8, side: THREE.DoubleSide });
   blossom.rotation.z = Math.PI;
   for (let index = 0; index < 5; index += 1) {
     capsule(crown, 0.045, 0.13, [-0.08 + index * 0.055, -0.12 - (index % 2) * 0.07, 0.1],
-      0x82a64b, { rotation: [0.35, 0, index * 0.15], radialSegments: 6, capSegments: 2 });
+      0x82a64b, { rotation: [0.35, 0, index * 0.15], radialSegments: 6, capSegments: 2, side: THREE.DoubleSide });
   }
   plant.scale.setScalar(scale);
   return plant;
