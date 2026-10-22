@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import { themeForDistance, themeForSequence, themeSectionIndex, THEME_SECTIONS, THEME_LENGTH, ENVIRONMENT_THEMES } from '../src/game/EnvironmentThemes.js';
+import { isThemeTunnel, isTransitionTunnelSection, themeForDistance, themeForSequence, themeSectionIndex, THEME_SECTIONS, THEME_LENGTH, ENVIRONMENT_THEMES } from '../src/game/EnvironmentThemes.js';
 import { getMeshKitStats, box, sphere, cylinder, cone } from '../src/art/MeshKit.js';
 import { InputController } from '../src/game/InputController.js';
 import { Player } from '../src/game/Player.js';
@@ -18,9 +18,10 @@ class FakeTarget {
   emit(type, event) { this.listeners.get(type)?.({ preventDefault() {}, ...event }); }
 }
 
-test('fourteen district schedules use longer eight-section blocks and wrap cleanly', () => {
-  assert.equal(THEME_SECTIONS, 8);
-  assert.equal(THEME_LENGTH, 240);
+test('fourteen districts use approximately minute-long blocks and wrap cleanly', () => {
+  assert.equal(THEME_SECTIONS, 36);
+  assert.equal(THEME_LENGTH, 1080);
+  assert.ok(THEME_LENGTH / 18 >= 55 && THEME_LENGTH / 18 <= 65);
   assert.equal(ENVIRONMENT_THEMES.length, 14);
   const ids = ['colombo', 'suburb', 'market', 'kotte', 'kandy', 'kadugannawa', 'nuwara-eliya', 'ella', 'galle', 'negombo', 'anuradhapura', 'polonnaruwa', 'jaffna', 'trincomalee'];
   ids.forEach((id, index) => {
@@ -51,6 +52,13 @@ test('all district landmarks are original articulated scenery and tunnels form c
     assert.equal(theme.tunnelSections.length, 2);
     assert.equal(theme.tunnelSections[1], theme.tunnelSections[0] + 1);
   }
+  for (const theme of ENVIRONMENT_THEMES) {
+    for (const localIndex of [THEME_SECTIONS - 2, THEME_SECTIONS - 1]) {
+      assert.equal(isTransitionTunnelSection(localIndex), true);
+      assert.equal(isThemeTunnel(theme, localIndex), true, `${theme.id} lacks a city-transition tunnel`);
+    }
+    assert.equal(isThemeTunnel(theme, THEME_SECTIONS - 3), Boolean(theme.tunnelSections?.includes(THEME_SECTIONS - 3)));
+  }
   const tunnel = createTunnelSection(ROAD.sectionLength, { portalStart: true });
   assert.equal(tunnel.userData.tunnel, true);
   assert.ok(tunnel.children.length >= 18);
@@ -65,8 +73,9 @@ test('recycled district landmarks and tunnels keep primitive geometry bounded', 
   for (let sequence = 0; sequence < ENVIRONMENT_THEMES.length * THEME_SECTIONS; sequence += 1) {
     world.buildScenery(section, sequence);
     const theme = themeForSequence(sequence);
-    assert.equal(section.userData.tunnel, Boolean(theme.tunnelSections?.includes(themeSectionIndex(sequence))));
+    assert.equal(section.userData.tunnel, isThemeTunnel(theme, themeSectionIndex(sequence)));
     if (themeSectionIndex(sequence) === 1) assert.equal(section.userData.landmark, theme.landmark);
+    if (themeSectionIndex(sequence) === 4 && theme.featureLandmark) assert.equal(section.userData.featureLandmark, theme.featureLandmark);
   }
   const before = getMeshKitStats().geometries;
   for (let sequence = 80; sequence < 160; sequence += 1) world.buildScenery(section, sequence);

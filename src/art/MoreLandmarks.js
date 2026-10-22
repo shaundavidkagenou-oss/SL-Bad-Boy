@@ -158,8 +158,40 @@ function trincomalee() {
   return root;
 }
 
+function colomboLotus() {
+  const root = landmark('colombo-lotus');
+  box(root, [7.2, 0.28, 7.2], [0, 0.14, 0], 0xd9d4c6, { surface: 'paving' });
+  cylinder(root, [2.5, 2.9], 0.7, [0, 0.55, 0], 0xe8e2d4, { segments: 32 });
+  cylinder(root, [0.68, 1.15], 11.8, [0, 6.65, 0], 0xd9d7d2, { segments: 28, roughness: 0.48 });
+  for (const y of [3.2, 6.2, 9.2]) {
+    cylinder(root, [1.65, 1.85], 0.32, [0, y, 0], 0x72567f, { segments: 28, roughness: 0.42 });
+    torus(root, 1.78, 0.09, [0, y + 0.2, 0], 0xe0b95e, { arc: Math.PI * 2, rotation: [Math.PI / 2, 0, 0] });
+  }
+  for (let ring = 0; ring < 2; ring += 1) {
+    const count = ring === 0 ? 12 : 8;
+    const radius = ring === 0 ? 1.75 : 1.15;
+    for (let index = 0; index < count; index += 1) {
+      const angle = index / count * Math.PI * 2 + ring * 0.24;
+      const petal = sphere(root, 1, [Math.cos(angle) * radius, 12.1 + ring * 1.2, Math.sin(angle) * radius],
+        ring === 0 ? 0xb85c94 : 0xd284ae, {
+          scale: [0.62, 1.75 - ring * 0.2, 0.36], widthSegments: 22, heightSegments: 14, roughness: 0.42,
+        });
+      petal.rotation.y = -angle;
+      petal.rotation.z = Math.cos(angle) * 0.48;
+      petal.rotation.x = Math.sin(angle) * 0.48;
+    }
+  }
+  sphere(root, 1, [0, 14.1, 0], 0x8d427b, { scale: [1.05, 1.45, 1.05], widthSegments: 28, heightSegments: 18, roughness: 0.4 });
+  cylinder(root, [0.15, 0.28], 3.4, [0, 16.1, 0], 0xd7c36b, { segments: 18, metalness: 0.25, roughness: 0.38 });
+  sphere(root, 0.24, [0, 17.85, 0], 0xf0d579, { widthSegments: 18, heightSegments: 12, emissive: 0x8a6420, emissiveIntensity: 0.2 });
+  for (const side of [-1, 1]) box(root, [1.15, 1.8, 0.12], [side * 2.15, 1.15, 3.48], 0x396c78, { roughness: 0.2, metalness: 0.1 });
+  placeLabel(root, 'COLOMBO • LOTUS TOWER', [0, 0.8, 3.66], 5.4);
+  return root;
+}
+
 export function createAdditionalDistrictLandmark(id) {
   switch (id) {
+    case 'colombo-lotus': return colomboLotus();
     case 'colombo-fort': return colomboFort();
     case 'red-mosque': return redMosque();
     case 'anuradhapura': return anuradhapura();

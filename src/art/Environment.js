@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { box, cylinder, sphere, cone, label } from './MeshKit.js';
+import { box, roundedBox, cylinder, sphere, cone, label } from './MeshKit.js';
 import { createObstacleModel } from './Vehicles.js';
 import { hasLocalSignFonts, LOCAL_SIGN_FONT } from '../ui/SignFonts.js';
 
@@ -11,7 +11,8 @@ const wireMaterial = new THREE.LineBasicMaterial({ color: 0x303638 });
 
 function addWindow(parent, x, y, z, width = 1, height = 1, shutters = false) {
   box(parent, [width + 0.14, height + 0.14, 0.08], [x, y, z], 0xeee4cf);
-  box(parent, [width, height, 0.09], [x, y, z + 0.045], 0x396776, { roughness: 0.32 });
+  box(parent, [width, height, 0.09], [x, y, z + 0.045], 0x396776, { roughness: 0.16, metalness: 0.12 });
+  box(parent, [width + 0.22, 0.09, 0.2], [x, y - height / 2 - 0.08, z + 0.08], 0xd8cfba);
   box(parent, [0.045, height, 0.04], [x, y, z + 0.1], 0xd9d6c7);
   box(parent, [width, 0.045, 0.04], [x, y, z + 0.1], 0xd9d6c7);
   if (shutters) {
@@ -63,7 +64,7 @@ function commercialBuilding(variant, style) {
         ? [0xe2b778, 0xc7d9a5, 0xe2a18f, 0xa9ccd2, 0xe3cf8a, 0xc7b1d2]
         : [0xe8c98e, 0xb9d8c0, 0xe5b2a0, 0xb9cce2, 0xe7dcb8, 0xd1b8d8];
   const front = depth / 2;
-  box(root, [width, height, depth], [0, height / 2, 0], colors[variant % colors.length], { surface: 'plaster' });
+  roundedBox(root, [width, height, depth], [0, height / 2, 0], colors[variant % colors.length], { surface: 'plaster', radius: 0.065, segments: 2 });
   box(root, [width + 0.16, 0.18, depth + 0.15], [0, height + 0.02, 0], 0xe8dfc9);
   for (const x of [-width / 2 + 0.1, width / 2 - 0.1]) {
     box(root, [0.18, height, 0.18], [x, height / 2, front + 0.02], 0xe3d7bd);
@@ -115,8 +116,23 @@ function commercialBuilding(variant, style) {
     if (floor === 0 && variant % 2 === 0) addBalcony(root, width * 0.82, y - 0.73, front);
   }
   if (variant % 3 === 0) {
-    cylinder(root, [0.55], 0.9, [width * 0.23, height + 0.55, -0.4], 0x314f59, { segments: 12 });
+    cylinder(root, [0.55], 0.9, [width * 0.23, height + 0.55, -0.4], 0x314f59, { segments: 16 });
     box(root, [1.35, 0.1, 1.35], [width * 0.23, height + 0.06, -0.4], 0x8b8a7c);
+  }
+  // Close-range shop detail: rounded AC housing, fan, drainpipe, handle and plants.
+  cylinder(root, [0.055], height, [-width / 2 - 0.09, height / 2, front + 0.04], 0x627074, { segments: 10 });
+  sphere(root, 0.055, [0.31, 0.92, front + 0.16], 0xd8b66a, { widthSegments: 12, heightSegments: 8 });
+  if (variant % 2 === 0) {
+    roundedBox(root, [0.34, 0.72, 0.92], [width / 2 + 0.22, 3.25, -0.55], 0xd7d8ce, { radius: 0.06, segments: 2 });
+    cylinder(root, [0.25], 0.04, [width / 2 + 0.41, 3.25, -0.55], 0x59666a, { segments: 18, rotation: [0, 0, Math.PI / 2] });
+    label(root, shopNames[variant % shopNames.length], [1.5, 0.42], [width * 0.34, 3.25, front + 0.58], {
+      background: '#f0d58a', foreground: '#213b56', border: '#7f2d43', fontSize: 38, rotation: [0, Math.PI / 2, 0],
+    });
+  }
+  for (const side of [-1, 1]) {
+    const x = side * width * 0.29;
+    box(root, [1.18, 0.2, 0.3], [x, 0.47, front + 0.25], 0x8c5c3e);
+    for (const offset of [-0.32, 0, 0.32]) sphere(root, 0.22, [x + offset, 0.68, front + 0.28], 0x4c873f, { scale: [1, 0.8, 0.8], widthSegments: 12, heightSegments: 8 });
   }
   return root;
 }
@@ -131,7 +147,7 @@ export function createHouse(variant = 0) {
   const depth = 4;
   const height = [2.8, 3.2, 2.95][variant % 3];
   const colors = [0xf0d7ac, 0xc4dbc1, 0xe6bdb0, 0xc1d4e0];
-  box(house, [width, height, depth], [0, height / 2, 0], colors[variant % 4], { surface: 'plaster' });
+  roundedBox(house, [width, height, depth], [0, height / 2, 0], colors[variant % 4], { surface: 'plaster', radius: 0.07, segments: 2 });
   const roof = cone(house, width * 0.74, 1.35, [0, height + 0.63, 0], variant % 2 ? 0x92503c : 0xa9583e, { segments: 4, surface: 'roof' });
   roof.rotation.y = Math.PI / 4;
   roof.scale.z *= 0.72;
@@ -139,6 +155,11 @@ export function createHouse(variant = 0) {
   for (const side of [-1, 1]) addWindow(house, side * width * 0.29, 1.35, depth / 2 + 0.04, 0.92, 1.08, true);
   addAwning(house, width * 0.72, 2.15, depth / 2 + 0.45, variant % 2 ? 0x49766b : 0xb07145, false);
   box(house, [width * 0.8, 0.15, 1.25], [0, 0.08, depth / 2 + 0.48], 0xc4bca7, { surface: 'paving' });
+  sphere(house, 0.06, [0.32, 0.95, depth / 2 + 0.15], 0xd9b86c, { widthSegments: 12, heightSegments: 8 });
+  for (const side of [-1, 1]) {
+    cone(house, 0.28, 0.42, [side * 1.15, 0.25, depth / 2 + 0.65], 0xa65e3e, { segments: 14 });
+    sphere(house, 0.38, [side * 1.15, 0.62, depth / 2 + 0.65], 0x4e873f, { scale: [1, 0.85, 1], widthSegments: 14, heightSegments: 9 });
+  }
   return house;
 }
 

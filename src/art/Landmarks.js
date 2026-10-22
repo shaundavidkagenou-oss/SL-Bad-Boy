@@ -277,7 +277,7 @@ export function createLandscapeStrip(layout, length = 30) {
 }
 
 /** Enclosed 30 m tunnel. The high roof keeps the chase camera inside it. */
-export function createTunnelSection(length = 30, { portalStart = false, portalEnd = false } = {}) {
+export function createTunnelSection(length = 30, { portalStart = false, portalEnd = false, sign = 'HILL COUNTRY TUNNEL' } = {}) {
   const root = new THREE.Group();
   root.name = 'Enclosed hill country road tunnel';
   root.userData.tunnel = true;
@@ -294,7 +294,7 @@ export function createTunnelSection(length = 30, { portalStart = false, portalEn
     for (const side of [-1, 1]) box(root, [1.3, 8.1, 1.1], [side * 6.65, 4.05, z], 0x9a8d72, { surface: 'plaster' });
     box(root, [14.5, 1.25, 1.1], [0, 7.55, z], 0x9a8d72, { surface: 'plaster' });
     box(root, [12.2, 0.18, 1.2], [0, 6.85, z], 0xe1c890);
-    if (withSign) label(root, 'HILL COUNTRY TUNNEL', [4.5, 0.66], [0, 7.55, z + 0.57], { background: '#25466d', foreground: '#fff4cf', fontSize: 41 });
+    if (withSign) label(root, sign, [5.4, 0.66], [0, 7.55, z + 0.57], { background: '#25466d', foreground: '#fff4cf', fontSize: 38 });
   };
   if (portalStart) addPortal(length / 2, true);
   if (portalEnd) addPortal(-length / 2, false);

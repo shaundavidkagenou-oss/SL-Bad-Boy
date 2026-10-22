@@ -200,3 +200,40 @@ test('road sections stay contiguous through thousands of metres of recycling', (
     assert.ok(intervals.some(([min, max]) => 11.8 >= min && 11.8 <= max));
   }
 });
+
+test('oncoming buses brake before same-lane vehicles and obstacles instead of passing through them', () => {
+  for (const delta of [1 / 60, 0.5]) {
+    const scene = new THREE.Scene();
+    const player = new Player(scene);
+    player.moveLeft();
+    frames(player, 30);
+    const spawner = new ObstacleSpawner(scene);
+    spawner.nextSpawnIn = 999;
+    spawner.nextScooterIn = 999;
+    const cone = spawner.spawnObstacle('cone', 1, -20, 90, { oncoming: false });
+    const bus = spawner.spawnObstacle('public-bus', 1, -45, 91, { oncoming: true });
+    for (let frame = 0; frame < 600; frame += 1) spawner.update(delta, 0, player);
+    const safeGap = (bus.spec.depth + cone.spec.depth) * 0.5 + 0.5;
+    assert.ok(bus.mesh.position.z <= cone.mesh.position.z - safeGap,
+      `bus overlapped cone with delta ${delta}: ${bus.mesh.position.z} / ${cone.mesh.position.z}`);
+    assert.ok(bus.currentApproachSpeed < bus.approachSpeed, 'bus never reacted to traffic ahead');
+    assert.equal(bus.mesh.userData.trafficBraking, true);
+  }
+});
+
+test('Colombo adds traffic without closing the planner free lane or mutating patterns', () => {
+  const pattern = { id: 8, obstacles: [], coins: [], freeLane: 1, requiredAction: null };
+  const colombo = new ObstacleSpawner(new THREE.Scene());
+  colombo.setDistrict('colombo');
+  colombo.spawnPattern(pattern, -60);
+  const cityRows = colombo.getRowEntries(8).filter((entry) => entry.type === 'obstacle');
+  assert.equal(cityRows.length, 2);
+  assert.equal(cityRows.some((entry) => entry.lane === 1), false);
+  assert.equal(cityRows.every((entry) => !entry.oncoming), true);
+  assert.equal(pattern.obstacles.length, 0);
+
+  const kandy = new ObstacleSpawner(new THREE.Scene());
+  kandy.setDistrict('kandy');
+  kandy.spawnPattern(pattern, -60);
+  assert.equal(kandy.getRowEntries(8).filter((entry) => entry.type === 'obstacle').length, 0);
+});

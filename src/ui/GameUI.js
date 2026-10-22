@@ -25,13 +25,6 @@ export class GameUI {
     byId('pause-menu-button').addEventListener('click', actions.menu);
     byId('gameover-menu-button').addEventListener('click', actions.menu);
     byId('mute-button').addEventListener('click', actions.mute);
-    byId('touch-controls').querySelectorAll('button[data-action]').forEach((button) => {
-      button.addEventListener('pointerdown', (event) => {
-        event.preventDefault();
-        actions.control?.(button.dataset.action);
-        if (navigator.vibrate) navigator.vibrate(8);
-      }, { passive: false });
-    });
   }
 
   hideScreens() {

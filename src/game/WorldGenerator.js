@@ -24,10 +24,12 @@ import {
 } from '../art/Environment.js';
 import { mulberry32 } from './Random.js';
 import { advanceSectionCenter } from './RoadMath.js';
-import { themeForDistance, themeForSequence, themeSectionIndex, THEME_SECTIONS } from './EnvironmentThemes.js';
+import { isThemeTunnel, isTransitionTunnelSection, themeForDistance, themeForSequence, themeSectionIndex, THEME_SECTIONS } from './EnvironmentThemes.js';
 import { createDistrictLandmark, createLandscapeStrip, createTunnelSection } from '../art/Landmarks.js';
 import { batchStaticGroup, disposeBatchedGeometry } from '../art/StaticBatcher.js';
 import { createDistrictGateway, createSriLankanRoadside } from '../art/Roadside.js';
+import { createDistrictSideFill } from '../art/DistrictDetail.js';
+import { createElephant, updateElephant } from '../art/Elephant.js';
 
 export class WorldGenerator {
   constructor(scene) {
@@ -39,6 +41,7 @@ export class WorldGenerator {
     this.pendingScenery = [];
     this.rebuildCount = 0;
     this.travelled = 0;
+    this.animationTime = 0;
     this.groundTarget = new THREE.Color();
 
     this.ground = box(this.group, [150, 0.35, 370], [0, -0.175, -85], 0x68845a, {
@@ -118,10 +121,11 @@ export class WorldGenerator {
 
     const theme = themeForSequence(sequence);
     const localIndex = themeSectionIndex(sequence);
-    const isTunnel = Boolean(theme.tunnelSections?.includes(localIndex));
+    const isTunnel = isThemeTunnel(theme, localIndex);
+    const transitionTunnel = isTransitionTunnelSection(localIndex);
     const landmarkSide = Math.floor(sequence / THEME_SECTIONS) % 2 ? -1 : 1;
-    const landmarkId = localIndex === 1 ? theme.landmark : localIndex === 0 ? theme.approachLandmark : null;
-    const activeLandmarkSide = localIndex === 0 && theme.approachLandmark ? -landmarkSide : landmarkSide;
+    const landmarkId = localIndex === 1 ? theme.landmark : localIndex === 0 ? theme.approachLandmark : localIndex === 4 ? theme.featureLandmark : null;
+    const activeLandmarkSide = (localIndex === 0 && theme.approachLandmark) || localIndex === 4 ? -landmarkSide : landmarkSide;
     const stripSide = landmarkId ? -activeLandmarkSide : sequence % 2 ? 1 : -1;
     const residential = ['suburb', 'garden', 'tea', 'ancient', 'palmyrah'].includes(theme.layout);
     const hasLandscapeStrip = ['tea', 'rail', 'coast', 'fort', 'hill', 'ancient', 'palmyrah'].includes(theme.layout);
@@ -129,16 +133,20 @@ export class WorldGenerator {
     section.userData.tunnel = isTunnel;
     section.userData.landmark = localIndex === 1 ? theme.landmark : null;
     section.userData.approachLandmark = localIndex === 0 ? theme.approachLandmark || null : null;
-    const nextTheme = localIndex === THEME_SECTIONS - 1 ? themeForSequence(sequence + 1) : null;
+    section.userData.featureLandmark = localIndex === 4 ? theme.featureLandmark || null : null;
+    section.userData.animatedScenery = [];
+    const nextTheme = transitionTunnel ? themeForSequence(sequence + THEME_SECTIONS - localIndex) : null;
     const nextLandmarkSide = Math.floor((sequence + 1) / THEME_SECTIONS) % 2 ? -1 : 1;
     const approachVistaSide = nextTheme?.approachLandmark ? -nextLandmarkSide : null;
     const random = mulberry32(9203 + sequence * 97);
     const variant = sequence * 7;
+    const elephantSide = theme.id === 'anuradhapura' && localIndex % 6 === 3 && !isTunnel
+      ? (Math.floor(localIndex / 6) % 2 ? 1 : -1) : null;
 
     for (const side of [-1, 1]) {
       const z = -5 + random() * 9 + (side > 0 ? 2 : -1);
-      if ((landmarkId && side === activeLandmarkSide) || side === approachVistaSide) {
-        // Reserve grounded landmark footprints and a clear view from the prior district.
+      if (isTunnel || (landmarkId && side === activeLandmarkSide) || side === approachVistaSide || side === elephantSide) {
+        // Keep tunnel interiors and grounded landmark sightlines free of buildings.
       } else if (residential || (['hill', 'rail'].includes(theme.layout) && sequence % 2 === 0)) {
         const house = createHouse(variant + (side > 0 ? 2 : 0));
         house.position.set(side * (10.2 + random()), 0.02, z);
@@ -180,12 +188,6 @@ export class WorldGenerator {
         vegetation.position.set(side * (7.2 + random() * 1.1), 0, -12 + random() * 24);
         scenery.add(vegetation);
       }
-      if (!(landmarkId && side === activeLandmarkSide) && side !== approachVistaSide
-        && (!hasLandscapeStrip || side !== stripSide) && (theme.layout !== 'market' || sequence % 2 === 0)) {
-        const tree = createTree(0.65 + random() * 0.25, sequence + (side > 0 ? 2 : 0));
-        tree.position.set(side * (13 + random() * 3), 0, -10 + random() * 20);
-        scenery.add(tree);
-      }
       if (!isTunnel) {
         const light = createStreetlight(side);
         light.position.set(side * 6.48, 0.16, side > 0 ? -10 : 10);
@@ -197,6 +199,9 @@ export class WorldGenerator {
         parked.position.set(side * 8.1, 0.02, 11 - random() * 4);
         parked.rotation.y = side > 0 ? 0.08 : -0.08;
         scenery.add(parked);
+      }
+      if (!isTunnel && side !== approachVistaSide && !(landmarkId && side === activeLandmarkSide)) {
+        scenery.add(createDistrictSideFill(theme.id, side, sequence));
       }
     }
 
@@ -277,17 +282,31 @@ export class WorldGenerator {
       }
     }
     if (isTunnel) {
+      const portalStart = transitionTunnel
+        ? localIndex === THEME_SECTIONS - 2
+        : localIndex === theme.tunnelSections[0];
+      const portalEnd = transitionTunnel
+        ? localIndex === THEME_SECTIONS - 1
+        : localIndex === theme.tunnelSections[theme.tunnelSections.length - 1];
       const tunnel = createTunnelSection(ROAD.sectionLength, {
-        portalStart: localIndex === theme.tunnelSections[0],
-        portalEnd: localIndex === theme.tunnelSections[theme.tunnelSections.length - 1],
+        portalStart, portalEnd,
+        sign: transitionTunnel && nextTheme ? `${nextTheme.name} • NEXT CITY` : 'HILL COUNTRY TUNNEL',
       });
       scenery.add(tunnel);
     }
     batchStaticGroup(scenery, { freeze: true });
+    if (elephantSide) {
+      const elephant = createElephant(sequence);
+      elephant.position.set(elephantSide * 10.1, 0, 1.5);
+      elephant.rotation.y = -elephantSide * Math.PI / 2 + 0.22;
+      scenery.add(elephant);
+      section.userData.animatedScenery.push(elephant);
+    }
   }
 
   reset() {
     this.travelled = 0;
+    this.animationTime = 0;
     this.nextSequence = ROAD.sectionCount;
     this.pendingScenery.length = 0;
     this.updateBackdrop(themeForSequence(0));
@@ -300,6 +319,7 @@ export class WorldGenerator {
   update(delta, speed) {
     const travel = speed * delta;
     this.travelled += travel;
+    this.animationTime += delta;
     for (const section of this.sections) {
       const previous = section.position.z;
       section.position.z = advanceSectionCenter(previous, travel);
@@ -319,6 +339,9 @@ export class WorldGenerator {
     this.updateBackdrop(theme);
     this.groundTarget.set(theme.ground);
     this.ground.material.color.lerp(this.groundTarget, Math.min(1, delta * 1.5));
+    for (const section of this.sections) {
+      for (const elephant of section.userData.animatedScenery || []) updateElephant(elephant, this.animationTime);
+    }
   }
 
   getCurrentTheme() {
@@ -335,6 +358,7 @@ export class WorldGenerator {
       activeSceneryGroups: this.sections.filter((section) => section.userData.scenery).length,
       pendingScenery: this.pendingScenery.length,
       rebuildCount: this.rebuildCount,
+      animatedElephants: this.sections.reduce((count, section) => count + (section.userData.animatedScenery?.length || 0), 0),
       travelled: this.travelled,
       theme: this.getCurrentTheme().id,
     };

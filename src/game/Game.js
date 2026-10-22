@@ -118,7 +118,7 @@ export class Game {
     this.elapsed = 0;
     this.lastTime = performance.now();
     this.currentTheme = null;
-    this.themeTargets = { sky: new THREE.Color(), fog: new THREE.Color() };
+    this.themeTargets = { sky: new THREE.Color(), fog: new THREE.Color(), fogNear: 82, fogFar: 285 };
     this.handleResize = () => this.resize();
     this.handleVisibility = () => {
       if (document.hidden && this.state === 'running') this.pause();
@@ -233,17 +233,24 @@ export class Game {
     if (this.currentTheme?.id !== theme.id) {
       const announce = Boolean(this.currentTheme && this.state === 'running');
       this.currentTheme = theme;
+      this.spawner.setDistrict(theme.id);
       this.themeTargets.sky.set(theme.sky);
       this.themeTargets.fog.set(theme.fog);
+      this.themeTargets.fogNear = theme.fogNear ?? 82;
+      this.themeTargets.fogFar = theme.fogFar ?? 285;
       this.ui.setDistrict(theme, announce);
     }
     if (delta === 0) {
       this.scene.background.copy(this.themeTargets.sky);
       this.scene.fog.color.copy(this.themeTargets.fog);
+      this.scene.fog.near = this.themeTargets.fogNear;
+      this.scene.fog.far = this.themeTargets.fogFar;
     } else {
       const blend = 1 - Math.exp(-delta * 0.75);
       this.scene.background.lerp(this.themeTargets.sky, blend);
       this.scene.fog.color.lerp(this.themeTargets.fog, blend);
+      this.scene.fog.near = THREE.MathUtils.lerp(this.scene.fog.near, this.themeTargets.fogNear, blend);
+      this.scene.fog.far = THREE.MathUtils.lerp(this.scene.fog.far, this.themeTargets.fogFar, blend);
     }
     this.graphics.setTheme(this.scene.background, this.scene.fog.color);
   }

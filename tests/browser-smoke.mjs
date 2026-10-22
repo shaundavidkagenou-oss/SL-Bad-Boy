@@ -334,7 +334,7 @@ try {
     const road = world.sections[0].children[0];
     const roadTop = road.position.y + road.scale.y / 2;
     if (roadTop <= groundTop) return false;
-    for (let step = 0; step < 6000; step += 1) {
+    for (let step = 0; step < 26000; step += 1) {
       world.update(1 / 60, 36);
       // Upload each district's signs during warm-up; the following stress run
       // must then retain a stable GPU footprint instead of measuring first use.
@@ -395,7 +395,7 @@ try {
         game.world.reset();
         const target = THEME_LENGTH * ENVIRONMENT_THEMES.length - 48;
         let guard = 0;
-        while (game.world.travelled < target && guard < 10000) {
+        while (game.world.travelled < target && guard < 30000) {
           game.world.update(1 / 60, 36);
           guard += 1;
         }
@@ -426,7 +426,7 @@ try {
       game.spawner.nextScooterIn = 100000;
       game.spawner.collisionEnabled = false;
       let guard = 0;
-      while (game.world.getCurrentTheme().id !== themeId && guard < 5000) {
+      while (game.world.getCurrentTheme().id !== themeId && guard < 30000) {
         game.world.update(1 / 60, 36);
         guard += 1;
       }
@@ -457,7 +457,7 @@ try {
       await page.screenshot({ path: `test-results/${theme}-tunnel.png` });
     }
   }
-  passed.push('all fourteen districts render with landmarks and both hill-country tunnel runs');
+  passed.push('all fourteen districts render with landmarks and city-transition tunnels');
   assert.equal(await page.evaluate(() => document.fonts.check('700 48px "Noto Sans Sinhala"', 'බස්')), true);
   assert.equal(await page.evaluate(() => document.fonts.check('700 48px "Noto Sans Tamil"', 'பேருந்து')), true);
   const signTexts = await page.evaluate(() => {
@@ -511,22 +511,23 @@ try {
   assert.equal(mobileGraphics.clouds, 2);
   assert.equal(mobileGraphics.bump, false);
   assert.ok(mobileGraphics.pixelRatio <= 1.01);
-  assert.equal(mobileGraphics.anatomy, 'lathe-torso-capsule-limbs-shaped-head');
+  assert.equal(mobileGraphics.anatomy, 'continuous-skinned-limbs-lathe-torso-shaped-head');
   await page.screenshot({ path: 'test-results/mobile-gameplay.png' });
   passed.push('portrait mobile layout and touch controls use direct shadow-free, low-cost rendering');
   passed.push(`mobile quality capped pixel ratio, MSAA, HDR/bloom, bump maps and clouds (${mobileGraphics.drawCalls} software-renderer draw calls)`);
 
-  await page.click('#touch-controls button[data-action="left"]');
+  assert.equal(await page.$('#touch-controls'), null);
+  await swipe(195, 420, 95, 420);
   await waitForFunction(() => window.__LANKA_RUN__.player.lane === 0);
-  await page.click('#touch-controls button[data-action="right"]');
+  await swipe(95, 420, 195, 420);
   await waitForFunction(() => window.__LANKA_RUN__.player.lane === 1);
-  await page.click('#touch-controls button[data-action="jump"]');
+  await swipe(195, 450, 195, 330);
   await waitForFunction(() => window.__LANKA_RUN__.player.group.position.y > 0.5);
   await waitForFunction(() => window.__LANKA_RUN__.player.group.position.y === 0);
-  await page.click('#touch-controls button[data-action="slide"]');
+  await swipe(195, 330, 195, 450);
   await waitForFunction(() => window.__LANKA_RUN__.player.sliding);
   await waitForFunction(() => !window.__LANKA_RUN__.player.sliding);
-  passed.push('on-screen mobile left, right, jump and slide buttons drive the live player');
+  passed.push('mobile swipes drive left, right, jump and slide with no bottom control buttons');
 
   await page.evaluate(() => {
     const game = window.__LANKA_RUN__;

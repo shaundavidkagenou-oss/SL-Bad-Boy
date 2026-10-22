@@ -14,7 +14,7 @@ export function configureSurfaceQuality({ bump = true, anisotropy = 4 } = {}) {
 }
 
 export function material(color, options = {}) {
-  if (options.surface && typeof document !== 'undefined') return surfaceMaterial(options.surface, color);
+  if (options.surface && typeof document !== 'undefined') return surfaceMaterial(options.surface, color, options);
   const key = JSON.stringify([color, options.roughness ?? 0.82, options.metalness ?? 0,
     options.emissive ?? 0, options.emissiveIntensity ?? 0, options.side ?? THREE.FrontSide,
     options.flatShading ?? false]);
@@ -35,7 +35,8 @@ export function material(color, options = {}) {
 function surfaceTexture(name, bump = false) {
   const cacheKey = `${name}:${bump ? 'height' : 'color'}:${surfaceQuality.anisotropy}`;
   if (surfaceTextureCache.has(cacheKey)) return surfaceTextureCache.get(cacheKey);
-  const size = 256;
+  const size = bump ? 256 : 512;
+  const densityScale = (size / 256) ** 2;
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
@@ -47,7 +48,7 @@ function surfaceTexture(name, bump = false) {
     seed = (seed * 16807) % 2147483647;
     return seed / 2147483647;
   };
-  const dots = name === 'asphalt' ? 5200 : name === 'grass' ? 2800 : name === 'water' ? 250 : 950;
+  const dots = (name === 'asphalt' ? 5200 : name === 'grass' ? 2800 : name === 'foliage' ? 5200 : name === 'water' ? 250 : 950) * densityScale;
   for (let i = 0; i < dots; i += 1) {
     const shade = bump ? 90 + Math.floor(random() * 85) : 155 + Math.floor(random() * 96);
     context.fillStyle = bump
@@ -81,6 +82,17 @@ function surfaceTexture(name, bump = false) {
       context.beginPath();
       context.moveTo(x, y + 2);
       context.lineTo(x + (random() - 0.5) * 2, y - 2 - random() * 3);
+      context.stroke();
+    }
+  } else if (name === 'bark') {
+    for (let grain = 0; grain < 90 * densityScale; grain += 1) {
+      const x = random() * size;
+      const y = random() * size;
+      context.strokeStyle = bump ? 'rgba(45,45,45,.4)' : 'rgba(70,55,42,.24)';
+      context.lineWidth = 0.7 + random();
+      context.beginPath();
+      context.moveTo(x, y);
+      context.bezierCurveTo(x + 3, y + 8, x - 3, y + 17, x + 1, y + 28);
       context.stroke();
     }
   } else if (name === 'water') {
@@ -135,8 +147,9 @@ function surfaceTexture(name, bump = false) {
   texture.name = `Procedural ${cacheKey}`;
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
-  const repeats = name === 'asphalt' ? [2, 9] : name === 'grass' ? [18, 42]
-    : name === 'water' ? [3, 8] : name === 'roof' ? [3, 2] : [1, 3];
+  const repeats = name === 'asphalt' ? [2, 9] : name === 'grass' ? [5, 5]
+    : name === 'foliage' ? [3, 3] : name === 'bark' ? [2, 5]
+      : name === 'water' ? [3, 8] : name === 'roof' ? [3, 2] : [2, 3];
   texture.repeat.set(repeats[0], repeats[1]);
   texture.anisotropy = surfaceQuality.anisotropy;
   if (!bump) texture.colorSpace = THREE.SRGBColorSpace;
@@ -144,18 +157,20 @@ function surfaceTexture(name, bump = false) {
   return texture;
 }
 
-function surfaceMaterial(name, color) {
-  const key = `surface:${name}:${color}:${surfaceQuality.bump}:${surfaceQuality.anisotropy}`;
+function surfaceMaterial(name, color, options = {}) {
+  const defaultRoughness = name === 'water' ? 0.2 : name === 'asphalt' || name === 'grass' ? 0.91 : 0.84;
+  const key = `surface:${name}:${color}:${surfaceQuality.bump}:${surfaceQuality.anisotropy}:${options.roughness ?? defaultRoughness}:${options.side ?? THREE.FrontSide}`;
   if (!materialCache.has(key)) {
     materialCache.set(key, new THREE.MeshStandardMaterial({
       color,
       map: surfaceTexture(name),
       bumpMap: surfaceQuality.bump ? surfaceTexture(name, true) : null,
       bumpScale: surfaceQuality.bump ? (name === 'water' ? 0.075 : name === 'asphalt' ? 0.055 : 0.035) : 0,
-      roughness: name === 'water' ? 0.2 : name === 'asphalt' || name === 'grass' ? 0.91 : 0.84,
-      metalness: name === 'water' ? 0.12 : 0,
+      roughness: options.roughness ?? defaultRoughness,
+      metalness: options.metalness ?? (name === 'water' ? 0.12 : 0),
+      side: options.side ?? THREE.FrontSide,
       envMapIntensity: name === 'water' ? 1.1 : name === 'asphalt' || name === 'grass' ? 0.32 : 0.5,
-      flatShading: false,
+      flatShading: options.flatShading ?? false,
     }));
   }
   return materialCache.get(key);

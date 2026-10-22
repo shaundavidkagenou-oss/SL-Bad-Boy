@@ -1,6 +1,6 @@
 # SL BAD BOY — Schoolboy Rush
 
-An original 3D Sri Lankan endless runner for **web and Android**, built with **Three.js, JavaScript, Vite and Capacitor**. It includes fourteen long themed districts, original approach and main landmark scenery, hill-country tunnels, organic articulated characters, a Sri Lankan police pursuit, a 10-second 1.2× scooter boost, fair speed-scaled traffic, touch buttons/gestures and synthesized audio. Models, textures, signs and sounds are generated locally; the Android launcher and native splash use the supplied SL BAD BOY poster artwork. No branded game assets, CDN scripts or copyrighted Subway Surfers content are used.
+An original 3D Sri Lankan endless runner for **web and Android**, built with **Three.js, JavaScript, Vite and Capacitor**. It includes fourteen long themed districts, original approach and main landmark scenery, hill-country tunnels, continuous skinned characters, a Sri Lankan police pursuit, a 10-second 1.2× scooter boost, fair speed-scaled traffic, direct swipe gestures and synthesized audio. Models, textures, signs and sounds are generated locally; the Android launcher and native splash use the supplied SL BAD BOY poster artwork. No branded game assets, CDN scripts or copyrighted Subway Surfers content are used.
 
 ## Android APK
 
@@ -69,7 +69,6 @@ The static production site is generated in `dist/`. Serve it over HTTP rather th
 | Enter | Play, resume or restart from the relevant screen |
 | Touch swipe left/right | Change lanes on touch devices |
 | Touch swipe up/down | Jump or slide on touch devices |
-| On-screen Left/Right/Jump/Slide buttons | Direct mobile controls during a run |
 | Android Back | Pause/resume; game over returns to menu; menu exits the app |
 
 Menus and the HUD pause button are clickable. The sound button toggles mute and remembers the preference. Audio is initialized only after user interaction to comply with browser autoplay rules. Android app backgrounding pauses an active run. The HUD, menus, loader and controls account for portrait/landscape layouts and display safe areas.
@@ -78,14 +77,15 @@ Menus and the HUD pause button are clickable. The sound button toggles mute and 
 
 ### Sri Lankan world
 
-- Fourteen naturally transitioning **240 m districts**: Colombo, Maharagama, Pettah, Kotte, Kandy, Kadugannawa, Nuwara Eliya, Ella, Galle, Negombo, Anuradhapura, Polonnaruwa, Jaffna and Trincomalee.
-- Original procedural landmarks including a visible **Colombo Fort approach**, Galle Face/Lotus Tower, Pettah Red Mosque/clock tower, Diyawanna parliament, Kandy temple/lake, Galle lighthouse, Nine Arches Bridge, tea country, railway scenery and Negombo lagoon. Anuradhapura and Polonnaruwa add distinct stupas/ancient pillars, Jaffna adds its fort/library and palmyrah landscape, and Trincomalee adds its harbor and Koneswaram hill temple.
-- Two consecutive-section tunnel runs in Kadugannawa and Ella, with portals, interior strip lights and camera-safe roof clearance.
-- Detailed commercial buildings with district-specific palettes, shopfronts, shutters, balconies, side windows, awnings, rooftop tanks and varied proportions.
+- Fourteen naturally transitioning **1,080 m districts** (about one minute at the 18 m/s reference cruise): Colombo, Maharagama, Pettah, Kotte, Kandy, Kadugannawa, Nuwara Eliya, Ella, Galle, Negombo, Anuradhapura, Polonnaruwa, Jaffna and Trincomalee.
+- Original procedural landmarks including a visible **Colombo Fort approach**, Galle Face, a large standalone Colombo Lotus Tower, Pettah Red Mosque/clock tower, Diyawanna parliament, Kandy temple/lake, Galle lighthouse, Nine Arches Bridge, tea country, railway scenery and Negombo lagoon. Anuradhapura and Polonnaruwa add distinct stupas/ancient pillars, Jaffna adds its fort/library and palmyrah landscape, and Trincomalee adds its harbor and Koneswaram hill temple.
+- A two-section transition tunnel at every city boundary, with a next-city portal sign, interior strip lights and camera-safe roof clearance; Kadugannawa and Ella retain their additional hill-country tunnel runs.
+- Detailed commercial buildings with district-specific palettes, shopfronts, shutters, balconies, side windows, awnings, rooftop tanks, rounded walls, drainpipes, AC units/fans, door hardware, planter boxes and varied proportions.
 - Residential houses, tiled roofs, verandas, boundary walls, gates and gardens.
 - Market stalls with striped awnings, crates and procedural produce.
-- Curved coconut and palmyrah palms with individual fronds, broad-leaf banana plants, branched tropical trees with irregular multi-cluster canopies, local advertising, bus shelters, pavements, drains, utility poles and continuous overhead wires.
+- Curved coconut and palmyrah palms with individual fronds, broad-leaf banana plants, branched tropical trees with twelve smooth textured canopy clusters, filled rear roadsides, shaped hill/forest terrain, local advertising, bus shelters, pavements, drains, utility poles and continuous overhead wires.
 - Decorative junctions, traffic lights, parked cars/vans/tuk-tuks, street bins, district welcome gateways and black-and-white road-edge posts. District-specific distant skylines include hills, tea shapes, water horizons, towers and stupas.
+- Kandy and the hill country add raised hillsides on both sides and close atmospheric fog. Anuradhapura uses a hot amber atmosphere, forest on both sides and detailed animated elephants with moving trunks, ears, heads, legs and tails. Colombo adds fair same-direction traffic density without removing the guaranteed free lane.
 - King-coconut carts, Buddhist-flag rows, Ceylon tea chests, fishing-net racks, temple flower offerings and palmyrah produce baskets add roadside detail outside gameplay lanes.
 - Sinhala roadside boards throughout ordinary road sections, plus district-matched shopfronts, road names, school-zone signs and bus destinations.
 - Selected signs use correct Sinhala, Tamil and English text with locally bundled Noto fonts and an English fallback.
@@ -93,13 +93,13 @@ Menus and the HUD pause button are clickable. The sound button toggles mute and 
 
 ### Character and traffic
 
-- Detailed organic schoolboy with a shaped torso/head, capsule limbs, connected shoulders, elbows, wrists, hips, knees and ankles, plus layered hair, rounded clothing, uniform, backpack, socks and shoes.
+- Detailed organic schoolboy with a smooth torso/head, four continuous weighted skinned limb meshes, connected shoulders, elbows, wrists, hips, knees and ankles, plus layered hair, rounded clothing, uniform, backpack, socks and shoes.
 - Continuous running/control animation with foot roll, head movement, backpack bounce, jump tuck, landing compression, lean-back slide, lane-change lean and collision stumble. The former menu wave and coin arm celebration are intentionally removed.
 - Original Sri Lankan police officer in a khaki uniform, navy peaked cap, belt and boots, with detailed facial features, fingers, collar, seams, pockets, pouches, radio, boot laces and Sinhala/English back patch.
 - Pelvis/torso counter-motion, heel-to-toe movement, baton follow-through, a pursuit point, split-leg hurdles, landing compression, braced slides and a catch-breath stop reaction.
 - The officer is hidden on the menu, sprints in when the run starts, follows at the player's shoulder and reacts to road hazards. He never catches the player or causes a collision; a scooter boost lets him fall far behind before he returns.
 - Red-and-white public buses and four colourful private-bus palettes with windshields, doors, windows, trim, lights, mirrors and destination boards.
-- A deterministic subset of buses approaches under its own power with extra following space and swept collision coverage; other traffic retains road speed.
+- A deterministic subset of buses approaches under its own power with predictive same-lane braking, safe separation from vehicles/obstacles and swept player-collision coverage; other traffic retains road speed. Low-FPS steps use the same separation constraint.
 - Cars, a compact van, improved three-wheeled tuk-tuks and travel-driven wheel rotation.
 - Original obstacle models remain matched to the Phase 1 collision dimensions and fair spawn patterns.
 
@@ -151,12 +151,14 @@ src/styles.css                 Responsive desktop/mobile interface
 src/config.js                  Lane, physics and collider constants
 src/art/MeshKit.js             Shared geometry, procedural surfaces and sign textures
 src/art/StaticBatcher.js       Vertex-color static/rigid batching and owned disposal
-src/art/Schoolboy.js           Original detailed articulated schoolboy
+src/art/Schoolboy.js           Original continuous-skinned articulated schoolboy
 src/art/Scooter.js             Original rideable scooter and wheel assemblies
 src/art/Policeman.js           Original uniformed Sri Lankan police officer
 src/art/Vehicles.js            Original buses, cars, van, tuk-tuks and hazards
 src/art/Environment.js         Themed buildings, signs and street furniture
-src/art/Vegetation.js           Organic trees, coconut/palmyrah palms and banana plants
+src/art/Vegetation.js           Layered organic trees, coconut/palmyrah palms and banana plants
+src/art/DistrictDetail.js       Filled roadside terrain, rear buildings and forest placement
+src/art/Elephant.js             Detailed articulated elephant and continuous animation
 src/art/Roadside.js             Sri Lankan carts, offerings, flags and district gateways
 src/art/DistrictBackdrop.js     District-specific distant skylines and landscapes
 src/art/Landmarks.js           District landmarks, landscape strips and tunnels
@@ -190,7 +192,7 @@ npm test
 npm run build
 ```
 
-The suite retains the original physics, scoring, collision and persistence assertions and adds longer district scheduling, all landmark builders, consecutive tunnels, bounded geometry across repeated district cycles, speed-tier fairness, touch gestures, lazy audio, travel-driven wheels, absence of the schoolboy gestures, scooter pickup/duration/reset/shield behavior, literal 1.2× speed, police sprint/separation/return behavior, vertex-color batch/disposal, fixed effect pools, software-GPU detection, Android Back behavior and duplicate-listener prevention.
+The suite retains the original physics, scoring, collision and persistence assertions and adds longer district scheduling, all landmark builders, consecutive tunnels, bounded geometry across repeated district cycles, speed-tier fairness, predictive bus separation at normal and low FPS, touch gestures without bottom buttons, continuous skin deformation, animated elephants, lazy audio, travel-driven wheels, absence of the schoolboy gestures, scooter pickup/duration/reset/shield behavior, literal 1.2× speed, police sprint/separation/return behavior, vertex-color batch/disposal, fixed effect pools, software-GPU detection, Android Back behavior and duplicate-listener prevention.
 
 The optional real Chromium/WebGL suite starts its own Vite server:
 
@@ -199,6 +201,6 @@ npm install --no-save --package-lock=false puppeteer-core@25.15.0 @sparticuz/chr
 npm run test:browser
 ```
 
-It checks the five-second studio intro and desktop/mobile wordmark bounds, startup with no idle officer, audio unlock/mute, keyboard, real dispatched touch gestures and on-screen mobile buttons, regular and oncoming traffic, detailed police pursuit and pointing, coin pickup without an arm gesture, live scooter pickup and exact 1.2× speed, shield contact, natural expiry and police return, jump/slide collision behavior, game over, pause/resume, clean restart, saved best score, road/ground ordering, every district and both tunnel runs, real Sinhala sign meshes and local fonts, portrait mobile/HUD layout, a batched-scene draw-call ceiling, and 7,200 metres of themed recycling with stable scene/GPU resource counts. Screenshots are written to the ignored `test-results/` directory.
+It checks the five-second studio intro and desktop/mobile wordmark bounds, startup with no idle officer, audio unlock/mute, keyboard, real dispatched touch gestures with no bottom direction buttons, regular and oncoming traffic, detailed police pursuit and pointing, coin pickup without an arm gesture, live scooter pickup and exact 1.2× speed, shield contact, natural expiry and police return, jump/slide collision behavior, game over, pause/resume, clean restart, saved best score, road/ground ordering, every district and city-transition tunnels, real Sinhala sign meshes and local fonts, portrait mobile/HUD layout, a batched-scene draw-call ceiling, and 7,200 metres of themed recycling with stable scene/GPU resource counts. Screenshots are written to the ignored `test-results/` directory.
 
 To use an installed Chrome/Chromium instead of the optional package, set `CHROME_PATH` to its executable. The resource stress test and software-WebGL screenshots are not hardware-specific GTX 1660 Super or physical-mobile frame-rate benchmarks. Native APK compilation/package validation is separate from physical-device audio, lifecycle and FPS validation.

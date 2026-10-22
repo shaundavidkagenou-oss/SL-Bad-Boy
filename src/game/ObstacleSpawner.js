@@ -24,6 +24,12 @@ export class ObstacleSpawner {
     this.nextSpawnIn = 30;
     this.nextScooterIn = 320;
     this.collisionEnabled = true;
+    this.district = 'colombo';
+    this.trafficOrder = [];
+  }
+
+  setDistrict(themeId) {
+    this.district = themeId || 'colombo';
   }
 
   clear() {
@@ -49,7 +55,18 @@ export class ObstacleSpawner {
 
   spawnPattern(pattern, z) {
     let approachSpeed = 0;
-    for (const obstacle of pattern.obstacles) {
+    const obstacles = pattern.obstacles.map((obstacle) => ({ ...obstacle }));
+    // Colombo is busier, never less fair: only add same-direction traffic to
+    // non-action rows and preserve the planner's guaranteed free lane.
+    if (this.district === 'colombo' && !pattern.requiredAction && Number.isInteger(pattern.freeLane)) {
+      const trafficKinds = ['public-bus', 'car', 'private-bus', 'tuk-tuk'];
+      for (const lane of [0, 1, 2]) {
+        if (obstacles.length >= 2) break;
+        if (lane === pattern.freeLane || obstacles.some((obstacle) => obstacle.lane === lane)) continue;
+        obstacles.push({ kind: trafficKinds[Math.abs(pattern.id * 3 + lane) % trafficKinds.length], lane, oncoming: false });
+      }
+    }
+    for (const obstacle of obstacles) {
       const entry = this.spawnObstacle(obstacle.kind, obstacle.lane, z, pattern.id, { oncoming: obstacle.oncoming });
       approachSpeed = Math.max(approachSpeed, entry.approachSpeed);
     }
@@ -73,7 +90,7 @@ export class ObstacleSpawner {
     const approachSpeed = oncoming ? 5 + Math.abs(rowId + lane) % 3 : 0;
     mesh.userData.oncoming = oncoming;
     this.group.add(mesh);
-    const entry = { type: 'obstacle', kind, lane, rowId, spec, mesh, oncoming, approachSpeed };
+    const entry = { type: 'obstacle', kind, lane, rowId, spec, mesh, oncoming, approachSpeed, currentApproachSpeed: approachSpeed };
     this.entries.push(entry);
     return entry;
   }
@@ -125,15 +142,40 @@ export class ObstacleSpawner {
     return collider;
   }
 
+  updateTrafficFlow(delta) {
+    this.trafficOrder.length = 0;
+    for (const entry of this.entries) {
+      if (entry.type === 'obstacle') this.trafficOrder.push(entry);
+    }
+    this.trafficOrder.sort((a, b) => b.mesh.position.z - a.mesh.position.z);
+    const nearestAhead = [null, null, null];
+    const step = Math.max(delta, 1 / 240);
+    for (const entry of this.trafficOrder) {
+      let flowSpeed = entry.oncoming ? entry.approachSpeed : 0;
+      const ahead = nearestAhead[entry.lane];
+      if (flowSpeed > 0 && ahead) {
+        const safeGap = (entry.spec.depth + ahead.spec.depth) * 0.5 + 0.55;
+        const gap = ahead.mesh.position.z - entry.mesh.position.z;
+        const aheadFlow = ahead.currentApproachSpeed || 0;
+        const gapLimitedFlow = aheadFlow + (gap - safeGap) / step;
+        flowSpeed = Math.max(0, Math.min(flowSpeed, gapLimitedFlow));
+      }
+      entry.currentApproachSpeed = flowSpeed;
+      entry.mesh.userData.trafficBraking = entry.oncoming && flowSpeed < entry.approachSpeed - 0.01;
+      nearestAhead[entry.lane] = entry;
+    }
+  }
+
   update(delta, speed, player) {
     const travel = speed * delta;
+    this.updateTrafficFlow(delta);
     this.nextSpawnIn -= travel;
     if (!player.scooterActive) this.nextScooterIn -= travel;
     const playerCollider = player.getCollider();
 
     for (let index = this.entries.length - 1; index >= 0; index -= 1) {
       const entry = this.entries[index];
-      const entryTravel = travel + (entry.approachSpeed || 0) * delta;
+      const entryTravel = travel + (entry.currentApproachSpeed || 0) * delta;
       entry.mesh.position.z += entryTravel;
 
       if (entry.type === 'coin') {

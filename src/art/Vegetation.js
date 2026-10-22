@@ -12,7 +12,7 @@ function branch(parent, start, end, radiusStart, radiusEnd, color, segments = 8)
   const length = direction.length();
   const midpoint = from.clone().add(to).multiplyScalar(0.5);
   const mesh = cylinder(parent, [radiusEnd, radiusStart], length, midpoint.toArray(), color, {
-    segments, roughness: 0.94,
+    segments, roughness: 0.94, surface: 'bark',
   });
   mesh.quaternion.setFromUnitVectors(Y_AXIS, direction.normalize());
   return mesh;
@@ -56,7 +56,7 @@ function leafGeometry(kind) {
 function canopyGeometry(variant) {
   const slot = Math.abs(variant) % 4;
   if (canopyGeometries[slot]) return canopyGeometries[slot];
-  const geometry = new THREE.IcosahedronGeometry(1, 1);
+  const geometry = new THREE.IcosahedronGeometry(1, 2);
   const positions = geometry.attributes.position;
   for (let index = 0; index < positions.count; index += 1) {
     const x = positions.getX(index);
@@ -155,36 +155,38 @@ export function createBananaPlant(scale = 1, variant = 0) {
 
 export function createTree(scale = 1, variant = 0) {
   const tree = new THREE.Group();
-  tree.name = 'Organic tropical tree with branching canopy';
+  tree.name = 'Layered tropical tree with textured bark and leaf clusters';
   tree.userData.vegetation = 'branched-canopy';
   const bark = variant % 2 ? 0x69503a : 0x76573c;
-  branch(tree, [0, 0, 0], [0.08, 1.45, 0.03], 0.32, 0.22, bark, 9);
-  branch(tree, [0.08, 1.4, 0.03], [-0.08, 2.65, 0.08], 0.22, 0.13, bark, 9);
-  for (let index = 0; index < 3; index += 1) {
-    const angle = index * Math.PI * 2 / 3 + variant;
-    branch(tree, [0, 0.16, 0], [Math.cos(angle) * 0.65, 0.02, Math.sin(angle) * 0.65], 0.13, 0.045, bark, 7);
+  branch(tree, [0, 0, 0], [0.08, 1.45, 0.03], 0.32, 0.22, bark, 12);
+  branch(tree, [0.08, 1.4, 0.03], [-0.08, 2.65, 0.08], 0.22, 0.13, bark, 12);
+  for (let index = 0; index < 4; index += 1) {
+    const angle = index * Math.PI * 2 / 4 + variant;
+    branch(tree, [0, 0.16, 0], [Math.cos(angle) * 0.68, 0.02, Math.sin(angle) * 0.68], 0.13, 0.04, bark, 9);
   }
   const crowns = [
-    [-1.05, 2.85, 0.2, 0.95], [0.95, 3.05, -0.35, 1.05],
-    [-0.35, 3.55, -0.8, 1.1], [0.35, 3.8, 0.35, 1.08],
-    [0.95, 3.55, 0.85, 0.83], [-0.95, 3.45, 0.9, 0.88],
-    [0.05, 4.35, -0.05, 0.82],
+    [-1.15, 2.8, 0.15, 0.9], [1.0, 3.0, -0.4, 1.0],
+    [-0.45, 3.45, -0.95, 1.02], [0.35, 3.75, 0.3, 1.08],
+    [1.1, 3.45, 0.8, 0.84], [-1.05, 3.4, 0.95, 0.88],
+    [0.05, 4.3, -0.05, 0.88], [-0.5, 4.05, 0.85, 0.72],
+    [0.75, 4.0, -0.75, 0.74], [-1.35, 3.35, -0.55, 0.68],
+    [1.35, 3.25, 0.2, 0.7], [0.1, 3.25, 1.25, 0.74],
   ];
   const greens = [0x2c7041, 0x3b8748, 0x26643a, 0x4a8b45];
   crowns.forEach(([x, y, z, radius], index) => {
-    branch(tree, [-0.05, 2.15 + (index % 2) * 0.25, 0.04], [x * 0.82, y - 0.25, z * 0.82],
-      0.11, 0.035, bark, 7);
-    const canopy = new THREE.Mesh(canopyGeometry(variant + index), material(greens[(variant + index) % greens.length], {
-      roughness: 0.92, flatShading: false,
+    branch(tree, [-0.05, 2.1 + (index % 3) * 0.18, 0.04], [x * 0.84, y - 0.24, z * 0.84],
+      0.105, 0.026, bark, 9);
+    const canopy = new THREE.Mesh(canopyGeometry(variant + index), material(greens[Math.abs(variant + index) % greens.length], {
+      roughness: 0.9, flatShading: false, surface: 'foliage',
     }));
     canopy.position.set(x, y, z);
-    canopy.scale.set(radius * 1.15, radius * (0.78 + (index % 3) * 0.08), radius);
+    canopy.scale.set(radius * 1.15, radius * (0.8 + (index % 3) * 0.07), radius);
     canopy.rotation.set(index * 0.31, variant * 0.47 + index, index * 0.12);
     tree.add(canopy);
   });
   if (variant % 5 === 4) {
-    for (const [x, y, z] of [[-0.7, 3.8, 0.8], [0.45, 4.25, 0.55], [1.0, 3.35, 0.35]]) {
-      sphere(tree, 0.13, [x, y, z], 0xe69aaf, { widthSegments: 7, heightSegments: 5 });
+    for (const [x, y, z] of [[-0.7, 3.8, 0.8], [0.45, 4.25, 0.55], [1.0, 3.35, 0.35], [-1.1, 3.2, -0.4]]) {
+      sphere(tree, 0.13, [x, y, z], 0xe69aaf, { widthSegments: 10, heightSegments: 7 });
     }
   }
   tree.scale.setScalar(scale);

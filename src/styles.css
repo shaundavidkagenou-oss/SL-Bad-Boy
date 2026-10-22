@@ -204,15 +204,7 @@ body.scooter-active .vignette { box-shadow: inset 0 0 90px rgba(51,238,222,.22);
 .coin-pill { transform-origin: center; }
 .coin-icon { display: inline-flex; align-items: center; justify-content: center; width: 25px; height: 25px; border: 3px solid #ffe179; border-radius: 50%; background: #d99617; color: #ffcf43; font-size: 15px; box-shadow: inset 0 0 0 2px #b77712, 0 2px 5px rgba(0,0,0,.25); }
 
-.touch-controls { position: absolute; z-index: 8; left: 0; right: 0; bottom: max(16px, env(safe-area-inset-bottom)); display: none; justify-content: space-between; padding-left: max(14px, env(safe-area-inset-left)); padding-right: max(14px, env(safe-area-inset-right)); pointer-events: none; }
-.touch-control-group { display: flex; gap: 10px; pointer-events: auto; }
-.touch-controls button { width: 58px; height: 58px; padding: 5px 0 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,.28); border-radius: 16px; color: #fff8e7; background: linear-gradient(145deg, rgba(21,29,58,.84), rgba(23,62,69,.78)); box-shadow: 0 5px 18px rgba(0,0,0,.25), inset 0 1px rgba(255,255,255,.12); touch-action: none; }
-.touch-controls button:active { color: var(--navy); background: var(--gold); transform: translateY(2px); }
-.touch-controls span { font-size: 24px; line-height: 1; }
-.touch-controls small { margin-top: 3px; font-size: 6px; font-weight: 800; letter-spacing: 1px; }
-
 @media (pointer: coarse) {
-  body[data-game-state="running"] .touch-controls { display: flex; }
   .touch-tip { display: block; }
   .controls, .menu-tip { display: none; }
   .primary-button kbd { display: none; }
