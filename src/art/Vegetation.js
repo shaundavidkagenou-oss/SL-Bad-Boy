@@ -1,9 +1,19 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { capsule, cone, cylinder, material, sphere } from './MeshKit.js';
 
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 const canopyGeometries = [];
+const treeCanopyGeometries = new Map();
 const leafGeometries = new Map();
+const TREE_CROWNS = [
+  [-1.15, 2.8, 0.15, 0.9], [1.0, 3.0, -0.4, 1.0],
+  [-0.45, 3.45, -0.95, 1.02], [0.35, 3.75, 0.3, 1.08],
+  [1.1, 3.45, 0.8, 0.84], [-1.05, 3.4, 0.95, 0.88],
+  [0.05, 4.3, -0.05, 0.88], [-0.5, 4.05, 0.85, 0.72],
+  [0.75, 4.0, -0.75, 0.74], [-1.35, 3.35, -0.55, 0.68],
+  [1.35, 3.25, 0.2, 0.7], [0.1, 3.25, 1.25, 0.74],
+];
 
 function branch(parent, start, end, radiusStart, radiusEnd, color, segments = 8) {
   const from = new THREE.Vector3(...start);
@@ -53,10 +63,12 @@ function leafGeometry(kind) {
   return geometry;
 }
 
-function canopyGeometry(variant) {
-  const slot = Math.abs(variant) % 4;
+function canopyGeometry(variant, detail = 1) {
+  const slot = Math.abs(variant) % 4 + detail * 4;
   if (canopyGeometries[slot]) return canopyGeometries[slot];
-  const geometry = new THREE.IcosahedronGeometry(1, 2);
+  // Smooth normals and mobile MSAA keep the silhouette clean. Distant fill
+  // trees use detail 0 while nearby trees retain the smoother detail-1 crown.
+  const geometry = new THREE.IcosahedronGeometry(1, detail);
   const positions = geometry.attributes.position;
   for (let index = 0; index < positions.count; index += 1) {
     const x = positions.getX(index);
@@ -68,6 +80,46 @@ function canopyGeometry(variant) {
   }
   geometry.computeVertexNormals();
   canopyGeometries[slot] = geometry;
+  return geometry;
+}
+
+function treeCanopyGeometry(variant, background) {
+  const shape = Math.abs(variant) % 4;
+  const key = `${background ? 'background' : 'near'}:${shape}`;
+  if (treeCanopyGeometries.has(key)) return treeCanopyGeometries.get(key);
+  const greens = [0x2c7041, 0x3b8748, 0x26643a, 0x4a8b45];
+  const pieces = [];
+  const matrix = new THREE.Matrix4();
+  const position = new THREE.Vector3();
+  const scale = new THREE.Vector3();
+  const rotation = new THREE.Euler();
+  const quaternion = new THREE.Quaternion();
+  TREE_CROWNS.forEach(([x, y, z, radius], index) => {
+    if (background && index >= 7) return;
+    const geometry = canopyGeometry(shape + index, background ? 0 : 1).clone();
+    position.set(x, y, z);
+    rotation.set(index * 0.31, shape * 0.47 + index, index * 0.12);
+    quaternion.setFromEuler(rotation);
+    scale.set(radius * 1.15, radius * (0.8 + (index % 3) * 0.07), radius);
+    matrix.compose(position, quaternion, scale);
+    geometry.applyMatrix4(matrix);
+    const color = new THREE.Color(greens[(shape + index) % greens.length]);
+    const colors = new Float32Array(geometry.attributes.position.count * 3);
+    for (let vertex = 0; vertex < geometry.attributes.position.count; vertex += 1) {
+      colors[vertex * 3] = color.r;
+      colors[vertex * 3 + 1] = color.g;
+      colors[vertex * 3 + 2] = color.b;
+    }
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    pieces.push(geometry);
+  });
+  const geometry = mergeGeometries(pieces, false);
+  if (!geometry) throw new Error(`Unable to combine ${key} tree canopy`);
+  pieces.forEach((piece) => piece.dispose());
+  geometry.computeBoundingSphere();
+  geometry.userData.canopyClusters = background ? 7 : TREE_CROWNS.length;
+  geometry.userData.lod = background ? 'background' : 'near';
+  treeCanopyGeometries.set(key, geometry);
   return geometry;
 }
 
@@ -153,10 +205,11 @@ export function createBananaPlant(scale = 1, variant = 0) {
   return plant;
 }
 
-export function createTree(scale = 1, variant = 0) {
+export function createTree(scale = 1, variant = 0, { background = false } = {}) {
   const tree = new THREE.Group();
   tree.name = 'Layered tropical tree with textured bark and leaf clusters';
   tree.userData.vegetation = 'branched-canopy';
+  tree.userData.lod = background ? 'background' : 'near';
   const bark = variant % 2 ? 0x69503a : 0x76573c;
   branch(tree, [0, 0, 0], [0.08, 1.45, 0.03], 0.32, 0.22, bark, 12);
   branch(tree, [0.08, 1.4, 0.03], [-0.08, 2.65, 0.08], 0.22, 0.13, bark, 12);
@@ -164,27 +217,25 @@ export function createTree(scale = 1, variant = 0) {
     const angle = index * Math.PI * 2 / 4 + variant;
     branch(tree, [0, 0.16, 0], [Math.cos(angle) * 0.68, 0.02, Math.sin(angle) * 0.68], 0.13, 0.04, bark, 9);
   }
-  const crowns = [
-    [-1.15, 2.8, 0.15, 0.9], [1.0, 3.0, -0.4, 1.0],
-    [-0.45, 3.45, -0.95, 1.02], [0.35, 3.75, 0.3, 1.08],
-    [1.1, 3.45, 0.8, 0.84], [-1.05, 3.4, 0.95, 0.88],
-    [0.05, 4.3, -0.05, 0.88], [-0.5, 4.05, 0.85, 0.72],
-    [0.75, 4.0, -0.75, 0.74], [-1.35, 3.35, -0.55, 0.68],
-    [1.35, 3.25, 0.2, 0.7], [0.1, 3.25, 1.25, 0.74],
-  ];
-  const greens = [0x2c7041, 0x3b8748, 0x26643a, 0x4a8b45];
-  crowns.forEach(([x, y, z, radius], index) => {
+  TREE_CROWNS.forEach(([x, y, z], index) => {
+    if (background && index > 6) return;
     branch(tree, [-0.05, 2.1 + (index % 3) * 0.18, 0.04], [x * 0.84, y - 0.24, z * 0.84],
       0.105, 0.026, bark, 9);
-    const canopy = new THREE.Mesh(canopyGeometry(variant + index), material(greens[Math.abs(variant + index) % greens.length], {
-      roughness: 0.9, flatShading: false, surface: 'foliage',
-    }));
-    canopy.position.set(x, y, z);
-    canopy.scale.set(radius * 1.15, radius * (0.8 + (index % 3) * 0.07), radius);
-    canopy.rotation.set(index * 0.31, variant * 0.47 + index, index * 0.12);
-    tree.add(canopy);
   });
-  if (variant % 5 === 4) {
+  // Combine each crown family once, not once per recycled road section. Vertex
+  // colors retain the four green tones while one shared textured material lets
+  // the section batcher merge every tree canopy into the same draw call.
+  const canopy = new THREE.Mesh(treeCanopyGeometry(variant, background), material(0xffffff, {
+    roughness: 0.9, flatShading: false, surface: 'foliage', vertexColors: true,
+  }));
+  canopy.name = 'Combined textured leaf clusters';
+  canopy.material.name = 'Four-tone textured tree canopy';
+  canopy.userData.canopy = true;
+  tree.add(canopy);
+  tree.userData.canopyClusters = background ? 7 : TREE_CROWNS.length;
+  tree.userData.canopyTriangles = canopy.geometry.index
+    ? canopy.geometry.index.count / 3 : canopy.geometry.attributes.position.count / 3;
+  if (!background && variant % 5 === 4) {
     for (const [x, y, z] of [[-0.7, 3.8, 0.8], [0.45, 4.25, 0.55], [1.0, 3.35, 0.35], [-1.1, 3.2, -0.4]]) {
       sphere(tree, 0.13, [x, y, z], 0xe69aaf, { widthSegments: 10, heightSegments: 7 });
     }

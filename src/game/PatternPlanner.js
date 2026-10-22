@@ -129,19 +129,16 @@ export class PatternPlanner {
       row = this.rowWithFreeLane(['public-bus', pick(this.random, ['car', 'tuk-tuk', 'cone'])]);
     }
 
-    if (tier > 0) {
-      for (const obstacle of row.obstacles) {
-        if (obstacle.kind !== 'public-bus' && obstacle.kind !== 'private-bus') continue;
-        obstacle.oncoming = tier === 3 || this.random() < 0.22 + tier * 0.16;
-      }
-    }
+    // Procedural vehicles keep road speed. Independently accelerating buses can
+    // catch earlier rows and turn a valid free-lane plan into a late roadblock.
+    for (const obstacle of row.obstacles) obstacle.oncoming = false;
     row.difficulty = tier;
     row.id = this.rowIndex - 1;
     return row;
   }
 
   spacingForSpeed(speed) {
-    return Math.max(25, speed * 0.95) + this.random() * 4;
+    return Math.max(30, speed * 1.15) + this.random() * 4;
   }
 }
 

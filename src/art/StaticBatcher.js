@@ -6,6 +6,9 @@ const relativeMatrix = new THREE.Matrix4();
 const sharedMaterials = new Map();
 
 function renderingMaterial(source) {
+  // Combined canopies already carry their palette in the color attribute.
+  // Preserve it instead of multiplying every vertex by a second flat color.
+  if (source.vertexColors) return { material: source, vertexColors: false };
   if (!source.isMeshStandardMaterial || source.map || source.bumpMap || source.normalMap
     || source.roughnessMap || source.metalnessMap || source.displacementMap
     || (source.emissiveIntensity > 0 && source.emissive?.getHex() !== 0)) {
@@ -61,7 +64,8 @@ export function batchStaticGroup(root, { preserve = new Set(), freeze = false } 
         .filter(([name]) => name !== 'color')
         .map(([name, attribute]) => `${name}:${attribute.itemSize}:${attribute.normalized}`)
         .sort().join('|');
-      const key = [batch.material.uuid, batch.vertexColors, node.castShadow, node.receiveShadow,
+      const colorKey = batch.vertexColors ? 'generated' : Boolean(node.geometry.attributes.color);
+      const key = [batch.material.uuid, batch.vertexColors, colorKey, node.castShadow, node.receiveShadow,
         Boolean(node.geometry.index), attributeKey].join(':');
       if (!groups.has(key)) groups.set(key, { ...batch, meshes: [] });
       groups.get(key).meshes.push(node);

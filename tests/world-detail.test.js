@@ -57,9 +57,14 @@ test('continuous skinned schoolboy and layered tree geometry replace assembled b
   const boy = createSchoolboy();
   assert.equal(boy.userData.anatomy, 'continuous-skinned-limbs-lathe-torso-shaped-head');
   assert.equal(boy.userData.skinnedLimbs.length, 4);
+  assert.equal(boy.userData.shoulders, 'closed-caps-with-rounded-deltoid-joins');
   for (const limb of boy.userData.skinnedLimbs) {
     assert.equal(limb.isSkinnedMesh, true);
     assert.equal(limb.skeleton.bones.length, 3);
+    if (limb.userData.continuousLimb === 'arm') {
+      assert.equal(limb.userData.closedShoulder, true);
+      assert.equal(limb.geometry.userData.shoulderCap, true);
+    }
     assert.ok(limb.geometry.attributes.position.count >= 700);
     for (let index = 0; index < limb.geometry.attributes.skinWeight.count; index += 1) {
       const weights = limb.geometry.attributes.skinWeight;
@@ -90,10 +95,42 @@ test('continuous skinned schoolboy and layered tree geometry replace assembled b
 
   const tree = createTree(1.1, 2);
   assert.equal(tree.userData.vegetation, 'branched-canopy');
-  let canopyClusters = 0;
-  tree.traverse((node) => { if (node.geometry?.type === 'IcosahedronGeometry') canopyClusters += 1; });
-  assert.ok(canopyClusters >= 12);
+  assert.equal(tree.userData.canopyClusters, 12);
+  assert.ok(tree.userData.canopyTriangles <= 1000,
+    `near canopy budget was ${tree.userData.canopyTriangles} triangles`);
+  let canopyMeshes = 0;
+  tree.traverse((node) => {
+    if (!node.userData.canopy) return;
+    canopyMeshes += 1;
+    assert.equal(node.material.vertexColors, true);
+    assert.ok(node.geometry.attributes.color, 'combined canopy lost its green palette');
+    assert.ok(node.geometry.attributes.position.count > 1000);
+  });
+  assert.equal(canopyMeshes, 1, 'near crowns must be combined into one mesh');
   assert.equal(renderStats(tree).shadows, 0);
+
+  const background = createTree(1, 2, { background: true });
+  assert.equal(background.userData.lod, 'background');
+  assert.equal(background.userData.canopyClusters, 7);
+  assert.ok(background.userData.canopyTriangles <= 140,
+    `background LOD budget was ${background.userData.canopyTriangles} triangles`);
+
+  const grove = new THREE.Group();
+  grove.add(createTree(1, 2), createTree(1, 3));
+  batchStaticGroup(grove);
+  const combined = [];
+  grove.traverse((node) => {
+    if (node.isMesh && node.material.name === 'Four-tone textured tree canopy') combined.push(node);
+  });
+  assert.equal(combined.length, 1, 'tree canopies did not share a section draw call');
+  assert.equal(combined[0].geometry.attributes.position.count / 3, 1920);
+  const palette = new Set();
+  const colors = combined[0].geometry.attributes.color;
+  for (let index = 0; index < colors.count; index += 1) {
+    palette.add([colors.getX(index), colors.getY(index), colors.getZ(index)]
+      .map((value) => value.toFixed(4)).join(','));
+  }
+  assert.equal(palette.size, 4, 'section batching flattened or recolored the canopy palette');
 });
 
 test('shadow-free mesh defaults, configurable anisotropy and frozen static matrices reduce render work', () => {

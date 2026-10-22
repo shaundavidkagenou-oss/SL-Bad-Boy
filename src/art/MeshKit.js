@@ -17,7 +17,7 @@ export function material(color, options = {}) {
   if (options.surface && typeof document !== 'undefined') return surfaceMaterial(options.surface, color, options);
   const key = JSON.stringify([color, options.roughness ?? 0.82, options.metalness ?? 0,
     options.emissive ?? 0, options.emissiveIntensity ?? 0, options.side ?? THREE.FrontSide,
-    options.flatShading ?? false]);
+    options.flatShading ?? false, options.vertexColors ?? false]);
   if (!materialCache.has(key)) {
     materialCache.set(key, new THREE.MeshStandardMaterial({
       color,
@@ -27,6 +27,7 @@ export function material(color, options = {}) {
       emissiveIntensity: options.emissiveIntensity ?? 0,
       side: options.side ?? THREE.FrontSide,
       flatShading: options.flatShading ?? false,
+      vertexColors: options.vertexColors ?? false,
     }));
   }
   return materialCache.get(key);
@@ -159,7 +160,7 @@ function surfaceTexture(name, bump = false) {
 
 function surfaceMaterial(name, color, options = {}) {
   const defaultRoughness = name === 'water' ? 0.2 : name === 'asphalt' || name === 'grass' ? 0.91 : 0.84;
-  const key = `surface:${name}:${color}:${surfaceQuality.bump}:${surfaceQuality.anisotropy}:${options.roughness ?? defaultRoughness}:${options.side ?? THREE.FrontSide}`;
+  const key = `surface:${name}:${color}:${surfaceQuality.bump}:${surfaceQuality.anisotropy}:${options.roughness ?? defaultRoughness}:${options.side ?? THREE.FrontSide}:${options.vertexColors ?? false}`;
   if (!materialCache.has(key)) {
     materialCache.set(key, new THREE.MeshStandardMaterial({
       color,
@@ -171,6 +172,7 @@ function surfaceMaterial(name, color, options = {}) {
       side: options.side ?? THREE.FrontSide,
       envMapIntensity: name === 'water' ? 1.1 : name === 'asphalt' || name === 'grass' ? 0.32 : 0.5,
       flatShading: options.flatShading ?? false,
+      vertexColors: options.vertexColors ?? false,
     }));
   }
   return materialCache.get(key);

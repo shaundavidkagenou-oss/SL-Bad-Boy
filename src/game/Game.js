@@ -28,7 +28,7 @@ export class Game {
     this.camera = this.cameraRig.camera;
 
     const coarsePointer = window.matchMedia?.('(pointer: coarse)').matches ?? false;
-    this.renderer = new THREE.WebGLRenderer({ antialias: !coarsePointer, powerPreference: 'high-performance' });
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     const requestedQuality = new URLSearchParams(window.location.search).get('quality');
     this.softwareRenderer = requestedQuality === 'high' ? false : isSoftwareRenderer(this.renderer);
     if (this.softwareRenderer) {
@@ -38,26 +38,34 @@ export class Game {
     }
     configureSurfaceQuality({
       bump: !this.softwareRenderer && !coarsePointer,
-      anisotropy: this.softwareRenderer || coarsePointer ? 1 : 4,
+      anisotropy: this.softwareRenderer ? 1 : coarsePointer ? 2 : 4,
     });
-    const pixelRatioLimit = this.softwareRenderer ? 0.75 : coarsePointer ? 1 : 1.4;
+    const pixelRatioLimit = this.softwareRenderer ? 0.75 : coarsePointer ? 1.5 : 1.4;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelRatioLimit));
     // Shadows are intentionally disabled on every device. Directional and
     // hemisphere lighting still provide depth without a second scene render.
     this.renderer.shadowMap.enabled = false;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.03;
+    this.renderer.toneMappingExposure = 1.16;
     container.appendChild(this.renderer.domElement);
 
-    const hemisphere = new THREE.HemisphereLight(0xe8f5ff, 0x716344, 1.35);
+    const hemisphere = new THREE.HemisphereLight(0xf2f8ff, 0x8a7c60, 1.65);
     this.scene.add(hemisphere);
-    const sun = new THREE.DirectionalLight(0xffe4b0, 2.6);
+    const sun = new THREE.DirectionalLight(0xffe9c4, 3.0);
     sun.position.set(26, 34, -45);
     sun.castShadow = false;
     sun.target.position.set(0, 0, -18);
     this.scene.add(sun, sun.target);
     this.sun = sun;
+    // The main sun lights the character's front. A soft camera-side fill makes
+    // the back, shoulders and road readable without any shadow-map render.
+    const fill = new THREE.DirectionalLight(0xd9ecff, 1.35);
+    fill.position.set(-18, 20, 32);
+    fill.target.position.set(0, 1, -10);
+    fill.castShadow = false;
+    this.scene.add(fill, fill.target);
+    this.fillLight = fill;
     this.graphics = new GraphicsPipeline(this.renderer, this.scene, this.camera, {
       coarsePointer, software: this.softwareRenderer,
     });

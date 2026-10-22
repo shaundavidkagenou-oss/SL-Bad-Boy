@@ -63,7 +63,7 @@ export function createDistrictSideFill(themeId, side, variant = 0) {
 
   positions.forEach(([x, z], index) => {
     const scale = forest ? 1.15 + (index % 2) * 0.22 : 0.82 + (index % 3) * 0.12;
-    const tree = palmyrah ? createPalmyrah(5.8 + index * 0.25, 0.2) : coast ? createPalm(6.2 + index * 0.3, 0.45) : createTree(scale, variant * 3 + index);
+    const tree = palmyrah ? createPalmyrah(5.8 + index * 0.25, 0.2) : coast ? createPalm(6.2 + index * 0.3, 0.45) : createTree(scale, variant * 3 + index, { background: true });
     tree.scale.setScalar(scale);
     tree.position.set(side * x, terrainHeight(themeId, x - 10.8, z, variant), z + ((variant % 3) - 1) * 1.2);
     tree.rotation.y = variant * 0.7 + index;

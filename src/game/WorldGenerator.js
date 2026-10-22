@@ -74,7 +74,7 @@ export class WorldGenerator {
     section.name = `Road section ${index}`;
     section.userData.sequence = index;
     const length = ROAD.sectionLength;
-    box(section, [10.5, 0.2, length + 0.04], [0, -0.09, 0], 0x3c4143, {
+    box(section, [10.5, 0.2, length + 0.04], [0, -0.09, 0], 0x495052, {
       castShadow: false, receiveShadow: false, surface: 'asphalt',
     });
     for (const side of [-1, 1]) {

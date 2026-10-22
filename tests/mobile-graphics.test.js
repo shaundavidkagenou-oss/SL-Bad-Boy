@@ -5,7 +5,7 @@ import { box, label } from '../src/art/MeshKit.js';
 import { batchStaticGroup, disposeBatchedGeometry, getStaticBatchStats } from '../src/art/StaticBatcher.js';
 import { createObstacleModel } from '../src/art/Vehicles.js';
 import { VisualEffects } from '../src/game/VisualEffects.js';
-import { isSoftwareRenderer } from '../src/game/GraphicsPipeline.js';
+import { GraphicsPipeline, isSoftwareRenderer } from '../src/game/GraphicsPipeline.js';
 
 test('static batching preserves source colors in bounded vertex-color materials', () => {
   const root = new THREE.Group();
@@ -82,4 +82,31 @@ test('software GPU detection uses capability strings and tolerates restricted co
   assert.equal(isSoftwareRenderer(mock('NVIDIA GeForce GTX 1660 SUPER')), false);
   assert.equal(isSoftwareRenderer(mock('WebKit WebGL', false)), false);
   assert.equal(isSoftwareRenderer({ getContext: () => { throw new Error('blocked'); } }), false);
+});
+
+test('mobile sharpness adapts down promptly during sustained slow frames', () => {
+  const pipeline = Object.create(GraphicsPipeline.prototype);
+  let ratio = 1.5;
+  let resized = 0;
+  Object.assign(pipeline, {
+    renderer: {
+      getPixelRatio: () => ratio,
+      setPixelRatio: (value) => { ratio = value; },
+      setSize: () => { resized += 1; },
+    },
+    composer: null,
+    coarsePointer: true,
+    width: 390,
+    height: 844,
+    frameTime: 0,
+    frameCount: 0,
+    slowWindows: 0,
+    adaptations: 0,
+    quality: 'balanced-mobile',
+  });
+  for (let frame = 0; frame < 90; frame += 1) pipeline.adapt(0.05);
+  assert.ok(Math.abs(ratio - 1.275) < 0.00001);
+  assert.equal(resized, 1);
+  assert.equal(pipeline.quality, 'adaptive-resolution');
+  assert.equal(pipeline.adaptations, 1);
 });

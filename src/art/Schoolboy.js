@@ -86,7 +86,20 @@ function limbGeometry(kind) {
       }
     }
   }
+  if (arm) {
+    // Close the sleeve above the first ring; an open tube reads as a missing
+    // shoulder from the chase camera. The root-weighted fan bends with the arm.
+    const center = positions.length / 3;
+    const capColor = new THREE.Color(WHITE);
+    positions.push(0, 0.105, 0);
+    colors.push(capColor.r, capColor.g, capColor.b);
+    uvs.push(0.5, 0);
+    skinIndices.push(0, 1, 0, 0);
+    skinWeights.push(1, 0, 0, 0);
+    for (let side = 0; side < sides; side += 1) indices.push(center, side + 1, side);
+  }
   const geometry = new THREE.BufferGeometry();
+  geometry.userData.shoulderCap = arm;
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
   geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
@@ -118,6 +131,7 @@ function continuousLimb(kind, side) {
   mesh.castShadow = false;
   mesh.receiveShadow = false;
   mesh.userData.continuousLimb = kind;
+  mesh.userData.closedShoulder = arm;
   return { root, middle, end, mesh, bones: [root, middle, end] };
 }
 
@@ -170,12 +184,18 @@ export function createSchoolboy() {
   visual.name = 'Smooth articulated Sri Lankan schoolboy';
   visual.userData.detailLevel = 'continuous-skinned-limbs-organic-uniform';
   visual.userData.anatomy = 'continuous-skinned-limbs-lathe-torso-shaped-head';
+  visual.userData.shoulders = 'closed-caps-with-rounded-deltoid-joins';
   const body = new THREE.Group();
   visual.add(body);
 
   const shirt = new THREE.Mesh(getShirtGeometry(), material(WHITE, { roughness: 0.86 }));
   shirt.position.set(0, 1.48, 0);
   body.add(shirt);
+  for (const side of [-1, 1]) {
+    sphere(body, 1, [side * 0.43, 1.68, 0], WHITE, {
+      scale: [0.16, 0.17, 0.155], widthSegments: 22, heightSegments: 15,
+    });
+  }
   sphere(body, 1, [0, 1.03, 0], BLUE, {
     scale: [0.37, 0.23, 0.25], widthSegments: 14, heightSegments: 9,
   });

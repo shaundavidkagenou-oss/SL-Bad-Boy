@@ -56,14 +56,17 @@ test('police pointing gesture, equipment motion and landing compression are anim
   assert.ok(police.visual.scale.y < police.baseScale);
 });
 
-test('selected buses genuinely approach faster while other traffic keeps road speed', () => {
+test('isolated avoidance test buses can approach while normal traffic keeps road speed', () => {
   const scene = new THREE.Scene();
   const player = new Player(scene);
   const spawner = new ObstacleSpawner(scene);
   spawner.nextSpawnIn = 999;
   spawner.collisionEnabled = false;
-  const bus = spawner.spawnObstacle('public-bus', 0, PLAYER_Z - 24, 1);
+  const bus = spawner.spawnObstacle('public-bus', 0, PLAYER_Z - 24, 1, { oncoming: true });
   const car = spawner.spawnObstacle('car', 2, PLAYER_Z - 24, 1);
+  const proceduralBus = spawner.spawnObstacle('private-bus', 1, PLAYER_Z - 30, 1);
+  assert.equal(proceduralBus.oncoming, false);
+  assert.equal(proceduralBus.approachSpeed, 0);
   assert.equal(bus.oncoming, true);
   assert.ok(bus.approachSpeed >= 5);
   assert.equal(car.oncoming, false);

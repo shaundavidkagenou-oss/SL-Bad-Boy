@@ -123,7 +123,7 @@ try {
   assert.equal(pursuit.detailedJoints, true);
   assert.equal(pursuit.visible, true);
   assert.equal(pursuit.chaseStarted, true);
-  assert.equal(pursuit.oncoming, true);
+  assert.equal(pursuit.oncoming, false);
   // Keep the idle actor safe while the software renderer captures animated poses.
   await page.evaluate(() => { window.__LANKA_RUN__.spawner.collisionEnabled = false; });
   await new Promise((resolve) => setTimeout(resolve, 150));
@@ -132,7 +132,7 @@ try {
   await waitForFunction(() => window.__LANKA_RUN__.police.pointTimer > 0
     && window.__LANKA_RUN__.police.joints.rightArm.rotation.x > 1.05);
   await page.screenshot({ path: 'test-results/police-gesture.png' });
-  passed.push('detailed police pursuit, safe gap, articulated pointing and initial oncoming traffic');
+  passed.push('detailed police pursuit, safe gap, articulated pointing and readable road-speed traffic');
   passed.push('buses, cars, tuk-tuks and road hazards spawn in the live game');
 
   await page.keyboard.press('ArrowLeft');
@@ -298,10 +298,8 @@ try {
   assert.deepEqual(fresh, {
     state: 'running', score: 0, coins: 0, distance: 0, speed: 14, lane: 1, y: 0, testRows: 0,
   });
-  await new Promise((resolve) => setTimeout(resolve, 250));
-  await page.screenshot({ path: 'test-results/gameplay.png' });
-  passed.push('Restart button immediately creates a clean run with old objects removed');
-
+  // Software-renderer screenshots may take several real seconds. Isolate the
+  // following input checks before that wait, not after random traffic can hit.
   await page.evaluate(() => {
     const game = window.__LANKA_RUN__;
     game.spawner.clear();
@@ -309,6 +307,10 @@ try {
     game.spawner.nextScooterIn = 100000;
     game.spawner.collisionEnabled = false;
   });
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  await page.screenshot({ path: 'test-results/gameplay.png' });
+  passed.push('Restart button immediately creates a clean run with old objects removed');
+
   assert.equal(await page.evaluate(() => window.__LANKA_RUN__.state), 'running');
   const cdp = await page.createCDPSession();
   const swipe = async (fromX, fromY, toX, toY) => {

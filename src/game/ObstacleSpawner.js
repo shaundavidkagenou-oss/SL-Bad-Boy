@@ -60,8 +60,9 @@ export class ObstacleSpawner {
     // non-action rows and preserve the planner's guaranteed free lane.
     if (this.district === 'colombo' && !pattern.requiredAction && Number.isInteger(pattern.freeLane)) {
       const trafficKinds = ['public-bus', 'car', 'private-bus', 'tuk-tuk'];
+      const targetCount = pattern.obstacles.length === 0 ? 1 : 2;
       for (const lane of [0, 1, 2]) {
-        if (obstacles.length >= 2) break;
+        if (obstacles.length >= targetCount) break;
         if (lane === pattern.freeLane || obstacles.some((obstacle) => obstacle.lane === lane)) continue;
         obstacles.push({ kind: trafficKinds[Math.abs(pattern.id * 3 + lane) % trafficKinds.length], lane, oncoming: false });
       }
@@ -83,10 +84,9 @@ export class ObstacleSpawner {
     mesh.position.set(LANES[lane], 0, z);
     mesh.userData.kind = kind;
     const bus = kind === 'public-bus' || kind === 'private-bus';
-    // Only a deterministic subset approaches under its own power. The first
-    // solo bus demonstrates the behavior; later rows retain a free lane.
-    const oncoming = bus && (options.oncoming
-      ?? (rowId >= 0 && (rowId === 1 || Math.abs(rowId * 11 + lane * 7) % 4 === 0)));
+    // Normal planner rows always keep road speed. Faster movement is reserved
+    // for explicit isolated tests, never inferred from a live gameplay row ID.
+    const oncoming = bus && options.oncoming === true;
     const approachSpeed = oncoming ? 5 + Math.abs(rowId + lane) % 3 : 0;
     mesh.userData.oncoming = oncoming;
     this.group.add(mesh);
@@ -221,9 +221,8 @@ export class ObstacleSpawner {
     }
 
     if (this.nextSpawnIn <= 0) {
-      const approachSpeed = this.spawnPattern(this.planner.next(speed), GAME.spawnZ);
-      // Extra following distance preserves reaction time after a faster bus row.
-      this.nextSpawnIn = this.planner.spacingForSpeed(speed + approachSpeed);
+      this.spawnPattern(this.planner.next(speed), GAME.spawnZ);
+      this.nextSpawnIn = this.planner.spacingForSpeed(speed);
     }
     if (this.nextScooterIn <= 0 && !player.scooterActive) {
       this.spawnScooter(this.planner.randomLane(), GAME.spawnZ + 12);

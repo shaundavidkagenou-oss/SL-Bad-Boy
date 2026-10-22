@@ -182,7 +182,7 @@ export class GraphicsPipeline {
 
   setTheme(skyColor, fogColor) {
     const uniforms = this.sky.material.uniforms;
-    uniforms.topColor.value.copy(skyColor).multiplyScalar(0.72);
+    uniforms.topColor.value.copy(skyColor).multiplyScalar(0.85);
     uniforms.horizonColor.value.copy(fogColor).lerp(skyColor, 0.22);
   }
 
@@ -190,17 +190,17 @@ export class GraphicsPipeline {
     if (delta <= 0) return;
     this.frameTime += delta;
     this.frameCount += 1;
-    if (this.frameCount < 150) return;
+    if (this.frameCount < 90) return;
     const average = this.frameTime / this.frameCount;
     this.frameTime = 0;
     this.frameCount = 0;
-    this.slowWindows = average > 1 / 28 ? this.slowWindows + 1 : 0;
-    if (this.slowWindows < 2) return;
+    this.slowWindows = average > 1 / 30 ? this.slowWindows + 1 : 0;
+    if (this.slowWindows < 1) return;
     this.slowWindows = 0;
     const current = this.renderer.getPixelRatio();
-    const minimum = this.coarsePointer ? 0.6 : 0.8;
+    const minimum = this.coarsePointer ? 0.75 : 0.8;
     if (current > minimum + 0.05) {
-      const next = Math.max(minimum, current * 0.82);
+      const next = Math.max(minimum, current * 0.85);
       this.renderer.setPixelRatio(next);
       this.composer?.setPixelRatio(next);
       this.renderer.setSize(this.width, this.height, false);

@@ -31,7 +31,10 @@ test('500 generated traffic rows always have a survival route', () => {
     assert.equal(isPatternSurvivable(row), true, `row ${index} was not survivable`);
     assert.ok(Math.abs(row.freeLane - previousFreeLane) <= 1, `row ${index} requires a two-lane snap`);
     previousFreeLane = row.freeLane;
-    row.obstacles.forEach((obstacle) => seen.add(obstacle.kind));
+    row.obstacles.forEach((obstacle) => {
+      seen.add(obstacle.kind);
+      assert.equal(obstacle.oncoming, false);
+    });
   }
   assert.deepEqual([...seen].sort(), ['barrier', 'car', 'cone', 'overhead', 'private-bus', 'public-bus', 'tuk-tuk']);
 });
@@ -41,13 +44,13 @@ test('row spacing remains reactable as running speed increases', () => {
   for (const speed of [GAME.baseSpeed, 24, GAME.maxSpeed]) {
     for (let i = 0; i < 100; i += 1) {
       const spacing = planner.spacingForSpeed(speed);
-      assert.ok(spacing / speed >= 0.95);
-      assert.ok(spacing >= 25);
+      assert.ok(spacing / speed >= 1.15);
+      assert.ok(spacing >= 30);
     }
   }
 });
 
-test('higher speed tiers add fair two-lane and oncoming-bus pressure', () => {
+test('higher speed tiers add fair two-lane pressure without changing bus closing speed', () => {
   assert.deepEqual([10, 17, 24, 31, 180].map(difficultyForSpeed), [0, 1, 2, 3, 3]);
   const low = new PatternPlanner(90210);
   const high = new PatternPlanner(90210);
@@ -64,12 +67,10 @@ test('higher speed tiers add fair two-lane and oncoming-bus pressure', () => {
     assert.ok(Math.abs(highRow.freeLane - previousFreeLane) <= 1, `high-speed row ${index} needs a two-lane snap`);
     previousFreeLane = highRow.freeLane;
     for (const obstacle of highRow.obstacles) {
-      if (obstacle.kind.includes('bus')) {
-        highBuses += 1;
-        assert.equal(obstacle.oncoming, true);
-      }
+      assert.equal(obstacle.oncoming, false, 'procedural traffic must retain its planned arrival time');
+      if (obstacle.kind.includes('bus')) highBuses += 1;
     }
-    assert.ok(high.spacingForSpeed(34 + 7) / (34 + 7) >= 0.95);
+    assert.ok(high.spacingForSpeed(34 + 7) / (34 + 7) >= 1.15);
   }
   assert.ok(highObstacles > lowObstacles, `${highObstacles} should exceed ${lowObstacles}`);
   assert.ok(highBuses > 0);
@@ -227,7 +228,7 @@ test('Colombo adds traffic without closing the planner free lane or mutating pat
   colombo.setDistrict('colombo');
   colombo.spawnPattern(pattern, -60);
   const cityRows = colombo.getRowEntries(8).filter((entry) => entry.type === 'obstacle');
-  assert.equal(cityRows.length, 2);
+  assert.equal(cityRows.length, 1);
   assert.equal(cityRows.some((entry) => entry.lane === 1), false);
   assert.equal(cityRows.every((entry) => !entry.oncoming), true);
   assert.equal(pattern.obstacles.length, 0);
