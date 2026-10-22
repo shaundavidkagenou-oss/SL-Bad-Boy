@@ -1,0 +1,174 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import * as THREE from 'three';
+import { PatternPlanner, isPatternSurvivable } from '../src/game/PatternPlanner.js';
+import { OBSTACLE_SPECS, GAME, LANES, PLAYER_Z, ROAD, STORAGE_KEY } from '../src/config.js';
+import { Player } from '../src/game/Player.js';
+import { ScoreManager } from '../src/game/ScoreManager.js';
+import { intersects, makeCollider } from '../src/game/Collision.js';
+import { advanceSectionCenter, areSectionsContinuous } from '../src/game/RoadMath.js';
+import { ObstacleSpawner } from '../src/game/ObstacleSpawner.js';
+
+function frames(player, count) {
+  for (let i = 0; i < count; i += 1) player.update(1 / 60, GAME.baseSpeed, 'running');
+}
+
+function memoryStorage() {
+  const values = new Map();
+  return {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+    values,
+  };
+}
+
+test('500 generated traffic rows always have a survival route', () => {
+  const planner = new PatternPlanner(424242);
+  const seen = new Set();
+  let previousFreeLane = 1;
+  for (let index = 0; index < 500; index += 1) {
+    const row = planner.next();
+    assert.equal(isPatternSurvivable(row), true, `row ${index} was not survivable`);
+    assert.ok(Math.abs(row.freeLane - previousFreeLane) <= 1, `row ${index} requires a two-lane snap`);
+    previousFreeLane = row.freeLane;
+    row.obstacles.forEach((obstacle) => seen.add(obstacle.kind));
+  }
+  assert.deepEqual([...seen].sort(), ['barrier', 'car', 'cone', 'overhead', 'private-bus', 'public-bus', 'tuk-tuk']);
+});
+
+test('row spacing remains reactable as running speed increases', () => {
+  const planner = new PatternPlanner(7);
+  for (const speed of [GAME.baseSpeed, 24, GAME.maxSpeed]) {
+    for (let i = 0; i < 100; i += 1) {
+      const spacing = planner.spacingForSpeed(speed);
+      assert.ok(spacing / speed >= 0.95);
+      assert.ok(spacing >= 25);
+    }
+  }
+});
+
+test('lane changes are responsive, smooth and clamped to three lanes', () => {
+  const player = new Player(new THREE.Scene());
+  assert.equal(player.lane, 1);
+  player.moveLeft();
+  frames(player, 30);
+  assert.equal(player.lane, 0);
+  assert.ok(Math.abs(player.group.position.x - LANES[0]) < 0.01);
+  player.moveLeft();
+  assert.equal(player.lane, 0);
+  player.moveRight();
+  player.moveRight();
+  frames(player, 45);
+  assert.equal(player.lane, 2);
+  assert.ok(Math.abs(player.group.position.x - LANES[2]) < 0.01);
+  player.moveRight();
+  assert.equal(player.lane, 2);
+});
+
+test('jump has real vertical physics, lands, and cannot double-jump', () => {
+  const player = new Player(new THREE.Scene());
+  assert.equal(player.jump(), true);
+  assert.equal(player.jump(), false);
+  frames(player, 12);
+  assert.ok(player.group.position.y > 1.1);
+  assert.ok(player.getCollider().minY > 1.1);
+  frames(player, 90);
+  assert.equal(player.group.position.y, 0);
+  assert.equal(player.velocityY, 0);
+  assert.equal(player.jump(), true);
+});
+
+test('slide changes collision height and expires reliably', () => {
+  const player = new Player(new THREE.Scene());
+  const standingHeight = player.getCollider().maxY;
+  assert.equal(player.slide(), true);
+  assert.equal(player.sliding, true);
+  assert.ok(player.getCollider().maxY < standingHeight * 0.5);
+  frames(player, 60);
+  assert.equal(player.sliding, false);
+  assert.equal(player.getCollider().maxY, standingHeight);
+  player.slide();
+  player.jump();
+  assert.equal(player.sliding, false);
+  assert.ok(player.velocityY > 0);
+});
+
+test('jumping clears a barrier and sliding clears an overhead sign using colliders', () => {
+  const player = new Player(new THREE.Scene());
+  const barrierSpec = OBSTACLE_SPECS.barrier;
+  const barrier = makeCollider(0, 0, PLAYER_Z, barrierSpec.width, barrierSpec.minY, barrierSpec.maxY, barrierSpec.depth);
+  assert.equal(intersects(player.getCollider(), barrier), true);
+  player.jump();
+  frames(player, 12);
+  assert.equal(intersects(player.getCollider(), barrier), false);
+
+  player.reset();
+  const overheadSpec = OBSTACLE_SPECS.overhead;
+  const overhead = makeCollider(0, 0, PLAYER_Z, overheadSpec.width, overheadSpec.minY, overheadSpec.maxY, overheadSpec.depth);
+  assert.equal(intersects(player.getCollider(), overhead), true);
+  player.slide();
+  assert.equal(intersects(player.getCollider(), overhead), false);
+});
+
+test('swept collision collects a coin even when a low-FPS frame crosses the player', () => {
+  const scene = new THREE.Scene();
+  const player = new Player(scene);
+  let collected = 0;
+  const spawner = new ObstacleSpawner(scene, { onCoin: () => { collected += 1; } });
+  spawner.nextSpawnIn = 999;
+  spawner.spawnCoin(1, PLAYER_Z, 1, 99);
+  spawner.update(0.05, GAME.maxSpeed, player);
+  assert.equal(collected, 1);
+  assert.equal(spawner.getRowEntries(99).length, 0);
+});
+
+test('swept collision also prevents traffic tunnelling at maximum speed', () => {
+  const scene = new THREE.Scene();
+  const player = new Player(scene);
+  let hits = 0;
+  const spawner = new ObstacleSpawner(scene, { onHit: () => { hits += 1; } });
+  spawner.nextSpawnIn = 999;
+  spawner.spawnObstacle('cone', 1, PLAYER_Z, 99);
+  const result = spawner.update(0.05, GAME.maxSpeed, player);
+  assert.equal(result, 'hit');
+  assert.equal(hits, 1);
+});
+
+test('score, coins and best-score persistence survive a new manager and reset', () => {
+  const storage = memoryStorage();
+  const score = new ScoreManager(storage);
+  score.update(1, 14);
+  score.addCoin();
+  assert.equal(score.distance, 14);
+  assert.equal(score.coins, 1);
+  assert.equal(score.score, 240);
+  assert.equal(score.finish(), true);
+  assert.equal(storage.values.get(STORAGE_KEY), '240');
+
+  const restored = new ScoreManager(storage);
+  assert.equal(restored.bestScore, 240);
+  restored.reset();
+  assert.equal(restored.score, 0);
+  assert.equal(restored.coins, 0);
+  assert.equal(restored.distance, 0);
+  assert.equal(restored.bestScore, 240);
+});
+
+test('blocked storage does not prevent scoring or finishing a run', () => {
+  const storage = { getItem() { throw new Error('blocked'); }, setItem() { throw new Error('blocked'); } };
+  const score = new ScoreManager(storage);
+  score.addCoin();
+  assert.doesNotThrow(() => score.finish());
+  assert.equal(score.bestScore, 100);
+});
+
+test('road sections stay contiguous through thousands of metres of recycling', () => {
+  let centers = Array.from({ length: ROAD.sectionCount }, (_, index) => 15 - index * ROAD.sectionLength);
+  for (let step = 0; step < 6000; step += 1) {
+    centers = centers.map((center) => advanceSectionCenter(center, GAME.maxSpeed / 60));
+    assert.equal(areSectionsContinuous(centers), true, `gap appeared at step ${step}`);
+    const intervals = centers.map((center) => [center - 15, center + 15]);
+    assert.ok(intervals.some(([min, max]) => PLAYER_Z >= min && PLAYER_Z <= max));
+    assert.ok(intervals.some(([min, max]) => 11.8 >= min && 11.8 <= max));
+  }
+});

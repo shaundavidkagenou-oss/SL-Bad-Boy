@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#050505" />
+    <meta name="description" content="Lanka Run: Schoolboy Rush — an original 3D Sri Lankan endless runner." />
+    <link rel="icon" type="image/svg+xml" href="/assets/icon.svg" />
+    <style>
+      html, body { margin: 0; background: #050505; }
+      #studio-loading { position: fixed; inset: 0; z-index: 1000; background: #050505; color: #fff; }
+      #studio-loading[hidden] { display: none; }
+    </style>
+    <title>Lanka Run: Schoolboy Rush</title>
+  </head>
+  <body data-game-state="loading">
+    <div id="studio-loading" class="studio-loading" role="status" aria-label="Shaun David Studios loading screen" aria-live="polite">
+      <div class="studio-scanlines" aria-hidden="true"></div>
+      <div class="studio-sweep" aria-hidden="true"></div>
+      <section class="studio-frame" aria-label="Shaun David Studios presents">
+        <div class="studio-topline"><span>AN ORIGINAL PRODUCTION</span><span>SD / 01</span></div>
+        <div class="studio-lockup">
+          <div class="studio-monogram" aria-hidden="true"><span>S</span><i></i><span>D</span></div>
+          <div class="studio-wordmark">
+            <small>SHAUN DAVID</small>
+            <strong>STUDIOS</strong>
+            <p>PRESENTS</p>
+          </div>
+        </div>
+        <div class="studio-loading-row">
+          <div class="studio-progress" aria-hidden="true"><i id="studio-progress-bar"></i></div>
+          <strong id="studio-percent">000%</strong>
+        </div>
+        <div class="studio-status"><span id="studio-status">IGNITING THE ISLAND</span><b>LANKA RUN</b></div>
+      </section>
+      <span class="studio-corner studio-corner-a" aria-hidden="true"></span>
+      <span class="studio-corner studio-corner-b" aria-hidden="true"></span>
+    </div>
+    <div id="app">
+      <div id="scene" aria-label="3D Sri Lankan road and schoolboy runner"></div>
+      <div class="sun-glow" aria-hidden="true"></div>
+      <div class="vignette" aria-hidden="true"></div>
+      <div id="impact-flash" aria-hidden="true"></div>
+
+      <header id="hud" class="hud" aria-label="Run status">
+        <div class="hud-brand">
+          <img src="/assets/icon.svg" alt="" />
+          <div><strong>LANKA RUN</strong><span>SCHOOLBOY RUSH</span></div>
+        </div>
+        <div id="district-pill" class="district-pill"><span id="district-name">COLOMBO</span><small id="district-subtitle">CITY STREETS</small></div>
+        <div class="hud-metrics">
+          <div class="metric"><span>DISTANCE</span><strong id="distance-value">0 m</strong></div>
+          <div class="metric"><span>SCORE</span><strong id="score-value">0</strong></div>
+          <div class="metric speed-metric"><span>SPEED</span><strong id="speed-value">50 km/h</strong></div>
+        </div>
+        <div class="hud-actions">
+          <div id="coin-pill" class="coin-pill" aria-label="Coins collected"><span class="coin-icon">●</span><strong id="coin-value">0</strong></div>
+          <button id="pause-button" class="icon-button" aria-label="Pause game" title="Pause (Escape)">Ⅱ</button>
+        </div>
+      </header>
+
+      <div id="district-banner" class="district-banner" aria-live="polite">
+        <small>NOW ENTERING</small><strong id="district-banner-name">COLOMBO</strong><span id="district-banner-subtitle">CITY STREETS</span>
+      </div>
+
+      <main id="menu-screen" class="screen menu-screen is-visible" aria-hidden="false">
+        <section class="panel hero-panel">
+          <div class="eyebrow"><span></span> FROM CLASSROOM TO CITY STREETS</div>
+          <h1>LANKA <em>RUN</em></h1>
+          <h2>SCHOOLBOY RUSH</h2>
+          <div class="route-line"><span>LK</span><b>ISLAND ROUTE 01</b><i>COLOMBO • SUBURBS • MARKET</i></div>
+          <p class="hero-copy">The bell has rung. Dodge island traffic, collect coins, and race from Colombo streets to garden suburbs and the busy market.</p>
+          <div class="best-line"><span>PERSONAL BEST</span><strong id="menu-best">0</strong></div>
+          <button id="play-button" class="primary-button"><span>PLAY NOW</span><kbd>ENTER</kbd></button>
+          <div class="controls" aria-label="Keyboard controls">
+            <div><span class="key-pair"><kbd>A</kbd><kbd>←</kbd></span><p><strong>MOVE LEFT</strong></p></div>
+            <div><span class="key-pair"><kbd>D</kbd><kbd>→</kbd></span><p><strong>MOVE RIGHT</strong></p></div>
+            <div><kbd>SPACE</kbd><p><strong>JUMP</strong></p></div>
+            <div><span class="key-pair"><kbd>S</kbd><kbd>↓</kbd></span><p><strong>SLIDE</strong></p></div>
+          </div>
+          <p class="menu-tip"><span>ESC</span> pauses the run. Every traffic row has a way through.</p>
+          <p class="touch-tip">Swipe left/right to change lanes. Swipe up to jump and down to slide.</p>
+        </section>
+        <div class="world-tag" aria-hidden="true"><span>PHASE 02</span><strong id="world-tag-name">GALLE ROAD</strong><small id="world-tag-theme">CITY STREETS</small></div>
+      </main>
+
+      <section id="pause-screen" class="screen centered-screen" aria-hidden="true">
+        <div class="panel dialog-panel">
+          <div class="pause-symbol" aria-hidden="true">Ⅱ</div>
+          <div class="eyebrow"><span></span> TAKE A BREATH</div>
+          <h2>RUN PAUSED</h2>
+          <p>The road can wait. Your score is safe.</p>
+          <button id="resume-button" class="primary-button"><span>RESUME RUN</span><kbd>ESC</kbd></button>
+          <div class="button-row">
+            <button id="pause-restart-button" class="secondary-button">RESTART</button>
+            <button id="pause-menu-button" class="secondary-button">MAIN MENU</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="gameover-screen" class="screen centered-screen" aria-hidden="true">
+        <div class="panel dialog-panel gameover-panel">
+          <div class="eyebrow danger"><span></span> TRAFFIC TROUBLE</div>
+          <h2>RUN OVER</h2>
+          <div id="new-best" class="new-best">NEW PERSONAL BEST!</div>
+          <div class="final-score"><span>FINAL SCORE</span><strong id="final-score">0</strong></div>
+          <div class="result-grid">
+            <div><span>DISTANCE</span><strong id="final-distance">0 m</strong></div>
+            <div><span>COINS</span><strong id="final-coins">0</strong></div>
+            <div><span>BEST</span><strong id="final-best">0</strong></div>
+          </div>
+          <button id="restart-button" class="primary-button"><span>RUN AGAIN</span><kbd>ENTER</kbd></button>
+          <button id="gameover-menu-button" class="text-button">BACK TO MAIN MENU</button>
+        </div>
+      </section>
+
+      <button id="mute-button" class="audio-button" aria-label="Mute sound" aria-pressed="false"><span id="audio-icon">♪</span><span id="audio-label">SOUND ON</span></button>
+      <div id="fatal-error" role="alert" hidden><strong>WebGL could not start.</strong><span>Enable hardware acceleration in your browser and reload.</span></div>
+      <noscript>This game needs JavaScript enabled.</noscript>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
