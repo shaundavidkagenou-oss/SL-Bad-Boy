@@ -10,6 +10,9 @@ export function prepareMobilePlatform() {
 }
 
 export function handleNativeBack(game, exitApp) {
+  // The full-screen ad owns Back while a rewarded revive is pending. Never
+  // finish the underlying run or create a second ad session from this screen.
+  if (game.state === 'revive' && game.revivePending) return;
   if (game.state === 'running') game.pause();
   else if (game.state === 'paused') game.resume();
   else if (game.state === 'shop') game.closeShop();

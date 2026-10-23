@@ -198,6 +198,7 @@ test('game revive consumes one packet, preserves score and restores a three-seco
   let clears = 0;
   let shown = 0;
   const game = {
+    completeRespawn: Game.prototype.completeRespawn,
     state: 'revive', score, speed: 18,
     juice: { count: 1, consume: () => { consumes += 1; return true; } },
     player: { respawn: () => { respawns += 1; } },

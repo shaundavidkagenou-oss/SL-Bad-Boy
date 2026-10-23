@@ -130,12 +130,16 @@
 
       <section id="revive-screen" class="screen centered-screen" aria-hidden="true">
         <div class="panel dialog-panel revive-panel" role="dialog" aria-modal="true" aria-labelledby="revive-title">
-          <div class="eyebrow"><span></span> RARE JUICE PACKET RESCUE</div>
+          <div class="eyebrow"><span></span> SECOND CHANCE</div>
           <div class="revive-packet" aria-hidden="true"><i></i><strong>MANGO<br />JUICE</strong></div>
           <h2 id="revive-title">RUN IT BACK</h2>
-          <p>Drink one packet to keep this score and respawn with a 3-second safety shield.</p>
+          <p>Keep this score and return to the crash point with a 3-second safety shield.</p>
           <div class="revive-stock"><span>PACKETS READY</span><strong id="revive-count">1</strong></div>
           <button id="revive-button" class="primary-button"><span>DRINK &amp; RESPAWN</span><kbd>ENTER</kbd></button>
+          <button id="revive-ad-button" class="ad-revive-button" hidden>
+            <span class="ad-play-icon" aria-hidden="true">▶</span><span id="revive-ad-label">WATCH AD &amp; CONTINUE</span>
+          </button>
+          <small id="revive-ad-status" class="revive-ad-status" role="status" hidden></small>
           <button id="revive-end-button" class="text-button">END THIS RUN</button>
         </div>
       </section>

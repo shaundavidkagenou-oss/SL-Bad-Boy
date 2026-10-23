@@ -1,6 +1,6 @@
 # SL BAD BOY — Schoolboy Rush
 
-An original 3D Sri Lankan endless runner for **web and Android**, built with **Three.js, JavaScript, Vite and Capacitor**. It includes fourteen long themed districts, original approach and main landmark scenery, hill-country tunnels, ten purchasable articulated runners, rare mango-juice revives, a Sri Lankan police pursuit, a 10-second 1.2× scooter boost, fair speed-scaled traffic, direct swipe gestures and synthesized audio. Models, textures, signs and sounds are generated locally; the Android launcher and native splash use the supplied SL BAD BOY poster artwork. No branded game assets, CDN scripts or copyrighted Subway Surfers content are used.
+An original 3D Sri Lankan endless runner for **web and Android**, built with **Three.js, JavaScript, Vite and Capacitor**. It includes fourteen long themed districts, original approach and main landmark scenery, hill-country tunnels, ten purchasable articulated runners, rare mango-juice revives, rewarded AdMob continues on Android, a Sri Lankan police pursuit, a 10-second 1.2× scooter boost, fair speed-scaled traffic, direct swipe gestures and synthesized audio. Models, textures, signs and sounds are generated locally; the Android launcher and native splash use the supplied SL BAD BOY poster artwork. No branded game assets, CDN scripts or copyrighted Subway Surfers content are used.
 
 ## Android APK
 
@@ -12,7 +12,7 @@ An original 3D Sri Lankan endless runner for **web and Android**, built with **T
 - GitHub Actions also publishes the same package as the **SL-BAD-BOY-APK** workflow artifact with a SHA-256 checksum.
 - The supplied APK is **debug-signed for direct installation/testing**, not signed for Play Store release. Android may ask you to allow installation from your browser/file manager.
 - The 2.6.1 and 2.6.0 CI debug certificates differ. **Uninstall the older test APK before installing 2.6.1**; Android clears that app's local scores, shop ownership and juice inventory on uninstall.
-- The complete game, fonts and procedural artwork are bundled inside the APK. Gameplay does not require a server or network connection.
+- The complete game, fonts and procedural artwork are bundled inside the APK. Gameplay does not require a server or network connection; only the optional rewarded ad needs network access and available AdMob inventory.
 
 ### One-click Windows APK build
 
@@ -72,7 +72,7 @@ The static production site is generated in `dist/`. Serve it over HTTP rather th
 | Enter | Play, resume or restart from the relevant screen |
 | Touch swipe left/right | Change lanes on touch devices |
 | Touch swipe up/down | Jump or slide on touch devices |
-| Android Back | Pause/resume; close shop; end a pending revive; game over returns to menu; menu exits |
+| Android Back | Pause/resume; close shop; end an idle revive choice; game over returns to menu; menu exits. Back cannot end the run behind a pending rewarded ad |
 
 Menus and the HUD pause button are clickable. The sound button toggles mute and remembers the preference; the pause screen also has independent music and sound-effects volume sliders. Audio is initialized only after user interaction to comply with browser autoplay rules. Android app backgrounding pauses an active run. The HUD, menus, loader and controls account for portrait/landscape layouts and display safe areas.
 
@@ -106,14 +106,16 @@ Menus and the HUD pause button are clickable. The sound button toggles mute and 
 - Cars, a compact van, improved three-wheeled tuk-tuks and travel-driven wheel rotation.
 - Original obstacle models remain matched to the Phase 1 collision dimensions and fair spawn patterns.
 
-### Character shop and rare juice revives
+### Character shop and revive choices
 
 - A working shop offers **ten original playable runners**: the free SL Schoolboy plus Colombo Scout, Kandy Runner, Coastal Sprinter, Tea Country Trekker, Jaffna Rider, City Explorer, Harbour Captain, Night Route Ace and Island Legend. Outfits, hair, caps, glasses, wristbands and packs differ while all retain the continuous four-limb animation rig.
 - Run coins become spendable shop currency. Characters are bought once, ownership/selection and the wallet persist locally, and coins earned before the shop existed migrate once. Buying or selecting immediately replaces the live model; old skinned GPU buffers are released and only one runner rig remains in the scene.
 - Shop portraits are transparent local renders of the actual procedural 3D rigs, not copyrighted character artwork. They load only when the shop is used; `npm run assets:runners` regenerates them with the optional Chromium tooling.
 - A rare original **mango juice packet** appears on the second, fourth, sixth and subsequent even district transitions. It uses a planner-approved free lane and never replaces traffic fairness with an unavoidable pickup row.
 - Juice inventory persists and is capped at **three packets**. A packet touched with a full inventory remains in the world instead of being silently consumed.
-- A collision with at least one packet opens a real revive choice. Drinking one packet preserves the current score, distance and coins, clears nearby fatal traffic and respawns the selected runner with **three seconds of collision protection**. The player can instead end the run; without a packet, collision follows the normal game-over flow.
+- A collision with at least one packet opens a real revive choice. Drinking one packet preserves the current score, distance and coins, clears nearby fatal traffic and respawns the selected runner with **three seconds of collision protection**. The player can instead end the run.
+- On Android, **Watch ad & continue** is also offered with or without juice. The supplied production AdMob application/rewarded-unit IDs are configured natively, Google UMP consent is checked before initialization, and one rewarded ad is preloaded for the crash screen. A revive requires both an SDK-confirmed reward and ad dismissal; opening, closing early, cancelling, consent denial or a failed/no-fill ad never grants one.
+- A rewarded continue preserves score/distance/coins and juice inventory, uses the same safe traffic-clearing respawn and three-second shield, then preloads another ad. Double-taps and Android Back cannot create duplicate sessions or finish the run behind an ad. Web builds do not show a fake ad control; without juice or an available native rewarded option, collision follows the normal game-over flow.
 
 ### Scooter boost and speed-scaled difficulty
 
@@ -195,6 +197,7 @@ src/game/ProgressionManager.js Local-day missions, stars, ranks and lifetime tot
 src/game/CharacterCatalog.js   Ten original runner definitions and prices
 src/game/ShopManager.js        Persistent wallet, ownership and selection
 src/game/JuiceInventory.js     Persistent capped revive inventory
+src/mobile/RewardedAds.js      Native consent, rewarded-ad lifecycle and reward gating
 src/game/Player.js             Movement, model switching, respawn and articulated animation
 src/game/PoliceChase.js        Non-catching pursuit, hazard response and safe gap
 src/game/CameraRig.js          Smoothed desktop/portrait camera
@@ -221,11 +224,11 @@ npm test
 npm run build
 ```
 
-Current 2.6.1 source verification: **69/69 Node tests**, **32/32 Chromium checks** and a **75-module production build** passed. The browser run verified the solo animated menu, hidden menu officer, exact no-cut Play handoff and final desktop/mobile chase camera, plus real purchase/equip behavior, all ten portrait assets, live juice pickup, death/revive/score preservation, safety shielding, clean restarts, all fourteen districts and stable resources over 7,200 metres. Its same-scene 390×844 software-WebGL comparison rendered **428 calls / 221,150 triangles** at full detail and **334 calls / 160,194 triangles** with mobile culling—about **22% fewer calls** and **28% fewer triangles**. These are rendering-cost diagnostics, **not physical-device FPS measurements**.
+Current 2.7.0 source verification: **77/77 Node tests**, **34/34 Chromium checks** and a **122-module production build** passed. The browser run verified cancelled and rewarded continue behavior with an explicit test double, zero-juice score preservation, portrait juice/ad layout and safety shielding, plus the solo animated menu, cinematic camera, real purchase/equip behavior, live juice revival, clean restarts, all fourteen districts and stable resources over 7,200 metres. Its same-scene 390×844 software-WebGL comparison rendered **423 calls / 219,776 triangles** at full detail and **329 calls / 158,820 triangles** with mobile culling—about **22% fewer calls** and **28% fewer triangles**. These are rendering-cost diagnostics, **not physical-device FPS measurements**.
 
 The 2.6.1 APK was compiled by [Android workflow 39905157641](https://github.com/shaundavidkagenou-oss/SL-Bad-Boy/actions/runs/39905157641), then independently inspected: 454 ZIP entries passed CRC checks, all 22 production files matched `dist/` byte-for-byte, all ten runner portraits and 16 launcher/splash resources were present, and metadata reported `lk.shaun.slbadboy` / 2.6.1 / 10 / API 24–36. The Android v2 cryptographic signature and complete nine-chunk APK content digest were also verified locally. Installation and physical-device lifecycle, audio and FPS remain unverified.
 
-The suite retains the original physics, scoring, collision and persistence assertions and adds longer district scheduling, all landmark builders, consecutive tunnels, bounded geometry across repeated district cycles, speed-tier fairness, predictive bus separation at normal and low FPS, touch gestures without bottom buttons, continuous skin deformation, animated elephants, lazy audio, travel-driven wheels, absence of the schoolboy gestures, scooter pickup/duration/reset/shield behavior, literal 1.2× speed, police sprint/separation/return behavior, vertex-color batch/disposal, fixed effect pools, software-GPU detection, Android Back behavior and duplicate-listener prevention, plus crested one-mesh coins, pooled contact shadows, true near-miss clearance/scoring, clean camera resets, live daily rollover, independent audio levels, UV-safe batching and one-draw animated crowns.
+The suite retains the original physics, scoring, collision and persistence assertions and adds longer district scheduling, all landmark builders, consecutive tunnels, bounded geometry across repeated district cycles, speed-tier fairness, predictive bus separation at normal and low FPS, touch gestures without bottom buttons, continuous skin deformation, animated elephants, lazy audio, travel-driven wheels, absence of the schoolboy gestures, scooter pickup/duration/reset/shield behavior, literal 1.2× speed, police sprint/separation/return behavior, vertex-color batch/disposal, fixed effect pools, software-GPU detection, Android Back behavior and duplicate-listener prevention, AdMob ID/consent/preload wiring, reward-plus-dismissal gating, cancellation/no-fill handling and duplicate-revive prevention, plus crested one-mesh coins, pooled contact shadows, true near-miss clearance/scoring, clean camera resets, live daily rollover, independent audio levels, UV-safe batching and one-draw animated crowns.
 
 The optional real Chromium/WebGL suite starts its own Vite server:
 
@@ -234,6 +237,6 @@ npm install --no-save --package-lock=false puppeteer-core@25.15.0 @sparticuz/chr
 npm run test:browser
 ```
 
-It checks the five-second studio intro and desktop/mobile wordmark bounds, the solo menu's visible kid warm-up and hidden officer, exact no-cut Play camera preservation and cinematic desktop/mobile chase-FOV arrival, audio unlock/mute, keyboard, real dispatched touch gestures with no bottom direction buttons, regular and oncoming traffic, detailed police pursuit and pointing, coin pickup without an arm gesture, live scooter pickup and exact 1.2× speed, shield contact, natural expiry and police return, jump/slide collision behavior, game over, pause/resume, clean restart, saved best score, road/ground ordering, every district and city-transition tunnels, real Sinhala sign meshes and local fonts, portrait mobile/HUD/shop/revive layout, real character purchase/equip and juice-revive flows, same-scene mobile culling reductions, a batched-scene draw-call ceiling, and 7,200 metres of themed recycling with stable scene/GPU resource counts. Screenshots are written to the ignored `test-results/` directory.
+It checks the five-second studio intro and desktop/mobile wordmark bounds, the solo menu's visible kid warm-up and hidden officer, exact no-cut Play camera preservation and cinematic desktop/mobile chase-FOV arrival, audio unlock/mute, keyboard, real dispatched touch gestures with no bottom direction buttons, regular and oncoming traffic, detailed police pursuit and pointing, coin pickup without an arm gesture, live scooter pickup and exact 1.2× speed, shield contact, natural expiry and police return, jump/slide collision behavior, game over, pause/resume, clean restart, saved best score, road/ground ordering, every district and city-transition tunnels, real Sinhala sign meshes and local fonts, portrait mobile/HUD/shop/revive layout, real character purchase/equip and juice-revive flows, mocked cancelled/rewarded continue flows with no real ad requests, portrait juice/ad revive layout, same-scene mobile culling reductions, a batched-scene draw-call ceiling, and 7,200 metres of themed recycling with stable scene/GPU resource counts. Screenshots are written to the ignored `test-results/` directory.
 
 To use an installed Chrome/Chromium instead of the optional package, set `CHROME_PATH` to its executable. The resource stress test and software-WebGL screenshots are not hardware-specific GTX 1660 Super or physical-mobile frame-rate benchmarks. Native APK compilation/package validation is separate from physical-device audio, lifecycle and FPS validation.

@@ -85,9 +85,12 @@ jobs:
           "$AAPT" dump badging "$APK" | tee apk-badging.txt
           grep -F "package: name='lk.shaun.slbadboy'" apk-badging.txt
           grep -F "application-label:'SL BAD BOY'" apk-badging.txt
-          grep -F "versionCode='10'" apk-badging.txt
-          grep -F "versionName='2.6.1'" apk-badging.txt
+          grep -F "versionCode='11'" apk-badging.txt
+          grep -F "versionName='2.7.0'" apk-badging.txt
           grep -F "sdkVersion:'24'" apk-badging.txt
+          "$AAPT" dump xmltree "$APK" AndroidManifest.xml > apk-manifest.txt
+          grep -F 'com.google.android.gms.ads.APPLICATION_ID' apk-manifest.txt
+          grep -F 'ca-app-pub-7175777292239029~3414423328' apk-manifest.txt
           unzip -l "$APK" | grep -F 'assets/public/index.html'
           unzip -l "$APK" | grep -F 'assets/public/assets/'
           python - "$APK" <<'PY'
@@ -107,7 +110,10 @@ jobs:
                          'jaffna-rider', 'sacred-explorer', 'harbour-captain', 'night-ace', 'island-legend']
               for runner in runners:
                   assert len(apk.read(f'assets/public/assets/runners/{runner}.png')) > 5000, runner
-          print(f'All {len(checks)} supplied launcher/splash PNGs and all 10 offline runner portraits are packaged.')
+              rewarded_unit = b'ca-app-pub-7175777292239029/3200257177'
+              assert any(rewarded_unit in apk.read(name) for name in apk.namelist()
+                         if name.startswith('assets/public/assets/') and name.endswith('.js')), 'rewarded ad unit missing'
+          print(f'All {len(checks)} launcher/splash PNGs, 10 portraits and the production rewarded ad unit are packaged.')
           PY
           mkdir -p artifacts
           cp "$APK" artifacts/SL-BAD-BOY.apk

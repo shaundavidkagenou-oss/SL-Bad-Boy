@@ -66,6 +66,7 @@ async function bootstrap() {
   studio.dataset.state = 'done';
   studio.hidden = true;
   await hideNativeSplash();
+  if (game.rewardedAds.supported) game.rewardedAds.initialize();
 }
 
 bootstrap().catch(async (error) => {

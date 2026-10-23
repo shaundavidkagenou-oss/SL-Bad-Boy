@@ -37,6 +37,20 @@ test('Android Back closes the shop and safely ends a pending revive', () => {
   assert.deepEqual(calls, ['close-shop', 'finish-revive']);
 });
 
+test('Android Back cannot end a run while a rewarded ad is pending', () => {
+  const calls = [];
+  const game = {
+    state: 'revive', revivePending: true,
+    finishRun: () => calls.push('finish'),
+  };
+  handleNativeBack(game, () => calls.push('exit'));
+  assert.equal(game.state, 'revive');
+  assert.deepEqual(calls, []);
+  game.revivePending = false;
+  handleNativeBack(game, () => calls.push('exit'));
+  assert.deepEqual(calls, ['finish']);
+});
+
 test('web platform skips native setup and splash without touching the DOM', async () => {
   assert.equal(prepareMobilePlatform(), false);
   await hideNativeSplash();

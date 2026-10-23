@@ -41,7 +41,8 @@
 .shop-status { min-height: 16px; margin: 13px 0 4px !important; color: #f4b942 !important; font-size: 10px !important; font-weight: 800; letter-spacing: 1px; text-align: center; }
 .shop-note { display: block; color: #8fa4a9; font-size: 9px; text-align: center; }
 
-.revive-panel { width: min(410px, calc(100vw - 34px)); }
+.revive-panel { width: min(410px, calc(100vw - 34px)); max-height: calc(100dvh - 24px); overflow-y: auto; }
+.revive-panel [hidden] { display: none !important; }
 .revive-panel .eyebrow { justify-content: center; }
 .revive-packet { position: relative; width: 72px; height: 92px; margin: 19px auto 8px; display: grid; place-items: center; border: 3px solid #ffe5a0; border-radius: 5px; color: #713127; background: linear-gradient(160deg, #ffe275, #ed982e 65%, #c65e27); box-shadow: 0 9px 25px rgba(244, 185, 66, .17), inset 0 -8px rgba(123, 52, 29, .2); transform: rotate(-4deg); }
 .revive-packet::before { content: ''; position: absolute; left: 5px; right: 5px; top: 10px; height: 5px; background: rgba(255, 244, 198, .8); }
@@ -50,6 +51,12 @@
 .revive-stock { display: flex; align-items: center; justify-content: space-between; margin: 0 0 18px; padding: 10px 13px; border-top: 1px solid rgba(255, 255, 255, .12); border-bottom: 1px solid rgba(255, 255, 255, .12); }
 .revive-stock span { color: #aebfc1; font-size: 9px; font-weight: 800; letter-spacing: 1.2px; }
 .revive-stock strong { color: #f4b942; font-size: 24px; }
+.ad-revive-button { width: 100%; min-height: 52px; margin-top: 15px; padding: 10px 16px; display: flex; align-items: center; justify-content: center; gap: 11px; border: 1px solid rgba(244,185,66,.65); border-radius: 5px 13px 5px 13px; color: #fff3d4; background: linear-gradient(135deg, rgba(244,185,66,.17), rgba(38,65,76,.8)); font-size: 11px; font-weight: 900; letter-spacing: 1px; cursor: pointer; }
+.ad-revive-button:hover { background: linear-gradient(135deg, rgba(244,185,66,.26), rgba(38,65,76,.9)); }
+.ad-revive-button:disabled, .revive-panel .primary-button:disabled, .revive-panel .text-button:disabled { opacity: .55; cursor: wait; transform: none; }
+.ad-play-icon { width: 25px; height: 25px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 50%; color: #18213b; background: var(--gold); font-size: 10px; padding-left: 2px; }
+.revive-ad-status { display: block; min-height: 12px; margin-top: 8px; color: #aebfc1; font-size: 8px; font-weight: 800; line-height: 1.45; letter-spacing: .8px; text-align: center; }
+.revive-panel .text-button { margin-top: 16px; }
 
 @media (max-width: 700px) {
   .character-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

@@ -18,6 +18,7 @@ import { VisualEffects } from './VisualEffects.js';
 import { ContactShadows } from './ContactShadows.js';
 import { RoadLightPools } from './RoadLightPools.js';
 import { eveningPalette } from './Evening.js';
+import { RewardedAds } from '../mobile/RewardedAds.js';
 
 export function speedForElapsed(elapsed, scooterActive = false) {
   const cruiseSpeed = Math.min(GAME.maxSpeed, GAME.baseSpeed + Math.max(0, elapsed) * GAME.acceleration);
@@ -164,6 +165,7 @@ export class Game {
       closeShop: () => { this.buttonFeedback(); this.closeShop(); },
       chooseCharacter: (id) => { this.buttonFeedback(); this.chooseCharacter(id); },
       revive: () => { this.buttonFeedback(); this.respawn(); },
+      adRevive: () => { this.buttonFeedback(); this.reviveWithAd(); },
       finish: () => { this.buttonFeedback(); this.finishRun(); },
       mute: () => {
         this.audio.unlock();
@@ -174,10 +176,14 @@ export class Game {
       musicVolume: (value) => this.audio.setMusicVolume(value),
       sfxVolume: (value) => this.audio.setSfxVolume(value),
     });
+    this.rewardedAds = new RewardedAds({
+      onStatus: (status) => this.ui.setReviveAdStatus(status),
+    });
     this.input = new InputController((action) => this.handleAction(action));
     this.input.attachTouch(container);
 
     this.state = 'menu';
+    this.revivePending = false;
     this.speed = GAME.baseSpeed;
     this.elapsed = 0;
     this.nextMilestone = 500;
@@ -223,6 +229,7 @@ export class Game {
     const menuRotation = this.player.visual.rotation.y;
     this.shop.save();
     this.state = 'running';
+    this.revivePending = false;
     this.speed = GAME.baseSpeed;
     this.elapsed = 0;
     this.nextMilestone = 500;
@@ -262,18 +269,20 @@ export class Game {
   endRun() {
     if (this.state !== 'running') return;
     this.shop.save();
-    if (this.juice.count > 0) {
+    if (this.juice.count > 0 || this.rewardedAds.supported) {
       this.state = 'revive';
+      this.revivePending = false;
       this.player.crash();
       this.audio.setState('gameover');
-      this.ui.showRevive(this.juice.count);
+      this.ui.showRevive(this.juice.count, this.rewardedAds.supported);
       return;
     }
     this.finishRun();
   }
 
   finishRun() {
-    if (this.state !== 'running' && this.state !== 'revive') return;
+    if (this.revivePending) return false;
+    if (this.state !== 'running' && this.state !== 'revive') return false;
     this.state = 'gameover';
     this.player.crash();
     this.score.finish();
@@ -285,7 +294,36 @@ export class Game {
   }
 
   respawn() {
-    if (this.state !== 'revive' || !this.juice.consume()) return false;
+    if (this.state !== 'revive' || this.revivePending || !this.juice.consume()) return false;
+    return this.completeRespawn('juice');
+  }
+
+  async reviveWithAd() {
+    if (this.state !== 'revive' || this.revivePending || !this.rewardedAds.supported) return false;
+    this.revivePending = true;
+    this.ui.setReviveAdPending(true);
+    let rewarded = false;
+    try {
+      rewarded = await this.rewardedAds.show();
+    } catch {
+      rewarded = false;
+    }
+    if (this.state !== 'revive') {
+      this.revivePending = false;
+      return false;
+    }
+    this.revivePending = false;
+    this.ui.setReviveAdPending(false);
+    if (!rewarded) {
+      this.ui.setReviveAdMessage('AD NOT COMPLETED • TRY AGAIN OR END THIS RUN');
+      return false;
+    }
+    return this.completeRespawn('ad');
+  }
+
+  completeRespawn(source) {
+    if (this.state !== 'revive') return false;
+    this.revivePending = false;
     this.player.respawn();
     this.spawner.prepareRespawn();
     this.police.reset();
@@ -297,7 +335,7 @@ export class Game {
     this.ui.showRunning();
     this.ui.setJuice(this.juice.count);
     this.ui.updateHud(this.score, this.speed, true, this.player);
-    this.ui.showFeedback('JUICE REVIVE', '3 SECOND SAFETY SHIELD');
+    this.ui.showFeedback(source === 'ad' ? 'AD REWARD REVIVE' : 'JUICE REVIVE', '3 SECOND SAFETY SHIELD');
     return true;
   }
 
@@ -328,6 +366,7 @@ export class Game {
   goToMenu() {
     this.shop.save();
     this.state = 'menu';
+    this.revivePending = false;
     this.speed = GAME.baseSpeed;
     this.elapsed = 0;
     this.player.reset();
@@ -354,8 +393,10 @@ export class Game {
       return;
     }
     if (this.state === 'revive') {
-      if (action === 'confirm') this.respawn();
-      else if (action === 'pause') this.finishRun();
+      if (action === 'confirm') {
+        if (this.juice.count > 0) this.respawn();
+        else this.reviveWithAd();
+      } else if (action === 'pause') this.finishRun();
       return;
     }
     if (this.state === 'gameover') {

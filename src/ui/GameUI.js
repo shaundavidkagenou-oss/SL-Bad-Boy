@@ -20,6 +20,11 @@ export class GameUI {
     this.boostTime = byId('boost-time');
     this.boostFill = byId('boost-fill');
     this.lastHudUpdate = 0;
+    this.reviveJuiceCount = 0;
+    this.reviveAdOffered = false;
+    this.reviveAdStatus = 'unsupported';
+    this.reviveAdMessage = '';
+    this.revivePending = false;
 
     byId('play-button').addEventListener('click', actions.play);
     byId('restart-button').addEventListener('click', actions.restart);
@@ -31,6 +36,7 @@ export class GameUI {
     byId('shop-button').addEventListener('click', actions.shop);
     byId('shop-close').addEventListener('click', actions.closeShop);
     byId('revive-button').addEventListener('click', actions.revive);
+    byId('revive-ad-button').addEventListener('click', actions.adRevive);
     byId('revive-end-button').addEventListener('click', actions.finish);
     this.characterGrid.addEventListener('click', (event) => {
       const card = event.target.closest('button[data-character]');
@@ -54,7 +60,7 @@ export class GameUI {
     if (screen) {
       screen.classList.add('is-visible');
       screen.setAttribute('aria-hidden', 'false');
-      requestAnimationFrame(() => screen.querySelector('button')?.focus({ preventScroll: true }));
+      requestAnimationFrame(() => screen.querySelector('button:not([hidden]):not(:disabled)')?.focus({ preventScroll: true }));
     }
   }
 
@@ -90,9 +96,56 @@ export class GameUI {
   }
 
   setJuice(count) {
+    this.reviveJuiceCount = count;
     byId('juice-value').textContent = String(count);
     byId('shop-juice').textContent = String(count);
     byId('revive-count').textContent = String(count);
+    const hasJuice = count > 0;
+    byId('revive-button').hidden = !hasJuice;
+    document.querySelector('.revive-stock').hidden = !hasJuice;
+    document.querySelector('.revive-packet').hidden = !hasJuice;
+    this.updateReviveButtons();
+  }
+
+  updateReviveButtons() {
+    byId('revive-button').disabled = this.revivePending || this.reviveJuiceCount <= 0;
+    byId('revive-ad-button').disabled = this.revivePending
+      || this.reviveAdStatus === 'showing' || this.reviveAdStatus === 'consent-required';
+    byId('revive-end-button').disabled = this.revivePending;
+  }
+
+  setReviveAdStatus(status) {
+    this.reviveAdStatus = status;
+    const labels = {
+      error: 'RETRY AD & CONTINUE', showing: 'WATCHING AD…',
+      'consent-required': 'AD UNAVAILABLE',
+    };
+    const notes = {
+      idle: 'WATCH A SHORT AD TO KEEP THIS RUN',
+      consent: 'CHECKING AD PRIVACY…',
+      loading: 'LOADING REWARDED AD…',
+      ready: 'AD READY • EARN THE REWARD TO CONTINUE',
+      showing: 'EARN THE REWARD, THEN CLOSE THE AD',
+      error: 'AD UNAVAILABLE • TAP TO RETRY',
+      'consent-required': 'ADS UNAVAILABLE WITH CURRENT PRIVACY CHOICE',
+      unsupported: 'REWARDED ADS ARE AVAILABLE ON ANDROID',
+    };
+    byId('revive-ad-label').textContent = labels[status] || 'WATCH AD & CONTINUE';
+    if (!this.reviveAdMessage) byId('revive-ad-status').textContent = notes[status] || notes.idle;
+    this.updateReviveButtons();
+  }
+
+  setReviveAdMessage(message) {
+    this.reviveAdMessage = message;
+    byId('revive-ad-status').textContent = message;
+  }
+
+  setReviveAdPending(pending) {
+    this.revivePending = pending;
+    this.reviveAdMessage = '';
+    this.setReviveAdStatus(this.reviveAdStatus);
+    if (pending) byId('revive-ad-status').textContent = 'WAIT FOR THE AD TO FINISH…';
+    this.updateReviveButtons();
   }
 
   updateShop(snapshot, message = '') {
@@ -148,10 +201,17 @@ export class GameUI {
     document.body.dataset.gameState = 'shop';
   }
 
-  showRevive(count) {
+  showRevive(count, adOffered = false) {
     this.updateBoost(null);
     this.feedbackAnimation?.cancel();
+    this.revivePending = false;
+    this.reviveAdOffered = adOffered;
+    this.reviveAdMessage = '';
     this.setJuice(count);
+    byId('revive-ad-button').hidden = !adOffered;
+    byId('revive-ad-status').hidden = !adOffered;
+    this.setReviveAdStatus(this.reviveAdStatus);
+    this.updateReviveButtons();
     this.hud.classList.remove('is-visible');
     this.showScreen('revive');
     document.body.dataset.gameState = 'revive';

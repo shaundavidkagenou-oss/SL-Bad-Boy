@@ -159,6 +159,9 @@ try {
   assert.deepEqual(cameraHandoff.after, cameraHandoff.before, 'Play cut the menu camera or character pose');
   assert.equal(await page.evaluate(() => window.__LANKA_RUN__.audio.context === window.__testAudioContext), true);
   await waitForFunction(() => window.__LANKA_RUN__?.state === 'running');
+  // Freeze collision outcomes before slow software-renderer screenshots; the
+  // dedicated collision fixtures below explicitly re-enable them.
+  await page.evaluate(() => { window.__LANKA_RUN__.spawner.collisionEnabled = false; });
   await new Promise((resolve) => setTimeout(resolve, 100));
   await page.screenshot({ path: 'test-results/cinematic-handoff.png' });
   await waitForFunction(() => window.__LANKA_RUN__.police.chaseStarted && window.__LANKA_RUN__.police.group.visible);
@@ -437,6 +440,57 @@ try {
   passed.push('live rare juice pickup opens revive on death, preserves score, consumes one packet and restores a safety shield');
   passed.push('respawn clears the fatal traffic and temporary protection prevents an immediate second collision');
 
+  // Native AdMob cannot run inside Chromium. Exercise the real Game/UI reward
+  // boundary with an explicit test double; native SDK events are unit-tested.
+  await page.evaluate(() => {
+    const game = window.__LANKA_RUN__;
+    window.__adReward = false;
+    window.__adShows = 0;
+    game.rewardedAds = {
+      supported: true,
+      show: async () => {
+        window.__adShows += 1;
+        return window.__adReward;
+      },
+    };
+    game.ui.setReviveAdStatus('ready');
+    game.spawner.clear();
+    game.spawner.collisionEnabled = true;
+    game.player.reset();
+    window.__scoreBeforeAdRevive = { score: game.score.score, distance: game.score.distance };
+    game.spawner.spawnObstacle('car', 1, game.player.group.position.z, 923);
+  });
+  await waitForFunction(() => window.__LANKA_RUN__.state === 'revive');
+  assert.equal(await page.$eval('#revive-ad-button', (node) => node.hidden), false);
+  assert.equal(await page.$eval('#revive-button', (node) => node.hidden), true, 'zero juice hides the drink action');
+  assert.equal(await page.evaluate(() => window.__LANKA_RUN__.juice.count), 0);
+  await page.screenshot({ path: 'test-results/ad-revive.png' });
+  await page.click('#revive-ad-button');
+  await waitForFunction(() => window.__adShows === 1 && !window.__LANKA_RUN__.revivePending);
+  assert.equal(await page.evaluate(() => window.__LANKA_RUN__.state), 'revive');
+  assert.match(await page.$eval('#revive-ad-status', (node) => node.textContent), /AD NOT COMPLETED/);
+  assert.deepEqual(await page.evaluate(() => ({
+    score: window.__LANKA_RUN__.score.score, distance: window.__LANKA_RUN__.score.distance,
+  })), await page.evaluate(() => window.__scoreBeforeAdRevive));
+  passed.push('cancelled rewarded ad keeps the same crashed run and never grants a revive');
+
+  await page.evaluate(() => { window.__adReward = true; });
+  await page.click('#revive-ad-button');
+  await waitForFunction(() => window.__LANKA_RUN__.state === 'running' && window.__LANKA_RUN__.player.invincibleTimer > 0);
+  assert.equal(await page.evaluate(() => window.__adShows), 2);
+  assert.equal(await page.evaluate(() => window.__LANKA_RUN__.juice.count), 0);
+  assert.equal(await page.evaluate(() => window.__LANKA_RUN__.player.shield.visible), true);
+  assert.ok(await page.evaluate(() => window.__LANKA_RUN__.score.score >= window.__scoreBeforeAdRevive.score));
+  assert.ok(await page.evaluate(() => window.__LANKA_RUN__.score.distance >= window.__scoreBeforeAdRevive.distance));
+  assert.equal(await page.evaluate(() => window.__LANKA_RUN__.spawner.getRowEntries(923).length), 0);
+  await page.screenshot({ path: 'test-results/ad-revive-respawn.png' });
+  await page.evaluate(() => {
+    const game = window.__LANKA_RUN__;
+    game.spawner.clear();
+    game.spawner.collisionEnabled = false;
+  });
+  passed.push('rewarded ad continues from a zero-juice crash with score preserved and safety shield restored');
+
   await page.reload({ waitUntil: 'networkidle0' });
   await waitForFunction(() => window.__LANKA_RUN__?.state === 'menu' && document.getElementById('studio-loading').hidden);
   assert.equal(await page.evaluate(() => window.__LANKA_RUN__.score.bestScore), savedBest);
@@ -705,6 +759,8 @@ try {
     const game = window.__LANKA_RUN__;
     game.spawner.clear();
     game.spawner.collisionEnabled = false;
+    game.rewardedAds = { supported: true, show: async () => true };
+    game.ui.setReviveAdStatus('ready');
     game.juice.add();
     game.endRun();
   });
@@ -715,10 +771,17 @@ try {
   });
   assert.ok(reviveBounds.left >= 0 && reviveBounds.right <= 390 && reviveBounds.top >= 0 && reviveBounds.bottom <= 844,
     `mobile revive overflow: ${JSON.stringify(reviveBounds)}`);
+  const adReviveBounds = await page.$eval('#revive-ad-button', (button) => {
+    const bounds = button.getBoundingClientRect();
+    return { hidden: button.hidden, top: bounds.top, bottom: bounds.bottom };
+  });
+  assert.equal(adReviveBounds.hidden, false);
+  assert.ok(adReviveBounds.top >= reviveBounds.top && adReviveBounds.bottom <= reviveBounds.bottom,
+    `mobile ad action outside revive panel: ${JSON.stringify(adReviveBounds)}`);
   await page.screenshot({ path: 'test-results/mobile-juice-revive.png' });
   await page.click('#revive-button');
   await waitForFunction(() => window.__LANKA_RUN__.state === 'running' && window.__LANKA_RUN__.juice.count === 0);
-  passed.push('portrait revive dialog stays within the screen and returns to the same run');
+  passed.push('portrait juice and rewarded-ad revive dialog stays within the screen and returns to the same run');
 
   assert.deepEqual(runtimeErrors, []);
   passed.push('no browser runtime errors, page errors or missing-resource errors');
