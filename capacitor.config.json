@@ -1,0 +1,19 @@
+{
+  "appId": "lk.shaun.slbadboy",
+  "appName": "SL BAD BOY",
+  "webDir": "dist",
+  "backgroundColor": "#050505",
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 0,
+      "launchAutoHide": false,
+      "fadeOutDuration": 200,
+      "backgroundColor": "#050505",
+      "androidSplashResourceName": "splash",
+      "showSpinner": false
+    }
+  }
+}

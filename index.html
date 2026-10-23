@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#050505" />
+    <meta name="description" content="SL BAD BOY — an original 3D Sri Lankan mobile endless runner." />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="icon" type="image/svg+xml" href="/assets/icon.svg" />
+    <style>
+      html, body { margin: 0; background: #050505; }
+      #studio-loading { position: fixed; inset: 0; z-index: 1000; background: #050505; color: #fff; }
+      #studio-loading[hidden] { display: none; }
+    </style>
+    <title>SL BAD BOY — Schoolboy Rush</title>
+  </head>
+  <body data-game-state="loading">
+    <div id="studio-loading" class="studio-loading" role="status" aria-label="Shaun David Studios loading screen" aria-live="polite">
+      <div class="studio-scanlines" aria-hidden="true"></div>
+      <div class="studio-sweep" aria-hidden="true"></div>
+      <section class="studio-frame" aria-label="Shaun David Studios presents">
+        <div class="studio-topline"><span>AN ORIGINAL PRODUCTION</span><span>SD / 01</span></div>
+        <div class="studio-lockup">
+          <div class="studio-monogram" aria-hidden="true"><span>S</span><i></i><span>D</span></div>
+          <div class="studio-wordmark">
+            <small>SHAUN DAVID</small>
+            <strong>STUDIOS</strong>
+            <p>PRESENTS</p>
+          </div>
+        </div>
+        <div class="studio-loading-row">
+          <div class="studio-progress" aria-hidden="true"><i id="studio-progress-bar"></i></div>
+          <strong id="studio-percent">000%</strong>
+        </div>
+        <div class="studio-status"><span id="studio-status">IGNITING THE ISLAND</span><b>SL BAD BOY</b></div>
+      </section>
+      <span class="studio-corner studio-corner-a" aria-hidden="true"></span>
+      <span class="studio-corner studio-corner-b" aria-hidden="true"></span>
+    </div>
+    <div id="app">
+      <div id="scene" aria-label="3D Sri Lankan road and schoolboy runner"></div>
+      <div class="sun-glow" aria-hidden="true"></div>
+      <div class="vignette" aria-hidden="true"></div>
+      <div id="impact-flash" aria-hidden="true"></div>
+
+      <header id="hud" class="hud" aria-label="Run status">
+        <div class="hud-brand">
+          <img src="/assets/icon.svg" alt="" />
+          <div><strong>SL BAD BOY</strong><span>SCHOOLBOY RUSH</span></div>
+        </div>
+        <div id="district-pill" class="district-pill"><span id="district-name">COLOMBO</span><small id="district-subtitle">CITY STREETS</small></div>
+        <div class="hud-metrics">
+          <div class="metric"><span>DISTANCE</span><strong id="distance-value">0 m</strong></div>
+          <div class="metric"><span>SCORE</span><strong id="score-value">0</strong></div>
+          <div class="metric speed-metric"><span>SPEED</span><strong id="speed-value">50 km/h</strong></div>
+        </div>
+        <div class="hud-actions">
+          <div id="juice-pill" class="juice-pill" aria-label="Juice packets"><span class="juice-icon" aria-hidden="true"></span><strong id="juice-value">0</strong></div>
+          <div id="coin-pill" class="coin-pill" aria-label="Coins collected"><span class="coin-icon">●</span><strong id="coin-value">0</strong></div>
+          <button id="pause-button" class="icon-button" aria-label="Pause game" title="Pause (Escape)">Ⅱ</button>
+        </div>
+      </header>
+
+      <div id="boost-hud" class="boost-hud" aria-live="polite" aria-hidden="true">
+        <div class="boost-heading"><span>SCOOTER BOOST</span><strong>1.2× SPEED</strong><b id="boost-time">10.0 s</b></div>
+        <div class="boost-track" aria-hidden="true"><span id="boost-fill"></span></div>
+        <small>TRAFFIC SHIELD ACTIVE</small>
+      </div>
+
+      <div id="district-banner" class="district-banner" aria-live="polite">
+        <small>NOW ENTERING</small><strong id="district-banner-name">COLOMBO</strong><span id="district-banner-subtitle">CITY STREETS</span>
+      </div>
+      <div id="game-feedback" class="game-feedback" role="status" aria-live="polite">
+        <strong id="feedback-title">NEAR MISS</strong><span id="feedback-subtitle">+250</span>
+      </div>
+
+      <main id="menu-screen" class="screen menu-screen is-visible" aria-hidden="false">
+        <section class="hero-panel">
+          <div class="menu-lockup">
+            <div class="eyebrow"><span></span> COLOMBO • AFTER HOURS</div>
+            <h1>SL BAD <em>BOY</em></h1>
+            <h2>SCHOOLBOY RUSH</h2>
+            <div class="route-line"><span>LK</span><b>ISLAND ROUTE 01</b><i>14 DISTRICTS • ONE LATE RUN</i></div>
+          </div>
+          <div class="menu-dock">
+            <div class="best-line"><span>PERSONAL BEST</span><strong id="menu-best">0</strong></div>
+          <div class="menu-play-row">
+            <button id="play-button" class="primary-button"><span>PLAY NOW</span><kbd>ENTER</kbd></button>
+            <button id="shop-button" class="shop-button" aria-label="Open character shop"><span>SHOP</span><small><b id="menu-wallet">0</b> COINS</small></button>
+          </div>
+          <div class="controls" aria-label="Keyboard controls">
+            <div><span class="key-pair"><kbd>A</kbd><kbd>←</kbd></span><p><strong>MOVE LEFT</strong></p></div>
+            <div><span class="key-pair"><kbd>D</kbd><kbd>→</kbd></span><p><strong>MOVE RIGHT</strong></p></div>
+            <div><kbd>SPACE</kbd><p><strong>JUMP</strong></p></div>
+            <div><span class="key-pair"><kbd>S</kbd><kbd>↓</kbd></span><p><strong>SLIDE</strong></p></div>
+          </div>
+          <details class="mission-panel" aria-label="Daily island goals">
+            <summary class="mission-header"><span>DAILY ISLAND GOALS</span><strong><b id="island-stars">0</b> ★</strong></summary>
+            <div class="rank-line"><span id="island-rank">LEVEL 1 • EXPLORER</span><div class="rank-track"><i id="rank-fill"></i></div></div>
+            <div class="mission-list">
+              <div class="mission-row"><div><span id="mission-0-label">DISTANCE</span><strong id="mission-0-progress">0 / 1000 m</strong></div><div class="mission-track"><i id="mission-0-fill"></i></div></div>
+              <div class="mission-row"><div><span id="mission-1-label">COINS</span><strong id="mission-1-progress">0 / 35</strong></div><div class="mission-track"><i id="mission-1-fill"></i></div></div>
+              <div class="mission-row"><div><span id="mission-2-label">NEAR MISS</span><strong id="mission-2-progress">0 / 2</strong></div><div class="mission-track"><i id="mission-2-fill"></i></div></div>
+            </div>
+          </details>
+          <p class="menu-tip"><span>ESC</span> pauses the run. Every traffic row has a way through.</p>
+          <p class="touch-tip">Swipe left or right to change lanes. Swipe up to jump and down to slide.</p>
+          </div>
+        </section>
+        <div class="world-tag" aria-hidden="true"><span>14 DISTRICTS</span><strong id="world-tag-name">GALLE ROAD</strong><small id="world-tag-theme">CITY STREETS</small></div>
+      </main>
+
+      <section id="shop-screen" class="screen centered-screen shop-screen" aria-hidden="true">
+        <div class="panel shop-panel" role="dialog" aria-modal="true" aria-labelledby="shop-title">
+          <button id="shop-close" class="shop-close icon-button" aria-label="Close character shop">×</button>
+          <div class="eyebrow"><span></span> ORIGINAL ISLAND RUNNERS</div>
+          <h2 id="shop-title">CHARACTER SHOP</h2>
+          <p>Buy once. Equip any owned runner.</p>
+          <div class="shop-balance">
+            <span>YOUR COINS</span><strong id="shop-wallet">0</strong>
+            <small><i class="juice-icon" aria-hidden="true"></i><b id="shop-juice">0</b> / 3 JUICE</small>
+          </div>
+          <div id="character-grid" class="character-grid" aria-label="Ten playable characters"></div>
+          <p id="shop-status" class="shop-status" role="status">SELECT A RUNNER OR UNLOCK WITH COINS</p>
+          <small class="shop-note">Portraits come from the original 3D rigs. Only your equipped live model is loaded.</small>
+        </div>
+      </section>
+
+      <section id="revive-screen" class="screen centered-screen" aria-hidden="true">
+        <div class="panel dialog-panel revive-panel" role="dialog" aria-modal="true" aria-labelledby="revive-title">
+          <div class="eyebrow"><span></span> SECOND CHANCE</div>
+          <div class="revive-packet" aria-hidden="true"><i></i><strong>MANGO<br />JUICE</strong></div>
+          <h2 id="revive-title">RUN IT BACK</h2>
+          <p>Keep this score and return to the crash point with a 3-second safety shield.</p>
+          <div class="revive-stock"><span>PACKETS READY</span><strong id="revive-count">1</strong></div>
+          <button id="revive-button" class="primary-button"><span>DRINK &amp; RESPAWN</span><kbd>ENTER</kbd></button>
+          <button id="revive-ad-button" class="ad-revive-button" hidden>
+            <span class="ad-play-icon" aria-hidden="true">▶</span><span id="revive-ad-label">WATCH AD &amp; CONTINUE</span>
+          </button>
+          <small id="revive-ad-status" class="revive-ad-status" role="status" hidden></small>
+          <button id="revive-end-button" class="text-button">END THIS RUN</button>
+        </div>
+      </section>
+
+      <section id="pause-screen" class="screen centered-screen" aria-hidden="true">
+        <div class="panel dialog-panel">
+          <div class="pause-symbol" aria-hidden="true">Ⅱ</div>
+          <div class="eyebrow"><span></span> TAKE A BREATH</div>
+          <h2>RUN PAUSED</h2>
+          <p>The road can wait. Your score is safe.</p>
+          <button id="resume-button" class="primary-button"><span>RESUME RUN</span><kbd>ESC</kbd></button>
+          <div class="button-row">
+            <button id="pause-restart-button" class="secondary-button">RESTART</button>
+            <button id="pause-menu-button" class="secondary-button">MAIN MENU</button>
+          </div>
+          <div class="audio-settings" aria-label="Audio settings">
+            <label for="music-volume"><span>MUSIC</span><input id="music-volume" type="range" min="0" max="1" step="0.05" value="0.55" /></label>
+            <label for="sfx-volume"><span>SOUND FX</span><input id="sfx-volume" type="range" min="0" max="1" step="0.05" value="0.85" /></label>
+          </div>
+        </div>
+      </section>
+
+      <section id="gameover-screen" class="screen centered-screen" aria-hidden="true">
+        <div class="panel dialog-panel gameover-panel">
+          <div class="eyebrow danger"><span></span> TRAFFIC TROUBLE</div>
+          <h2>RUN OVER</h2>
+          <div id="new-best" class="new-best">NEW PERSONAL BEST!</div>
+          <div class="final-score"><span>FINAL SCORE</span><strong id="final-score">0</strong></div>
+          <div class="result-grid">
+            <div><span>DISTANCE</span><strong id="final-distance">0 m</strong></div>
+            <div><span>COINS</span><strong id="final-coins">0</strong></div>
+            <div><span>BEST</span><strong id="final-best">0</strong></div>
+          </div>
+          <div id="run-rewards" class="run-rewards"><strong id="reward-stars">0 ★</strong><span id="reward-copy">DAILY GOALS IN PROGRESS</span></div>
+          <button id="restart-button" class="primary-button"><span>RUN AGAIN</span><kbd>ENTER</kbd></button>
+          <button id="gameover-menu-button" class="text-button">BACK TO MAIN MENU</button>
+        </div>
+      </section>
+
+      <button id="mute-button" class="audio-button" aria-label="Mute sound" aria-pressed="false"><span id="audio-icon">♪</span><span id="audio-label">SOUND ON</span></button>
+      <div id="fatal-error" role="alert" hidden><strong>WebGL could not start.</strong><span>Enable hardware acceleration and use a current browser or Android WebView, then reload.</span></div>
+      <noscript>This game needs JavaScript enabled.</noscript>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

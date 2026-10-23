@@ -1,0 +1,151 @@
+name: Build and verify Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - arena/9e93b741-sl-bad-boy
+    paths-ignore:
+      - artifacts/**
+      - '**.md'
+
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Install exact Node dependencies
+        run: npm ci
+
+      - name: Run gameplay regression tests
+        run: npm test
+
+      - name: Build production game
+        run: npm run build
+
+      - name: Render supplied native artwork
+        run: npm run assets:android
+
+      - name: Sync offline game into Android
+        run: npx cap sync android
+
+      - name: Compile Android APK
+        working-directory: android
+        run: |
+          set -euo pipefail
+          if ./gradlew assembleDebug --no-daemon --stacktrace > ../gradle-build.log 2>&1; then
+            cat ../gradle-build.log
+          else
+            RESULT=$?
+            cat ../gradle-build.log
+            {
+              echo '## Gradle compilation failure'
+              echo '```text'
+              tail -n 160 ../gradle-build.log
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit "$RESULT"
+          fi
+
+      - name: Validate APK and package identity
+        run: |
+          set -euo pipefail
+          APK=android/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          unzip -t "$APK"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          test -x "$AAPT"
+          "$AAPT" dump --include-meta-data badging "$APK" | tee apk-badging.txt
+          grep -F "package: name='lk.shaun.slbadboy'" apk-badging.txt
+          grep -F "application-label:'SL BAD BOY'" apk-badging.txt
+          grep -F "versionCode='15'" apk-badging.txt
+          grep -F "versionName='2.9.0'" apk-badging.txt
+          grep -F "sdkVersion:'24'" apk-badging.txt
+          grep -F 'com.google.android.gms.ads.APPLICATION_ID' apk-badging.txt
+          grep -F 'ca-app-pub-7175777292239029~3414423328' apk-badging.txt
+          unzip -l "$APK" | grep -F 'assets/public/index.html'
+          unzip -l "$APK" | grep -F 'assets/public/assets/'
+          python - "$APK" <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          import sys
+
+          resources = Path('android/app/src/main/res')
+          checks = [('drawable/splash_logo.png', 'drawable/splash_logo.png')]
+          for density in ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi']:
+              for name in ['ic_launcher.png', 'ic_launcher_foreground.png', 'ic_launcher_round.png']:
+                  checks.append((f'mipmap-{density}/{name}', f'mipmap-{density}-v4/{name}'))
+          with ZipFile(sys.argv[1]) as apk:
+              for local, packed in checks:
+                  assert apk.read(f'res/{packed}') == (resources / local).read_bytes(), local
+              runners = ['schoolboy', 'colombo-scout', 'kandy-runner', 'coastal-sprinter', 'tea-trekker',
+                         'jaffna-rider', 'sacred-explorer', 'harbour-captain', 'night-ace', 'island-legend']
+              for runner in runners:
+                  assert len(apk.read(f'assets/public/assets/runners/{runner}.png')) > 5000, runner
+              bundled_js = b'\n'.join(apk.read(name) for name in apk.namelist()
+                                      if name.startswith('assets/public/assets/') and name.endswith('.js'))
+              for marker in [b'ca-app-pub-7175777292239029/3200257177',
+                             b'Batched golden-hour god rays',
+                             b'Batched low-sun projected long shadows',
+                             b'Pooled bus headlight halos and road glow',
+                             b'Offscreen scenery draft',
+                             b'float horizonHaze',
+                             b'shopLight']:
+                  assert marker in bundled_js, f'packaged feature missing: {marker!r}'
+          print(f'All {len(checks)} launcher/splash PNGs, 10 portraits, rewarded ads, cinematic graphics, staged scenery and evening lights are packaged.')
+          PY
+          mkdir -p artifacts
+          cp "$APK" artifacts/SL-BAD-BOY.apk
+          sha256sum artifacts/SL-BAD-BOY.apk | tee artifacts/SL-BAD-BOY.apk.sha256
+
+      - name: Upload verified APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SL-BAD-BOY-APK
+          path: |
+            artifacts/SL-BAD-BOY.apk
+            artifacts/SL-BAD-BOY.apk.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Commit downloadable APK to this branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f artifacts/SL-BAD-BOY.apk artifacts/SL-BAD-BOY.apk.sha256
+          if git diff --cached --quiet; then
+            echo "APK is unchanged; no commit needed."
+            exit 0
+          fi
+          git commit -m "Build verified SL BAD BOY APK [skip ci]"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
