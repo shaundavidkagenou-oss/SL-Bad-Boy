@@ -88,11 +88,26 @@ try {
   await new Promise((resolve) => setTimeout(resolve, 400));
   assert.equal(await page.$eval('#fatal-error', (node) => node.hidden), true);
   assert.equal(await page.$eval('#scene canvas', (node) => node.width > 0), true);
+  await waitForFunction(() => window.__LANKA_RUN__.player.menuTime >= 3.55);
+  const menuPoseBefore = await page.evaluate(() => ({
+    leg: window.__LANKA_RUN__.player.joints.leftLeg.rotation.x,
+    head: window.__LANKA_RUN__.player.joints.head.rotation.y,
+  }));
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  const menuPoseAfter = await page.evaluate(() => ({
+    leg: window.__LANKA_RUN__.player.joints.leftLeg.rotation.x,
+    head: window.__LANKA_RUN__.player.joints.head.rotation.y,
+    lift: window.__LANKA_RUN__.player.visual.position.y,
+  }));
+  assert.ok(Math.abs(menuPoseAfter.leg - menuPoseBefore.leg) > 0.01
+    || Math.abs(menuPoseAfter.head - menuPoseBefore.head) > 0.01);
+  assert.ok(menuPoseAfter.lift > 0);
+  passed.push('menu kid performs a visible warm-up with relaxed arms and no officer in the showcase');
   await page.screenshot({ path: 'test-results/menu.png' });
-  assert.equal(await page.evaluate(() => window.__LANKA_RUN__.police.group.visible), true);
+  assert.equal(await page.evaluate(() => window.__LANKA_RUN__.police.group.visible), false);
   assert.equal(await page.evaluate(() => window.__LANKA_RUN__.police.chaseStarted), false);
   assert.equal(await page.$eval('.world-tag span', (node) => node.textContent), '14 DISTRICTS');
-  passed.push('game opens with a WebGL canvas and a character-led fourteen-district evening menu');
+  passed.push('game opens with a WebGL canvas and a solo character-led fourteen-district evening menu');
 
   assert.equal(await page.evaluate(() => window.__LANKA_RUN__.audio.context === null), true);
   await page.click('#mute-button');
@@ -126,10 +141,33 @@ try {
   assert.equal(await page.evaluate(() => window.__LANKA_RUN__.player.characterId), 'schoolboy');
   passed.push('ten real 3D runner portraits load and buying/equipping updates the live model and persistent wallet');
 
-  await page.click('#play-button');
+  const cameraHandoff = await page.evaluate(() => {
+    const game = window.__LANKA_RUN__;
+    const before = {
+      position: game.camera.position.toArray(), look: game.cameraRig.lookTarget.toArray(),
+      fov: game.camera.fov, rotation: game.player.visual.rotation.y,
+    };
+    document.getElementById('play-button').click();
+    return {
+      before,
+      after: {
+        position: game.camera.position.toArray(), look: game.cameraRig.lookTarget.toArray(),
+        fov: game.camera.fov, rotation: game.player.visual.rotation.y,
+      },
+    };
+  });
+  assert.deepEqual(cameraHandoff.after, cameraHandoff.before, 'Play cut the menu camera or character pose');
   assert.equal(await page.evaluate(() => window.__LANKA_RUN__.audio.context === window.__testAudioContext), true);
   await waitForFunction(() => window.__LANKA_RUN__?.state === 'running');
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  await page.screenshot({ path: 'test-results/cinematic-handoff.png' });
   await waitForFunction(() => window.__LANKA_RUN__.police.chaseStarted && window.__LANKA_RUN__.police.group.visible);
+  await waitForFunction(() => {
+    const game = window.__LANKA_RUN__;
+    return Math.abs(game.camera.position.y - game.cameraRig.baseY) < 0.08
+      && Math.abs(game.cameraRig.lookTarget.z + 8.5) < 0.12;
+  });
+  passed.push('Play retains the exact menu frame then cinematically eases camera and runner into the chase view');
   const kinds = await page.evaluate(() => window.__LANKA_RUN__.spawner.getActiveKinds());
   for (const kind of ['public-bus', 'private-bus', 'car', 'tuk-tuk', 'cone', 'barrier']) {
     assert.ok(kinds.includes(kind), `${kind} missing from initial run`);
@@ -191,9 +229,10 @@ try {
     game.spawner.nextSpawnIn = 999;
     game.player.reset();
     game.spawner.collisionEnabled = true;
+    window.__coinsBeforeIsolatedPickup = game.score.coins;
     game.spawner.spawnCoin(1, game.player.group.position.z, 1, 900);
   });
-  await waitForFunction(() => window.__LANKA_RUN__.score.coins === 1);
+  await waitForFunction(() => window.__LANKA_RUN__.score.coins === window.__coinsBeforeIsolatedPickup + 1);
   assert.equal(await page.evaluate(() => window.__LANKA_RUN__.spawner.getRowEntries(900).length), 0);
   assert.equal(await page.evaluate(() => 'coinTimer' in window.__LANKA_RUN__.player), false);
   assert.ok(await page.evaluate(() => Math.abs(window.__LANKA_RUN__.player.joints.rightArm.rotation.z) < 0.02));
@@ -571,6 +610,7 @@ try {
   await page.click('#shop-close');
   await page.click('#play-button');
   await waitForFunction(() => window.__LANKA_RUN__.state === 'running');
+  await waitForFunction(() => Math.abs(window.__LANKA_RUN__.camera.fov - 67) < 0.2);
   assert.ok(await page.evaluate(() => Math.abs(window.__LANKA_RUN__.camera.fov - 67) < 0.2));
   passed.push('portrait mobile shop keeps all ten runners in a notch-safe scrollable layout');
   await page.evaluate(() => { window.__LANKA_RUN__.spawner.collisionEnabled = false; });

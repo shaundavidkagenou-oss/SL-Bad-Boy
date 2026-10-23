@@ -98,8 +98,13 @@ export class PoliceChase {
   update(delta, speed, player, mode = 'running', entries = []) {
     if (mode === 'paused') return;
     if (mode === 'menu') {
-      this.group.visible = true;
+      // The title screen is a solo runner showcase. Keep the pursuit reset,
+      // but do not render or animate an officer who is not in the scene yet.
+      this.group.visible = false;
       this.chaseStarted = false;
+      this.behaviorTime = 0;
+      this.pointTimer = 0;
+      return;
     }
     if (mode === 'running' && !this.chaseStarted) {
       this.chaseStarted = true;

@@ -74,22 +74,28 @@ test('coin trails render through one bounded instanced pool while retaining coll
   assert.equal(spawner.coinPool.visible, false);
 });
 
-test('menu characters and camera present an idle showcase and reset cleanly for gameplay', () => {
+test('solo menu hides the officer while the kid animates and rigs reset cleanly', () => {
   const scene = new THREE.Scene();
   const player = new Player(scene);
   const police = new PoliceChase(scene);
   const rig = new CameraRig();
   rig.resize(390, 844);
-  for (let frame = 0; frame < 180; frame += 1) {
+  let peakStep = 0;
+  let peakLift = 0;
+  for (let frame = 0; frame < 300; frame += 1) {
     player.update(1 / 60, 0, 'menu');
     police.update(1 / 60, 0, player, 'menu', []);
     rig.update(1 / 60, player, 0, 'menu');
+    peakStep = Math.max(peakStep, Math.abs(player.joints.leftLeg.rotation.x));
+    peakLift = Math.max(peakLift, player.visual.position.y);
   }
-  assert.equal(police.group.visible, true);
+  assert.equal(police.group.visible, false);
   assert.equal(police.chaseStarted, false);
   assert.ok(police.getGap() >= POLICE_MIN_GAP);
-  assert.ok(Math.abs(player.visual.rotation.y - Math.PI) < 0.01);
-  assert.ok(Math.abs(police.visual.rotation.y - Math.PI) < 0.01);
+  assert.ok(peakStep > 0.2, `menu warm-up step was only ${peakStep}`);
+  assert.ok(peakLift > 0.02, `menu warm-up lift was only ${peakLift}`);
+  assert.ok(Math.abs(player.visual.rotation.y - Math.PI) < 0.08);
+  assert.ok(Math.abs(player.joints.rightArm.rotation.z) < 0.001, 'removed arm gestures must stay removed');
   assert.ok(Math.abs(rig.camera.fov - 54) < 0.01);
   player.reset();
   police.reset();
@@ -97,4 +103,29 @@ test('menu characters and camera present an idle showcase and reset cleanly for 
   assert.equal(player.visual.rotation.y, 0);
   assert.equal(police.group.visible, false);
   assert.equal(rig.camera.fov, 67);
+});
+
+test('cinematic Play handoff preserves the menu frame then eases into the chase camera', () => {
+  const rig = new CameraRig();
+  rig.resize(390, 844);
+  const player = new Player(new THREE.Scene());
+  for (let frame = 0; frame < 180; frame += 1) rig.update(1 / 60, player, 0, 'menu');
+  const menuPosition = rig.camera.position.toArray();
+  const menuLook = rig.lookTarget.toArray();
+  const menuFov = rig.camera.fov;
+  rig.beginRun(true);
+  assert.deepEqual(rig.camera.position.toArray(), menuPosition, 'Play must not cut the camera');
+  assert.deepEqual(rig.lookTarget.toArray(), menuLook);
+  assert.equal(rig.camera.fov, menuFov);
+  for (let frame = 0; frame < 30; frame += 1) rig.update(1 / 60, player, 14, 'running');
+  assert.ok(rig.camera.position.y > menuPosition[1] + 1);
+  assert.ok(rig.lookTarget.z < menuLook[2] - 3 && rig.lookTarget.z > -8.5);
+  for (let frame = 0; frame < 150; frame += 1) rig.update(1 / 60, player, 14, 'running');
+  assert.ok(Math.abs(rig.camera.position.x) < 0.001);
+  assert.ok(Math.abs(rig.camera.position.y - 6.8) < 0.001);
+  assert.ok(Math.abs(rig.camera.position.z - 15.8) < 0.001);
+  assert.ok(Math.abs(rig.lookTarget.z + 8.5) < 0.001);
+  assert.ok(Math.abs(rig.camera.fov - 67) < 0.01);
+  rig.beginRun(false);
+  assert.deepEqual(rig.camera.position.toArray(), [0, 6.8, 15.8], 'ordinary restarts still reset immediately');
 });

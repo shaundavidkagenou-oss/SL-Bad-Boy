@@ -219,6 +219,8 @@ export class Game {
   }
 
   startRun(seed = (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0) {
+    const fromMenu = this.state === 'menu';
+    const menuRotation = this.player.visual.rotation.y;
     this.shop.save();
     this.state = 'running';
     this.speed = GAME.baseSpeed;
@@ -227,7 +229,8 @@ export class Game {
     this.runRewards = null;
     this.score.reset();
     this.player.reset();
-    this.cameraRig.reset();
+    if (fromMenu) this.player.visual.rotation.y = menuRotation;
+    this.cameraRig.beginRun(fromMenu);
     this.police.reset();
     this.effects.reset(this.player);
     this.world.reset();

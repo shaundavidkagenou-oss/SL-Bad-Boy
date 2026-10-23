@@ -11,7 +11,8 @@ export class CameraRig {
     this.laneFeedback = 0;
     this.menuTime = 0;
     this.camera.position.set(0, this.baseY, this.baseZ);
-    this.camera.lookAt(0, 1.3, -8.5);
+    this.lookTarget.set(0, 1.3, -8.5);
+    this.camera.lookAt(this.lookTarget);
   }
 
   resize(width, height) {
@@ -36,6 +37,18 @@ export class CameraRig {
     this.lookTarget.set(0, 1.3, -8.5);
     this.camera.lookAt(this.lookTarget);
     this.camera.updateProjectionMatrix();
+  }
+
+  beginRun(cinematic = false) {
+    if (!cinematic) {
+      this.reset();
+      return;
+    }
+    // Keep the current close-up position, FOV and look target. The regular
+    // running rig now eases every component to the chase view without a cut.
+    this.feedback = 0;
+    this.laneFeedback = 0;
+    this.menuTime = 0;
   }
 
   pulse(amount = 0.25, direction = 0) {
@@ -80,7 +93,9 @@ export class CameraRig {
     this.camera.position.z = THREE.MathUtils.damp(
       this.camera.position.z, this.baseZ + (player.scooterActive ? 0.28 : 0) + this.feedback * 0.08, 5, delta,
     );
-    this.lookTarget.set(this.camera.position.x * 0.12, 1.3 + jump * 0.08 - this.feedback * 0.025, -8.5);
+    this.lookTarget.x = THREE.MathUtils.damp(this.lookTarget.x, this.camera.position.x * 0.12, 5.5, delta);
+    this.lookTarget.y = THREE.MathUtils.damp(this.lookTarget.y, 1.3 + jump * 0.08 - this.feedback * 0.025, 5.5, delta);
+    this.lookTarget.z = THREE.MathUtils.damp(this.lookTarget.z, -8.5, 4.2, delta);
     this.camera.lookAt(this.lookTarget);
   }
 }

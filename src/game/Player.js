@@ -68,6 +68,7 @@ export class Player {
     this.sliding = false;
     this.crashed = false;
     this.runPhase = 0;
+    this.menuTime = 0;
     this.stepMarker = 0;
     Object.values(this.joints).forEach((joint) => joint.rotation.set(0, 0, 0));
     this.joints.body.position.set(0, 0, 0);
@@ -177,23 +178,43 @@ export class Player {
     }
 
     if (mode === 'menu') {
+      this.menuTime += delta;
       this.runPhase += delta * 2;
-      this.visual.position.y = 0;
+      // A relaxed seven-second idle routine: breathing and looking around,
+      // then a short two-step warm-up. Arms stay low; no waving/celebration.
+      const cycle = this.menuTime % 7;
+      const warming = cycle >= 3 && cycle <= 5;
+      const envelope = warming ? Math.sin((cycle - 3) * Math.PI * 0.5) : 0;
+      const stepPhase = (cycle - 3) * Math.PI * 2;
+      const stride = Math.sin(stepPhase) * envelope;
+      const lift = Math.abs(Math.sin(stepPhase)) * envelope;
+      const breath = Math.sin(this.menuTime * 2.1);
+      const sway = Math.sin(this.menuTime * 0.75);
+      this.visual.position.y = lift * 0.045;
       this.visual.rotation.x = 0;
-      this.visual.rotation.y = damp(this.visual.rotation.y, Math.PI, 5, delta);
-      this.joints.leftArm.rotation.x = Math.sin(this.runPhase) * 0.045;
-      this.joints.rightArm.rotation.x = -Math.sin(this.runPhase) * 0.045;
-      this.joints.leftElbow.rotation.x = -0.12;
-      this.joints.rightElbow.rotation.x = -0.12;
-      this.joints.body.rotation.z = Math.sin(this.runPhase * 0.6) * 0.012;
-      this.joints.body.position.y = Math.sin(this.runPhase) * 0.012;
-      this.joints.head.rotation.y = Math.sin(this.runPhase * 0.45) * 0.18;
-      this.joints.head.rotation.x = Math.sin(this.runPhase * 0.7) * 0.025;
+      this.visual.rotation.y = damp(this.visual.rotation.y, Math.PI + Math.sin(this.menuTime * 0.45) * 0.07, 5, delta);
+      this.visual.rotation.z = sway * 0.018;
+      this.joints.leftArm.rotation.x = breath * 0.025 - stride * 0.14;
+      this.joints.rightArm.rotation.x = -breath * 0.025 + stride * 0.14;
+      this.joints.leftElbow.rotation.x = -0.16 - lift * 0.08;
+      this.joints.rightElbow.rotation.x = -0.16 - lift * 0.08;
+      this.joints.leftLeg.rotation.x = stride * 0.32;
+      this.joints.rightLeg.rotation.x = -stride * 0.32;
+      this.joints.leftKnee.rotation.x = 0.04 + Math.max(0, -stride) * 0.34 + lift * 0.05;
+      this.joints.rightKnee.rotation.x = 0.04 + Math.max(0, stride) * 0.34 + lift * 0.05;
+      this.joints.leftAnkle.rotation.x = -this.joints.leftLeg.rotation.x * 0.24 + lift * 0.08;
+      this.joints.rightAnkle.rotation.x = -this.joints.rightLeg.rotation.x * 0.24 + lift * 0.08;
+      this.joints.body.rotation.z = sway * 0.02;
+      this.joints.body.position.y = breath * 0.012 - lift * 0.018;
+      this.joints.head.rotation.y = Math.sin(this.menuTime * 0.55) * 0.32;
+      this.joints.head.rotation.x = Math.sin(this.menuTime * 0.7) * 0.025 - lift * 0.025;
+      this.joints.head.rotation.z = sway * 0.025;
       this.joints.rightArm.rotation.z = 0;
-      this.joints.rightElbow.rotation.x = -0.12;
+      this.joints.leftArm.rotation.z = 0;
       this.joints.rightWrist.rotation.z = 0;
       this.joints.leftWrist.rotation.z = 0;
-      this.joints.backpack.rotation.x = 0;
+      this.joints.backpack.rotation.x = breath * 0.012 - lift * 0.05;
+      this.joints.backpack.position.y = lift * 0.018;
       return;
     }
 
