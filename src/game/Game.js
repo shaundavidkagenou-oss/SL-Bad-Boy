@@ -50,8 +50,9 @@ export class Game {
       roadBump: !this.softwareRenderer && !coarsePointer,
       anisotropy: this.softwareRenderer ? 1 : coarsePointer ? 2 : 4,
     });
-    const pixelRatioLimit = this.softwareRenderer ? 0.75 : coarsePointer ? 1.25 : 1.4;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelRatioLimit));
+    this.coarsePointer = coarsePointer;
+    this.pixelRatioLimit = this.softwareRenderer ? 1 : coarsePointer ? 1.25 : 1.5;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, this.pixelRatioLimit));
     // Batched projected/contact shadows ground the scene without a costly
     // second shadow-map scene render on mid-range phones.
     this.renderer.shadowMap.enabled = false;
@@ -93,7 +94,7 @@ export class Game {
     this.runRewards = null;
     this.audio = new AudioManager();
     this.world = new WorldGenerator(this.scene, {
-      detailDistance: coarsePointer ? 175 : this.softwareRenderer ? 165 : Infinity,
+      detailDistance: coarsePointer ? 175 : this.softwareRenderer ? 165 : 210,
       animationHz: coarsePointer ? 20 : 60,
     });
     this.player = new Player(this.scene, {
@@ -112,7 +113,7 @@ export class Game {
       enabled: !this.softwareRenderer, capacity: coarsePointer ? 4 : 7,
     });
     this.roadLights = new RoadLightPools(this.scene, {
-      enabled: !this.softwareRenderer, capacity: coarsePointer ? 16 : 24,
+      enabled: true, roadGlow: !coarsePointer, capacity: coarsePointer || this.softwareRenderer ? 24 : 36,
     });
     this.effects = new VisualEffects(this.scene, { capacity: coarsePointer ? 112 : 144 });
     this.spawner = new ObstacleSpawner(this.scene, {
@@ -227,6 +228,16 @@ export class Game {
   resize() {
     const width = this.container.clientWidth || window.innerWidth;
     const height = this.container.clientHeight || window.innerHeight;
+    const maximum = Math.min(window.devicePixelRatio || 1, this.pixelRatioLimit);
+    const minimum = Math.min(maximum, this.coarsePointer ? 0.85 : 1);
+    const current = this.renderer.getPixelRatio();
+    const next = this.graphics.adaptations > 0 ? Math.max(minimum, Math.min(current, maximum)) : maximum;
+    this.graphics.maxPixelRatio = maximum;
+    this.graphics.minimumPixelRatio = minimum;
+    if (Math.abs(next - current) > 0.001) {
+      this.renderer.setPixelRatio(next);
+      this.graphics.composer?.setPixelRatio(next);
+    }
     this.cameraRig.resize(width, height);
     this.renderer.setSize(width, height, false);
     this.graphics.resize(width, height);
@@ -520,11 +531,15 @@ export class Game {
     this.effects.update(frameDelta, this.speed, this.player, this.state,
       this.renderer.getPixelRatio(), this.police, this.spawner.entries);
     this.contactShadows.update(this.player, this.police, this.spawner.entries);
+    this.longShadows.enabled = !this.softwareRenderer && this.graphics.adaptations < 3;
     this.longShadows.update(this.player, this.police, this.spawner.entries);
     this.godRays.enabled = !this.softwareRenderer && this.graphics.adaptations < 2;
     this.godRays.update(frameDelta, this.speed, this.state);
     this.world.setPerformanceMode(this.graphics.performanceMode);
-    this.roadLights.enabled = !this.softwareRenderer && !this.graphics.performanceMode;
+    // Lamp halos remain visible in every tier. Only the larger road projection
+    // is optional under sustained load; both share one bounded instanced draw.
+    this.roadLights.enabled = true;
+    this.roadLights.roadGlow = !this.graphics.performanceMode;
     this.roadLights.update(this.spawner.entries);
     const boostTarget = this.state === 'running' && this.player.scooterActive ? 0.85 : 0;
     this.graphics.render(frameDelta, boostTarget);

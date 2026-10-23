@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { createCinematicGradePass } from './CinematicGradePass.js';
 
 const SUNSET_HORIZON = new THREE.Color(0xf08a62);
@@ -168,25 +167,35 @@ export class GraphicsPipeline {
     this.composer = null;
     this.bloomPass = null;
     this.cinematicPass = null;
-    this.outputPass = null;
+    this.bloomResolutionScale = 0.5;
     this.postprocessing = false;
     if (this.hdrSupported) {
+      // Native-resolution FXAA in the final pass is substantially cheaper than
+      // multi-sampled half-float HDR buffers at 1080p and high DPR.
       const target = new THREE.WebGLRenderTarget(1, 1, {
         type: THREE.HalfFloatType,
-        samples: coarsePointer ? 0 : 2,
+        samples: 0,
       });
       this.composer = new EffectComposer(renderer, target);
       this.composer.addPass(new RenderPass(scene, camera));
       this.bloomPass = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.24, 0.32, 0.95);
+      // Bloom is low-frequency: its already-downsampled mip chain can run at
+      // half size again without reducing scene, text or geometry resolution.
+      const resizeBloom = this.bloomPass.setSize.bind(this.bloomPass);
+      this.bloomPass.setSize = (width, height) => resizeBloom(
+        Math.max(1, Math.round(width * this.bloomResolutionScale)),
+        Math.max(1, Math.round(height * this.bloomResolutionScale)),
+      );
       this.composer.addPass(this.bloomPass);
       this.cinematicPass = createCinematicGradePass();
       this.composer.addPass(this.cinematicPass);
-      this.outputPass = new OutputPass();
-      this.composer.addPass(this.outputPass);
       this.postprocessing = true;
     }
     this.width = 1;
     this.height = 1;
+    this.drawingBufferSize = new THREE.Vector2(1, 1);
+    this.maxPixelRatio = renderer.getPixelRatio();
+    this.minimumPixelRatio = Math.min(this.maxPixelRatio, coarsePointer ? 0.85 : 1);
     this.frameTime = 0;
     this.frameCount = 0;
     this.slowWindows = 0;
@@ -195,11 +204,35 @@ export class GraphicsPipeline {
     this.boost = 0;
   }
 
+  updateResolution() {
+    if (!this.cinematicPass) return;
+    this.renderer.getDrawingBufferSize(this.drawingBufferSize);
+    this.cinematicPass.uniforms.resolution.value.copy(this.drawingBufferSize);
+  }
+
+  applyPixelRatio(next) {
+    this.renderer.setPixelRatio(next);
+    this.composer?.setPixelRatio(next);
+    this.renderer.setSize(this.width, this.height, false);
+    this.composer?.setSize(this.width, this.height);
+    this.updateResolution();
+  }
+
+  disposePostprocessing() {
+    this.composer?.dispose();
+    this.bloomPass?.dispose();
+    this.cinematicPass?.dispose();
+    this.composer = null;
+    this.bloomPass = null;
+    this.cinematicPass = null;
+    this.postprocessing = false;
+  }
+
   resize(width, height) {
     this.width = width;
     this.height = height;
     this.composer?.setSize(width, height);
-    this.cinematicPass?.uniforms.resolution.value.set(width, height);
+    this.updateResolution();
   }
 
   setTheme(skyColor, fogColor) {
@@ -213,40 +246,35 @@ export class GraphicsPipeline {
     if (delta <= 0) return;
     this.frameTime += delta;
     this.frameCount += 1;
-    if (this.frameCount < 90) return;
+    if (this.frameCount < 60) return;
     const average = this.frameTime / this.frameCount;
     this.frameTime = 0;
     this.frameCount = 0;
-    this.slowWindows = average > 1 / 30 ? this.slowWindows + 1 : 0;
+    this.slowWindows = average > 1 / 45 ? this.slowWindows + 1 : 0;
     if (this.slowWindows < 1) return;
     this.slowWindows = 0;
-    const current = this.renderer.getPixelRatio();
-    const minimum = this.coarsePointer ? 0.65 : 0.8;
-    if (current > minimum + 0.05) {
-      const next = Math.max(minimum, current * 0.85);
-      this.renderer.setPixelRatio(next);
-      this.composer?.setPixelRatio(next);
-      this.renderer.setSize(this.width, this.height, false);
-      this.composer?.setSize(this.width, this.height);
-      this.quality = 'adaptive-resolution';
+
+    // Preserve native CSS-pixel sharpness. Remove expensive full-screen and
+    // distant-scene work before considering any resolution reduction.
+    if (this.bloomPass?.enabled) {
+      this.bloomPass.enabled = false;
+      this.quality = 'adaptive-grade';
     } else if (this.postprocessing) {
-      this.composer.dispose();
-      this.bloomPass.dispose();
-      this.cinematicPass?.dispose();
-      this.composer = null;
-      this.bloomPass = null;
-      this.cinematicPass = null;
-      this.postprocessing = false;
+      this.disposePostprocessing();
       this.quality = 'adaptive-direct';
-    } else if (this.coarsePointer && (!this.performanceMode || this.environmentTarget)) {
+    } else if (!this.performanceMode || this.environmentTarget) {
       this.performanceMode = true;
-      this.quality = 'performance-mobile';
+      this.quality = this.coarsePointer ? 'performance-mobile' : 'performance-desktop';
       this.scene.environment = null;
       this.environmentTarget?.dispose();
       this.environmentTarget = null;
       for (const cloud of this.clouds) cloud.visible = false;
     } else {
-      return;
+      const current = this.renderer.getPixelRatio();
+      const minimum = this.minimumPixelRatio ?? Math.min(current, this.coarsePointer ? 0.85 : 1);
+      if (current <= minimum + 0.01) return;
+      this.applyPixelRatio(Math.max(minimum, current * 0.9));
+      this.quality = 'adaptive-resolution';
     }
     this.adaptations += 1;
   }
@@ -254,7 +282,10 @@ export class GraphicsPipeline {
   render(delta, boostTarget = 0) {
     const boostBlend = 1 - Math.exp(-Math.max(0, delta) * 8);
     this.boost = THREE.MathUtils.lerp(this.boost, THREE.MathUtils.clamp(boostTarget, 0, 1), boostBlend);
-    if (this.cinematicPass) this.cinematicPass.uniforms.boost.value = this.boost;
+    if (this.cinematicPass) {
+      this.cinematicPass.uniforms.boost.value = this.boost;
+      this.cinematicPass.uniforms.toneMappingExposure.value = this.renderer.toneMappingExposure;
+    }
     this.sky.position.copy(this.camera.position);
     for (let index = 0; index < this.clouds.length; index += 1) {
       const cloud = this.clouds[index];
@@ -271,9 +302,14 @@ export class GraphicsPipeline {
     return {
       quality: this.quality,
       pixelRatio: this.renderer.getPixelRatio(),
+      minimumPixelRatio: this.minimumPixelRatio,
       postprocessing: this.postprocessing,
       cinematic: Boolean(this.cinematicPass),
+      fxaa: Boolean(this.cinematicPass?.uniforms.fxaa.value),
       bloomStrength: this.bloomPass?.strength ?? 0,
+      bloomEnabled: Boolean(this.bloomPass?.enabled),
+      bloomResolutionScale: this.bloomPass ? this.bloomResolutionScale : 0,
+      hdrSamples: this.composer?.renderTarget1.samples ?? 0,
       boost: this.boost,
       performanceMode: this.performanceMode,
       adaptations: this.adaptations,

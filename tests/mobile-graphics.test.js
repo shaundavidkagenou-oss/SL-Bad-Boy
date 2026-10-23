@@ -35,7 +35,13 @@ test('vehicle optimization retains independent wheel assemblies and labels', () 
   for (const wheel of bus.userData.wheels) {
     assert.equal(wheel.parent, bus);
     assert.ok(wheel.userData.radius > 0);
+    let pieces = 0;
+    wheel.traverse((node) => { if (node.isMesh) pieces += 1; });
+    assert.equal(pieces, 2, 'two hub pieces batch without joining independent wheel rotation');
   }
+  let busMeshes = 0;
+  bus.traverse((node) => { if (node.isMesh) busMeshes += 1; });
+  assert.equal(busMeshes, 14, 'bus retains detail with four fewer wheel draws');
   let merged = 0;
   bus.traverse((node) => {
     if (node.userData.batchOwnedGeometry) merged += 1;
@@ -94,7 +100,7 @@ test('software GPU detection uses capability strings and tolerates restricted co
   assert.equal(isSoftwareRenderer({ getContext: () => { throw new Error('blocked'); } }), false);
 });
 
-test('mobile sharpness adapts down promptly during sustained slow frames', () => {
+test('mobile resolution adapts promptly but never drops below its sharpness floor', () => {
   const pipeline = Object.create(GraphicsPipeline.prototype);
   let ratio = 1.5;
   let resized = 0;
@@ -104,19 +110,55 @@ test('mobile sharpness adapts down promptly during sustained slow frames', () =>
       setPixelRatio: (value) => { ratio = value; },
       setSize: () => { resized += 1; },
     },
-    composer: null,
-    coarsePointer: true,
-    width: 390,
-    height: 844,
-    frameTime: 0,
-    frameCount: 0,
-    slowWindows: 0,
-    adaptations: 0,
-    quality: 'balanced-mobile',
+    composer: null, cinematicPass: null, postprocessing: false,
+    scene: { environment: null }, environmentTarget: null, clouds: [],
+    coarsePointer: true, width: 390, height: 844,
+    frameTime: 0, frameCount: 0, slowWindows: 0, adaptations: 0,
+    performanceMode: true, minimumPixelRatio: 0.85, quality: 'performance-mobile',
   });
-  for (let frame = 0; frame < 90; frame += 1) pipeline.adapt(0.05);
-  assert.ok(Math.abs(ratio - 1.275) < 0.00001);
+  for (let frame = 0; frame < 60; frame += 1) pipeline.adapt(0.03);
+  assert.ok(Math.abs(ratio - 1.35) < 0.00001);
   assert.equal(resized, 1);
   assert.equal(pipeline.quality, 'adaptive-resolution');
   assert.equal(pipeline.adaptations, 1);
+  for (let frame = 0; frame < 600; frame += 1) pipeline.adapt(0.03);
+  assert.equal(ratio, 0.85);
+  assert.ok(ratio >= pipeline.minimumPixelRatio);
+});
+
+test('desktop slow-frame fallback removes effects before resolution and never goes below native CSS pixels', () => {
+  const pipeline = Object.create(GraphicsPipeline.prototype);
+  let ratio = 1.25;
+  let composerDisposed = 0;
+  let bloomDisposed = 0;
+  let gradeDisposed = 0;
+  let environmentDisposed = 0;
+  Object.assign(pipeline, {
+    renderer: { getPixelRatio: () => ratio },
+    applyPixelRatio: (value) => { ratio = value; },
+    composer: { dispose: () => { composerDisposed += 1; } },
+    bloomPass: { enabled: true, dispose: () => { bloomDisposed += 1; } },
+    cinematicPass: { dispose: () => { gradeDisposed += 1; } },
+    postprocessing: true, coarsePointer: false,
+    scene: { environment: {} }, environmentTarget: { dispose: () => { environmentDisposed += 1; } },
+    clouds: [{ visible: true }], frameTime: 0, frameCount: 0, slowWindows: 0,
+    adaptations: 0, performanceMode: false, minimumPixelRatio: 1, quality: 'high-desktop',
+  });
+  for (let frame = 0; frame < 60; frame += 1) pipeline.adapt(0.03);
+  assert.equal(pipeline.bloomPass.enabled, false);
+  assert.equal(pipeline.quality, 'adaptive-grade');
+  assert.equal(ratio, 1.25, 'bloom fallback must not blur the scene');
+  for (let frame = 0; frame < 60; frame += 1) pipeline.adapt(0.03);
+  assert.equal(pipeline.postprocessing, false);
+  assert.equal(pipeline.quality, 'adaptive-direct');
+  assert.deepEqual([composerDisposed, bloomDisposed, gradeDisposed], [1, 1, 1]);
+  assert.equal(ratio, 1.25, 'direct fallback must still retain native resolution');
+  for (let frame = 0; frame < 60; frame += 1) pipeline.adapt(0.03);
+  assert.equal(pipeline.performanceMode, true);
+  assert.equal(pipeline.quality, 'performance-desktop');
+  assert.equal(environmentDisposed, 1);
+  assert.equal(ratio, 1.25, 'distance/reflection fallback still precedes resolution');
+  for (let frame = 0; frame < 600; frame += 1) pipeline.adapt(0.03);
+  assert.equal(ratio, 1);
+  assert.ok(ratio >= pipeline.minimumPixelRatio);
 });

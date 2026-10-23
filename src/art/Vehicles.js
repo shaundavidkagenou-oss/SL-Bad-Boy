@@ -24,8 +24,11 @@ function wheel(parent, x, y, z, radius = 0.43, width = 0.26) {
     segments: 10, rotation: [0, 0, Math.PI / 2], metalness: 0.5,
   });
   cylinder(assembly, [radius * 0.18], 0.032, [outside * width * 0.56, 0, 0], 0x424c53, {
-    segments: 8, rotation: [0, 0, Math.PI / 2], metalness: 0.35,
+    segments: 8, rotation: [0, 0, Math.PI / 2], metalness: 0.5,
   });
+  // Merge the two hub pieces while retaining the assembly as an independent
+  // rotating wheel: three draws become two for every bus, car and tuk-tuk wheel.
+  batchStaticGroup(assembly);
   if (!parent.userData.wheels) parent.userData.wheels = [];
   parent.userData.wheels.push(assembly);
   return assembly;

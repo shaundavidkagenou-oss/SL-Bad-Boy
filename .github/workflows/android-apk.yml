@@ -85,8 +85,8 @@ jobs:
           "$AAPT" dump --include-meta-data badging "$APK" | tee apk-badging.txt
           grep -F "package: name='lk.shaun.slbadboy'" apk-badging.txt
           grep -F "application-label:'SL BAD BOY'" apk-badging.txt
-          grep -F "versionCode='13'" apk-badging.txt
-          grep -F "versionName='2.8.0'" apk-badging.txt
+          grep -F "versionCode='14'" apk-badging.txt
+          grep -F "versionName='2.8.1'" apk-badging.txt
           grep -F "sdkVersion:'24'" apk-badging.txt
           grep -F 'com.google.android.gms.ads.APPLICATION_ID' apk-badging.txt
           grep -F 'ca-app-pub-7175777292239029~3414423328' apk-badging.txt
@@ -113,7 +113,8 @@ jobs:
                                       if name.startswith('assets/public/assets/') and name.endswith('.js'))
               for marker in [b'ca-app-pub-7175777292239029/3200257177',
                              b'Batched golden-hour god rays',
-                             b'Batched low-sun projected long shadows']:
+                             b'Batched low-sun projected long shadows',
+                             b'Pooled bus headlight halos and road glow']:
                   assert marker in bundled_js, f'packaged feature missing: {marker!r}'
           print(f'All {len(checks)} launcher/splash PNGs, 10 portraits, rewarded ads and cinematic graphics are packaged.')
           PY

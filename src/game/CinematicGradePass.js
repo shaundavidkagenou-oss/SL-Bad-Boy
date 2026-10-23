@@ -2,8 +2,9 @@ import * as THREE from 'three';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 
 /**
- * One combined color-grade, vignette and boost-only radial-blur pass.
- * Keeping these together avoids three separate full-screen mobile-style effects.
+ * One native-resolution FXAA, color-grade, vignette, boost-blur and output pass.
+ * Combining final ACES/sRGB output here removes a separate full-screen pass;
+ * FXAA avoids a multi-sampled HDR scene buffer while retaining sharp CSS pixels.
  */
 export function createCinematicGradePass() {
   const pass = new ShaderPass({
@@ -13,6 +14,8 @@ export function createCinematicGradePass() {
       contrast: { value: 1.055 },
       vignette: { value: 0.2 },
       boost: { value: 0 },
+      fxaa: { value: 1 },
+      toneMappingExposure: { value: 1.08 },
       resolution: { value: new THREE.Vector2(1, 1) },
     },
     vertexShader: `
@@ -28,13 +31,53 @@ export function createCinematicGradePass() {
       uniform float contrast;
       uniform float vignette;
       uniform float boost;
+      uniform float fxaa;
       uniform vec2 resolution;
       varying vec2 vUv;
+      #include <tonemapping_pars_fragment>
 
       void main() {
         vec2 centered = vUv - 0.5;
+        vec2 inverseResolution = 1.0 / max(resolution, vec2(1.0));
         vec4 source = texture2D(tDiffuse, vUv);
         vec3 color = source.rgb;
+
+        // Edge-directed FXAA at the actual drawing-buffer resolution. Flat
+        // regions skip the second set of taps; geometry stays at native size.
+        if (fxaa > 0.5) {
+          vec3 luma = vec3(0.299, 0.587, 0.114);
+          vec3 nw = texture2D(tDiffuse, vUv + vec2(-1.0, -1.0) * inverseResolution).rgb;
+          vec3 ne = texture2D(tDiffuse, vUv + vec2( 1.0, -1.0) * inverseResolution).rgb;
+          vec3 sw = texture2D(tDiffuse, vUv + vec2(-1.0,  1.0) * inverseResolution).rgb;
+          vec3 se = texture2D(tDiffuse, vUv + vec2( 1.0,  1.0) * inverseResolution).rgb;
+          float lumaM = dot(color, luma);
+          float lumaNW = dot(nw, luma);
+          float lumaNE = dot(ne, luma);
+          float lumaSW = dot(sw, luma);
+          float lumaSE = dot(se, luma);
+          float lumaMin = min(lumaM, min(min(lumaNW, lumaNE), min(lumaSW, lumaSE)));
+          float lumaMax = max(lumaM, max(max(lumaNW, lumaNE), max(lumaSW, lumaSE)));
+          if (lumaMax - lumaMin >= max(0.0312, lumaMax * 0.125)) {
+            vec2 direction = vec2(
+              -((lumaNW + lumaNE) - (lumaSW + lumaSE)),
+               ((lumaNW + lumaSW) - (lumaNE + lumaSE))
+            );
+            float reduce = max((lumaNW + lumaNE + lumaSW + lumaSE) * 0.03125, 0.0078125);
+            float reciprocal = 1.0 / (min(abs(direction.x), abs(direction.y)) + reduce);
+            direction = clamp(direction * reciprocal, vec2(-6.0), vec2(6.0)) * inverseResolution;
+            vec3 rgbA = 0.5 * (
+              texture2D(tDiffuse, vUv + direction * (-1.0 / 6.0)).rgb
+              + texture2D(tDiffuse, vUv + direction * (1.0 / 6.0)).rgb
+            );
+            vec3 rgbB = rgbA * 0.5 + 0.25 * (
+              texture2D(tDiffuse, vUv - direction * 0.5).rgb
+              + texture2D(tDiffuse, vUv + direction * 0.5).rgb
+            );
+            float lumaB = dot(rgbB, luma);
+            color = (lumaB < lumaMin || lumaB > lumaMax) ? rgbA : rgbB;
+          }
+        }
+        source.rgb = color;
 
         // Six restrained taps are active only during the scooter boost. The
         // center remains readable while the outer frame gains radial speed.
@@ -61,7 +104,8 @@ export function createCinematicGradePass() {
         float edgeDistance = length(centered * aspect * 0.82);
         float edgeShade = smoothstep(0.3, 0.72, edgeDistance) * vignette;
         color *= 1.0 - edgeShade;
-        gl_FragColor = vec4(max(color, 0.0), source.a);
+        color = ACESFilmicToneMapping(max(color, 0.0));
+        gl_FragColor = sRGBTransferOETF(vec4(color, source.a));
       }
     `,
   });

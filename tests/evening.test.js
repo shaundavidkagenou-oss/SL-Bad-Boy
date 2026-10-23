@@ -43,17 +43,30 @@ test('public and private buses have emissive headlights and warm windows without
   }
 });
 
-test('bus road glow is one bounded instanced draw and is skipped on software rendering', () => {
+test('bus lamp halos and road glow share one bounded draw across quality tiers', () => {
   const scene = new THREE.Scene();
-  const lights = new RoadLightPools(scene, { capacity: 2 });
-  const entries = [0, 1, 2].map((lane) => ({
-    type: 'obstacle', kind: lane === 2 ? 'car' : 'public-bus',
-    spec: { depth: 6.52 }, mesh: { position: new THREE.Vector3(lane, 0, -12 - lane * 20) },
+  const lights = new RoadLightPools(scene, { capacity: 6 });
+  const entries = [
+    { kind: 'public-bus', x: 0, z: -12 },
+    { kind: 'private-bus', x: 3, z: -32 },
+    { kind: 'car', x: -3, z: -52 },
+    { kind: 'public-bus', x: 6, z: -60 },
+  ].map(({ kind, x, z }) => ({
+    type: 'obstacle', kind, spec: { depth: 6.8 }, mesh: { position: new THREE.Vector3(x, 0, z) },
   }));
   lights.update(entries);
   assert.equal(lights.mesh.isInstancedMesh, true);
   assert.equal(lights.mesh.material.blending, THREE.AdditiveBlending);
-  assert.deepEqual(lights.getStats(), { enabled: true, capacity: 2, instances: 2, drawCalls: 1 });
+  assert.deepEqual(lights.getStats(), {
+    enabled: true, roadGlow: true, capacity: 6, instances: 6,
+    lamps: 4, roadPools: 2, drawCalls: 1,
+  });
+  lights.roadGlow = false;
+  lights.update(entries);
+  assert.equal(lights.getStats().lamps, 6, 'low-cost tiers retain visible headlight halos');
+  assert.equal(lights.getStats().roadPools, 0);
+  assert.equal(lights.getStats().instances, 6);
+  assert.equal(lights.getStats().drawCalls, 1);
   lights.enabled = false;
   lights.update(entries);
   assert.equal(lights.getStats().instances, 0);
@@ -85,8 +98,13 @@ test('combined cinematic pass includes saturation, contrast, vignette and boost-
   assert.ok(pass.uniforms.contrast.value > 1);
   assert.ok(pass.uniforms.vignette.value > 0);
   assert.equal(pass.uniforms.boost.value, 0);
+  assert.equal(pass.uniforms.fxaa.value, 1);
+  assert.ok(pass.uniforms.toneMappingExposure.value > 1);
   assert.match(pass.material.fragmentShader, /if \(boost > 0\.001\)/);
   assert.match(pass.material.fragmentShader, /radial/);
+  assert.match(pass.material.fragmentShader, /ACESFilmicToneMapping/);
+  assert.match(pass.material.fragmentShader, /sRGBTransferOETF/);
+  assert.match(pass.material.fragmentShader, /inverseResolution/);
   pass.uniforms.boost.value = 0.85;
   assert.equal(pass.uniforms.boost.value, 0.85);
   pass.dispose();

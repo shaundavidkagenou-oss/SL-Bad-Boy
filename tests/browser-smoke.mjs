@@ -797,6 +797,7 @@ try {
     const game = window.__LANKA_RUN__;
     game.startRun(42);
     game.spawner.collisionEnabled = false;
+    game.spawner.spawnObstacle('public-bus', 0, -18, 999);
     game.player.startScooter();
   });
   await waitForFunction(() => window.__LANKA_RUN__.graphics.boost > 0.35);
@@ -805,6 +806,13 @@ try {
     game.ui.pulseCoin();
     return {
       graphics: game.graphics.getStats(), godRays: game.godRays.getStats(),
+      roadLights: game.roadLights.getStats(),
+      buffer: [game.renderer.domElement.width, game.renderer.domElement.height],
+      bloomBuffer: game.graphics.bloomPass ? [
+        game.graphics.bloomPass.renderTargetBright.width,
+        game.graphics.bloomPass.renderTargetBright.height,
+      ] : null,
+      viewport: [innerWidth, innerHeight],
       longShadows: game.longShadows.getStats(), roughnessMap: Boolean(game.world.sections[0].children[0].material.roughnessMap),
       lowSun: game.sun.position.y <= 12 && game.sun.intensity > game.hemisphere.intensity * 2.5,
       hudGlass: getComputedStyle(document.querySelector('.hud-metrics')).backdropFilter,
@@ -814,8 +822,19 @@ try {
   });
   assert.equal(cinematic.graphics.postprocessing, true);
   assert.equal(cinematic.graphics.cinematic, true);
+  assert.equal(cinematic.graphics.fxaa, true);
+  assert.equal(cinematic.graphics.hdrSamples, 0);
+  assert.equal(cinematic.graphics.bloomEnabled, true);
+  assert.equal(cinematic.graphics.bloomResolutionScale, 0.5);
   assert.ok(cinematic.graphics.bloomStrength >= 0.2);
   assert.ok(cinematic.graphics.boost > 0.35);
+  assert.ok(cinematic.graphics.pixelRatio >= 1);
+  assert.deepEqual(cinematic.buffer, cinematic.viewport.map((size) => Math.floor(size * cinematic.graphics.pixelRatio)));
+  assert.ok(cinematic.bloomBuffer[0] <= Math.ceil(cinematic.buffer[0] / 4));
+  assert.ok(cinematic.bloomBuffer[1] <= Math.ceil(cinematic.buffer[1] / 4));
+  assert.equal(cinematic.roadLights.enabled, true);
+  assert.ok(cinematic.roadLights.lamps >= 2);
+  assert.equal(cinematic.roadLights.drawCalls, 1);
   assert.equal(cinematic.godRays.drawCalls, 1);
   assert.equal(cinematic.longShadows.drawCalls, 1);
   assert.equal(cinematic.longShadows.shadowMapPasses, 0);
@@ -824,6 +843,41 @@ try {
   assert.match(cinematic.hudGlass, /blur/);
   assert.ok(cinematic.coinAnimation > 0 && cinematic.scoreAnimation > 0);
   passed.push('high-quality sunset bloom, grading, god rays, long shadows, boost blur, road roughness and glass HUD work');
+
+  await page.setViewport({ width: 1920, height: 1020, deviceScaleFactor: 1.25 });
+  await waitForFunction(() => {
+    const game = window.__LANKA_RUN__;
+    return innerWidth === 1920 && innerHeight === 1020
+      && game.renderer.domElement.width >= 1920 && game.renderer.domElement.height >= 1020;
+  });
+  const largeDisplay = await page.evaluate(() => {
+    const game = window.__LANKA_RUN__;
+    const bounds = game.renderer.domElement.getBoundingClientRect();
+    return {
+      css: [bounds.width, bounds.height],
+      buffer: [game.renderer.domElement.width, game.renderer.domElement.height],
+      graphics: game.graphics.getStats(),
+    };
+  });
+  assert.deepEqual(largeDisplay.css, [1920, 1020]);
+  assert.ok(largeDisplay.graphics.pixelRatio >= 1);
+  assert.equal(largeDisplay.graphics.minimumPixelRatio, 1);
+  assert.ok(largeDisplay.buffer[0] >= 1920 && largeDisplay.buffer[1] >= 1020,
+    `large display was reduced to ${largeDisplay.buffer.join('×')}`);
+  const adaptiveDisplay = await page.evaluate(() => {
+    const game = window.__LANKA_RUN__;
+    for (let frame = 0; frame < 1200; frame += 1) game.graphics.adapt(0.03);
+    return {
+      buffer: [game.renderer.domElement.width, game.renderer.domElement.height],
+      graphics: game.graphics.getStats(),
+    };
+  });
+  assert.equal(adaptiveDisplay.graphics.pixelRatio, 1);
+  assert.deepEqual(adaptiveDisplay.buffer, [1920, 1020]);
+  assert.equal(adaptiveDisplay.graphics.postprocessing, false);
+  assert.equal(adaptiveDisplay.graphics.performanceMode, true);
+  assert.ok(adaptiveDisplay.graphics.adaptations >= 4);
+  passed.push('1920×1020 high-DPR desktop stays sharp before and after effects-first slow-frame fallback');
 
   assert.deepEqual(runtimeErrors, []);
   passed.push('no browser runtime errors, page errors or missing-resource errors');
