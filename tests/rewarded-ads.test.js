@@ -5,7 +5,7 @@ import { Game } from '../src/game/Game.js';
 import { RewardedAds, ADMOB_APP_ID, REWARDED_AD_UNIT_ID } from '../src/mobile/RewardedAds.js';
 
 const EVENTS = {
-  Loaded: 'loaded', FailedToLoad: 'failed-load', Rewarded: 'rewarded',
+  Loaded: 'loaded', Showed: 'showed', FailedToLoad: 'failed-load', Rewarded: 'rewarded',
   Dismissed: 'dismissed', FailedToShow: 'failed-show',
 };
 const flush = () => new Promise((resolve) => setImmediate(resolve));
@@ -143,6 +143,38 @@ test('consent denial and ad-load failures never show an ad or issue a reward', a
   assert.equal(retry.status, 'error');
   assert.equal(await retry.show(), false);
   assert.equal(noFill.calls.show, 0);
+  assert.match(retry.getFeedback(), /NO AD AVAILABLE/);
+  assert.match(retry.lastError.message, /no fill/);
+});
+
+test('native show errors return to revive with actionable feedback and preload a retry', async () => {
+  const fake = fakeAdMob();
+  const ads = new RewardedAds({ supported: true, loadModule: async () => fake });
+  await ads.initialize();
+  const showing = ads.show();
+  await flush();
+  fake.emit(EVENTS.FailedToShow, { code: 1, message: 'Unable to present rewarded ad' });
+  assert.equal(await showing, false);
+  assert.equal(ads.getFeedback(), 'AD COULD NOT OPEN • TAP TO RETRY');
+  assert.equal(ads.lastError.code, 1);
+  await flush();
+  assert.equal(ads.status, 'ready');
+  assert.equal(fake.calls.prepare, 2);
+});
+
+test('a native show call that never opens times out without granting a reward', async () => {
+  const fake = fakeAdMob();
+  const ads = new RewardedAds({
+    supported: true, loadModule: async () => fake, timeouts: { showStart: 15 },
+  });
+  await ads.initialize();
+  assert.equal(await ads.show(), false);
+  assert.equal(fake.calls.show, 1);
+  assert.equal(ads.active, false);
+  assert.equal(ads.rewardEarned, false);
+  assert.match(ads.getFeedback(), /AD TOOK TOO LONG/);
+  await flush();
+  assert.equal(ads.status, 'ready');
 });
 
 test('ad revive preserves score and juice, prevents double-taps and shares the safe respawn path', async () => {
@@ -166,20 +198,23 @@ test('ad revive preserves score and juice, prevents double-taps and shares the s
 
 test('cancelled ad stays on revive and native support offers a second chance with zero juice', async () => {
   const { game, score, calls } = gameStub(async () => false);
+  game.rewardedAds.getFeedback = () => 'AD NOT COMPLETED • WATCH TO THE END TO CONTINUE';
   assert.equal(await Game.prototype.reviveWithAd.call(game), false);
   assert.equal(game.state, 'revive');
   assert.equal(game.revivePending, false);
   assert.equal(calls.respawn, 0);
-  assert.equal(calls.messages.length, 1);
+  assert.deepEqual(calls.messages, ['AD NOT COMPLETED • WATCH TO THE END TO CONTINUE']);
   assert.deepEqual(score, { score: 900, distance: 123, coins: 4 });
 
   let offered = null;
   const crashed = {
-    state: 'running', juice: { count: 0 }, rewardedAds: { supported: true },
+    state: 'running', juice: { count: 0 },
+    rewardedAds: { supported: true, status: 'error', initialize: () => { calls.adRetries = 1; } },
     shop: { save: () => {} }, player: { crash: () => {} }, audio: { setState: () => {} },
     ui: { showRevive: (count, ads) => { offered = { count, ads }; } },
   };
   Game.prototype.endRun.call(crashed);
   assert.equal(crashed.state, 'revive');
+  assert.equal(calls.adRetries, 1, 'a failed startup preload is retried on the crash screen');
   assert.deepEqual(offered, { count: 0, ads: true });
 });

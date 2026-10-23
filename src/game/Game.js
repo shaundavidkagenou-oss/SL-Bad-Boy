@@ -248,6 +248,7 @@ export class Game {
     this.ui.showRunning();
     this.ui.setJuice(this.juice.count);
     this.ui.updateHud(this.score, this.speed, true, this.player);
+    if (this.rewardedAds.supported && this.rewardedAds.status !== 'ready') this.rewardedAds.initialize();
   }
 
   pause() {
@@ -269,6 +270,7 @@ export class Game {
   endRun() {
     if (this.state !== 'running') return;
     this.shop.save();
+    if (this.rewardedAds.supported && this.rewardedAds.status !== 'ready') this.rewardedAds.initialize?.();
     if (this.juice.count > 0 || this.rewardedAds.supported) {
       this.state = 'revive';
       this.revivePending = false;
@@ -315,7 +317,8 @@ export class Game {
     this.revivePending = false;
     this.ui.setReviveAdPending(false);
     if (!rewarded) {
-      this.ui.setReviveAdMessage('AD NOT COMPLETED • TRY AGAIN OR END THIS RUN');
+      const feedback = this.rewardedAds.getFeedback?.() || 'AD NOT COMPLETED • TRY AGAIN OR END THIS RUN';
+      this.ui.setReviveAdMessage(feedback);
       return false;
     }
     return this.completeRespawn('ad');
