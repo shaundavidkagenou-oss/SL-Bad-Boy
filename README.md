@@ -6,12 +6,12 @@ An original 3D Sri Lankan endless runner for **web and Android**, built with **T
 
 **Package:** `lk.shaun.slbadboy` · **App name:** `SL BAD BOY` · **Minimum:** Android 7.0 (API 24) · **Target:** API 36.
 
-**Current APK:** 2.6.1 (versionCode 10) · 6,399,684 bytes · SHA-256 `08292c6ddd613c3290dc4c9ea952b4d1d95ad42dc3ccbed79bec5c13cc7ef1c1`.
+**Current APK:** 2.7.0 (versionCode 11) · 11,202,281 bytes · SHA-256 `c075b1d33efcbf932bd0852543abd13afec1ab63a1b7d7a112757beb387549ae`.
 
 - Direct branch download: **[artifacts/SL-BAD-BOY.apk](artifacts/SL-BAD-BOY.apk)** (produced and validated by the Android workflow).
 - GitHub Actions also publishes the same package as the **SL-BAD-BOY-APK** workflow artifact with a SHA-256 checksum.
 - The supplied APK is **debug-signed for direct installation/testing**, not signed for Play Store release. Android may ask you to allow installation from your browser/file manager.
-- The 2.6.1 and 2.6.0 CI debug certificates differ. **Uninstall the older test APK before installing 2.6.1**; Android clears that app's local scores, shop ownership and juice inventory on uninstall.
+- The 2.7.0 and 2.6.1 CI debug certificates differ. **Uninstall the older test APK before installing 2.7.0**; Android clears that app's local scores, shop ownership and juice inventory on uninstall.
 - The complete game, fonts and procedural artwork are bundled inside the APK. Gameplay does not require a server or network connection; only the optional rewarded ad needs network access and available AdMob inventory.
 
 ### One-click Windows APK build
@@ -226,7 +226,7 @@ npm run build
 
 Current 2.7.0 source verification: **77/77 Node tests**, **34/34 Chromium checks** and a **122-module production build** passed. The browser run verified cancelled and rewarded continue behavior with an explicit test double, zero-juice score preservation, portrait juice/ad layout and safety shielding, plus the solo animated menu, cinematic camera, real purchase/equip behavior, live juice revival, clean restarts, all fourteen districts and stable resources over 7,200 metres. Its same-scene 390×844 software-WebGL comparison rendered **423 calls / 219,776 triangles** at full detail and **329 calls / 158,820 triangles** with mobile culling—about **22% fewer calls** and **28% fewer triangles**. These are rendering-cost diagnostics, **not physical-device FPS measurements**.
 
-The 2.6.1 APK was compiled by [Android workflow 39905157641](https://github.com/shaundavidkagenou-oss/SL-Bad-Boy/actions/runs/39905157641), then independently inspected: 454 ZIP entries passed CRC checks, all 22 production files matched `dist/` byte-for-byte, all ten runner portraits and 16 launcher/splash resources were present, and metadata reported `lk.shaun.slbadboy` / 2.6.1 / 10 / API 24–36. The Android v2 cryptographic signature and complete nine-chunk APK content digest were also verified locally. Installation and physical-device lifecycle, audio and FPS remain unverified.
+The 2.7.0 APK was compiled by [Android workflow 39911987343](https://github.com/shaundavidkagenou-oss/SL-Bad-Boy/actions/runs/39911987343), which also verified both supplied AdMob IDs in the finished package. Independent inspection passed 541 ZIP CRC entries and matched all 24 production files to `dist/` byte-for-byte; all ten portraits, 16 launcher/splash resources, the resolved AdMob application ID, rewarded-unit JavaScript and native Google/plugin rewarded-ad classes were present. Metadata reported `lk.shaun.slbadboy` / 2.7.0 / 11 / API 24–36, and the Android v2 cryptographic signature and complete 13-chunk APK content digest verified locally. Installation, live ad fill/playback, physical-device lifecycle/audio and FPS remain unverified.
 
 The suite retains the original physics, scoring, collision and persistence assertions and adds longer district scheduling, all landmark builders, consecutive tunnels, bounded geometry across repeated district cycles, speed-tier fairness, predictive bus separation at normal and low FPS, touch gestures without bottom buttons, continuous skin deformation, animated elephants, lazy audio, travel-driven wheels, absence of the schoolboy gestures, scooter pickup/duration/reset/shield behavior, literal 1.2× speed, police sprint/separation/return behavior, vertex-color batch/disposal, fixed effect pools, software-GPU detection, Android Back behavior and duplicate-listener prevention, AdMob ID/consent/preload wiring, reward-plus-dismissal gating, cancellation/no-fill handling and duplicate-revive prevention, plus crested one-mesh coins, pooled contact shadows, true near-miss clearance/scoring, clean camera resets, live daily rollover, independent audio levels, UV-safe batching and one-draw animated crowns.
 
