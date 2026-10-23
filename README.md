@@ -6,9 +6,12 @@ An original 3D Sri Lankan endless runner for **web and Android**, built with **T
 
 **Package:** `lk.shaun.slbadboy` · **App name:** `SL BAD BOY` · **Minimum:** Android 7.0 (API 24) · **Target:** API 36.
 
+**Current APK:** 2.6.0 (versionCode 9) · 6,399,396 bytes · SHA-256 `074917bfa7b289c3a9e6388206136e5deb56ca90a5225209462bae474df5eaf1`.
+
 - Direct branch download: **[artifacts/SL-BAD-BOY.apk](artifacts/SL-BAD-BOY.apk)** (produced and validated by the Android workflow).
 - GitHub Actions also publishes the same package as the **SL-BAD-BOY-APK** workflow artifact with a SHA-256 checksum.
 - The supplied APK is **debug-signed for direct installation/testing**, not signed for Play Store release. Android may ask you to allow installation from your browser/file manager.
+- The 2.6.0 and 2.5.0 CI debug certificates differ. **Uninstall the older test APK before installing 2.6.0**; Android clears that app's local scores, shop ownership and juice inventory on uninstall.
 - The complete game, fonts and procedural artwork are bundled inside the APK. Gameplay does not require a server or network connection.
 
 ### One-click Windows APK build
@@ -219,6 +222,8 @@ npm run build
 ```
 
 Current 2.6.0 source verification: **68/68 Node tests**, **30/30 Chromium checks** and a **75-module production build** passed. In the same live 390×844 software-WebGL mobile scene, the full-detail comparison rendered **440 calls / 222,492 triangles**, while mobile culling rendered **346 calls / 161,536 triangles**—about **21% fewer calls** and **27% fewer triangles**. The browser run also verified real purchase/equip behavior, all ten portrait assets, live juice pickup, death/revive/score preservation, safety shielding, clean restarts, all fourteen districts and stable resources over 7,200 metres. These are rendering-cost diagnostics, **not physical-device FPS measurements**.
+
+The 2.6.0 APK was compiled by [Android workflow 39901637047](https://github.com/shaundavidkagenou-oss/SL-Bad-Boy/actions/runs/39901637047), then independently inspected: 454 ZIP entries passed CRC checks, all 22 production files matched `dist/` byte-for-byte, all ten runner portraits and 16 launcher/splash resources were present, metadata reported `lk.shaun.slbadboy` / 2.6.0 / 9 / API 24–36, and Android v2 signing was verified. Installation and physical-device lifecycle, audio and FPS remain unverified.
 
 The suite retains the original physics, scoring, collision and persistence assertions and adds longer district scheduling, all landmark builders, consecutive tunnels, bounded geometry across repeated district cycles, speed-tier fairness, predictive bus separation at normal and low FPS, touch gestures without bottom buttons, continuous skin deformation, animated elephants, lazy audio, travel-driven wheels, absence of the schoolboy gestures, scooter pickup/duration/reset/shield behavior, literal 1.2× speed, police sprint/separation/return behavior, vertex-color batch/disposal, fixed effect pools, software-GPU detection, Android Back behavior and duplicate-listener prevention, plus crested one-mesh coins, pooled contact shadows, true near-miss clearance/scoring, clean camera resets, live daily rollover, independent audio levels, UV-safe batching and one-draw animated crowns.
 
