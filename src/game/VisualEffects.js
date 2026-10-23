@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 
+const BUS_KINDS = new Set(['public-bus', 'private-bus']);
+
 const PARTICLE_VERTEX = `
   attribute float size;
   attribute float alpha;
@@ -40,8 +42,19 @@ export class VisualEffects {
     this.alphas = new Float32Array(capacity);
     this.life = new Float32Array(capacity);
     this.maxLife = new Float32Array(capacity);
+    this.gravity = new Float32Array(capacity);
+    this.growth = new Float32Array(capacity);
     this.cursor = 0;
+    this.activeCount = 0;
+    this.particlesDirty = true;
+    this.colorsDirty = true;
+    this.colorUploads = 0;
+    this.exhaustEmitted = 0;
+    this.policeDustEmitted = 0;
     this.dustTimer = 0;
+    this.policeDustTimer = 0;
+    this.exhaustTimer = 0;
+    this.exhaustCursor = 0;
     this.boostTimer = 0;
     this.tempColor = new THREE.Color();
     this.geometry = new THREE.BufferGeometry();
@@ -80,9 +93,10 @@ export class VisualEffects {
     this.reset();
   }
 
-  spawn(x, y, z, vx, vy, vz, duration, size, red, green, blue) {
+  spawn(x, y, z, vx, vy, vz, duration, size, red, green, blue, gravity = 2.4, growth = 0) {
     const index = this.cursor;
     this.cursor = (this.cursor + 1) % this.capacity;
+    if (this.life[index] <= 0) this.activeCount += 1;
     const offset = index * 3;
     this.positions[offset] = x;
     this.positions[offset + 1] = y;
@@ -97,6 +111,10 @@ export class VisualEffects {
     this.alphas[index] = 0.85;
     this.life[index] = duration;
     this.maxLife[index] = duration;
+    this.gravity[index] = gravity;
+    this.growth[index] = growth;
+    this.particlesDirty = true;
+    this.colorsDirty = true;
   }
 
   burst(position, color, count = 18, power = 2.4) {
@@ -127,6 +145,35 @@ export class VisualEffects {
     this.burst(position, 0xe54b3e, 14, 2.6);
   }
 
+  roadDust(position, count = 1) {
+    this.tempColor.set(0xc6b58e);
+    const { r, g, b } = this.tempColor;
+    for (let index = 0; index < count; index += 1) {
+      this.spawn(position.x + (Math.random() - 0.5) * 0.55, 0.1, position.z + 0.25,
+        (Math.random() - 0.5) * 0.7, 0.35 + Math.random() * 0.55, 0.8 + Math.random() * 1.3,
+        0.4 + Math.random() * 0.35, 0.22 + Math.random() * 0.22, r, g, b);
+    }
+  }
+
+  busExhaust(entries) {
+    if (!entries?.length) return;
+    for (let scanned = 0; scanned < entries.length; scanned += 1) {
+      const index = (this.exhaustCursor + scanned) % entries.length;
+      const entry = entries[index];
+      if (entry.type !== 'obstacle' || !BUS_KINDS.has(entry.kind)) continue;
+      const position = entry.mesh.position;
+      if (position.z < -68 || position.z > 15) continue;
+      this.exhaustCursor = (index + 1) % entries.length;
+      this.tempColor.set(0x37333d);
+      const { r, g, b } = this.tempColor;
+      this.spawn(position.x - 0.78, 0.72, position.z - entry.spec.depth * 0.5 - 0.18,
+        -0.12, 0.38, -0.62, 1.15 + Math.random() * 0.45, 0.46 + Math.random() * 0.22,
+        r, g, b, -0.32, 0.28);
+      this.exhaustEmitted += 1;
+      return;
+    }
+  }
+
   resetLines(player) {
     for (let index = 0; index < this.lineCount; index += 1) {
       const state = index * 4;
@@ -146,12 +193,21 @@ export class VisualEffects {
     this.geometry.attributes.alpha.needsUpdate = true;
     this.geometry.attributes.size.needsUpdate = true;
     this.lines.visible = false;
+    this.activeCount = 0;
+    this.particlesDirty = true;
+    this.colorsDirty = true;
+    this.colorUploads = 0;
+    this.exhaustEmitted = 0;
+    this.policeDustEmitted = 0;
     this.dustTimer = 0;
+    this.policeDustTimer = 0;
+    this.exhaustTimer = 0;
+    this.exhaustCursor = 0;
     this.boostTimer = 0;
     if (player) this.resetLines(player);
   }
 
-  update(delta, speed, player, state, pixelRatio = 1) {
+  update(delta, speed, player, state, pixelRatio = 1, police = null, entries = null) {
     this.material.uniforms.pixelRatio.value = pixelRatio;
     if (state === 'paused' || delta <= 0) return;
     const position = player.group.position;
@@ -160,13 +216,22 @@ export class VisualEffects {
       this.dustTimer -= delta;
       if (this.dustTimer <= 0) {
         this.dustTimer = player.sliding ? 0.025 : 0.065;
-        this.tempColor.set(0xc6b58e);
-        const { r, g, b } = this.tempColor;
-        for (let index = 0; index < (player.sliding ? 3 : 1); index += 1) {
-          this.spawn(position.x + (Math.random() - 0.5) * 0.55, 0.1, position.z + 0.25,
-            (Math.random() - 0.5) * 0.7, 0.35 + Math.random() * 0.55, 0.8 + Math.random() * 1.3,
-            0.4 + Math.random() * 0.35, 0.22 + Math.random() * 0.22, r, g, b);
-        }
+        this.roadDust(position, player.sliding ? 3 : 1);
+      }
+    }
+    if (running && police?.group.visible && police.group.position.y < 0.08) {
+      this.policeDustTimer -= delta;
+      if (this.policeDustTimer <= 0) {
+        this.policeDustTimer = 0.085;
+        this.roadDust(police.group.position);
+        this.policeDustEmitted += 1;
+      }
+    }
+    if (running && entries?.length) {
+      this.exhaustTimer -= delta;
+      if (this.exhaustTimer <= 0) {
+        this.exhaustTimer = 0.14;
+        this.busExhaust(entries);
       }
     }
     if (running && player.scooterActive) {
@@ -181,25 +246,38 @@ export class VisualEffects {
       }
     }
 
-    for (let index = 0; index < this.capacity; index += 1) {
-      if (this.life[index] <= 0) continue;
-      this.life[index] = Math.max(0, this.life[index] - delta);
-      const offset = index * 3;
-      this.velocities[offset + 1] -= delta * 2.4;
-      this.positions[offset] += this.velocities[offset] * delta;
-      this.positions[offset + 1] = Math.max(0.035, this.positions[offset + 1] + this.velocities[offset + 1] * delta);
-      this.positions[offset + 2] += this.velocities[offset + 2] * delta;
-      const remaining = this.life[index] / this.maxLife[index];
-      this.alphas[index] = remaining * 0.82;
-      if (this.life[index] === 0) {
-        this.positions[offset + 1] = -1000;
-        this.sizes[index] = 0;
+    if (this.activeCount > 0) {
+      for (let index = 0; index < this.capacity; index += 1) {
+        if (this.life[index] <= 0) continue;
+        this.life[index] = Math.max(0, this.life[index] - delta);
+        const offset = index * 3;
+        if (this.life[index] === 0) {
+          this.activeCount = Math.max(0, this.activeCount - 1);
+          this.positions[offset + 1] = -1000;
+          this.sizes[index] = 0;
+          this.alphas[index] = 0;
+        } else {
+          this.velocities[offset + 1] -= delta * this.gravity[index];
+          this.positions[offset] += this.velocities[offset] * delta;
+          this.positions[offset + 1] = Math.max(0.035, this.positions[offset + 1] + this.velocities[offset + 1] * delta);
+          this.positions[offset + 2] += this.velocities[offset + 2] * delta;
+          this.sizes[index] += this.growth[index] * delta;
+          this.alphas[index] = (this.life[index] / this.maxLife[index]) * 0.82;
+        }
+        this.particlesDirty = true;
       }
     }
-    this.geometry.attributes.position.needsUpdate = true;
-    this.geometry.attributes.color.needsUpdate = true;
-    this.geometry.attributes.size.needsUpdate = true;
-    this.geometry.attributes.alpha.needsUpdate = true;
+    if (this.particlesDirty) {
+      this.geometry.attributes.position.needsUpdate = true;
+      this.geometry.attributes.size.needsUpdate = true;
+      this.geometry.attributes.alpha.needsUpdate = true;
+      this.particlesDirty = false;
+    }
+    if (this.colorsDirty) {
+      this.geometry.attributes.color.needsUpdate = true;
+      this.colorsDirty = false;
+      this.colorUploads += 1;
+    }
 
     this.lines.visible = running && player.scooterActive;
     if (!this.lines.visible) return;
@@ -223,8 +301,10 @@ export class VisualEffects {
   }
 
   getStats() {
-    let active = 0;
-    for (let index = 0; index < this.capacity; index += 1) if (this.life[index] > 0) active += 1;
-    return { capacity: this.capacity, active, speedLines: this.lineCount, geometries: 2 };
+    return {
+      capacity: this.capacity, active: this.activeCount, speedLines: this.lineCount, geometries: 2,
+      colorUploads: this.colorUploads, exhaustEmitted: this.exhaustEmitted,
+      policeDustEmitted: this.policeDustEmitted,
+    };
   }
 }

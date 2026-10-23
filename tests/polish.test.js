@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { createCoin } from '../src/art/MeshKit.js';
 import { ContactShadows } from '../src/game/ContactShadows.js';
+import { LongShadows } from '../src/game/LongShadows.js';
 import { ObstacleSpawner } from '../src/game/ObstacleSpawner.js';
 import { Player } from '../src/game/Player.js';
 import { CameraRig } from '../src/game/CameraRig.js';
@@ -29,6 +30,7 @@ test('crested coins retain one shared vertex-colored mesh and a bounded triangle
   assert.equal(first.geometry, second.geometry);
   assert.equal(first.geometry.userData.crest, 'lotus-sun');
   assert.equal(first.material.vertexColors, true);
+  assert.ok(first.material.emissiveIntensity >= 0.7, 'coins must provide a restrained bloom source');
   assert.ok(first.geometry.attributes.color.count > 0);
   assert.ok(first.geometry.index.count / 3 <= 360);
   assert.equal(first.castShadow && first.receiveShadow, false);
@@ -89,6 +91,33 @@ test('soft contact grounding stays in one bounded instanced draw without shadow 
   assert.equal(shadows.mesh.material.transparent, true);
   assert.equal(shadows.mesh.castShadow || shadows.mesh.receiveShadow, false);
   assert.ok(shadows.mesh.instanceColor, 'airborne contact color was not initialized');
+  shadows.reset();
+  assert.equal(shadows.mesh.count, 0);
+});
+
+test('low-sun long shadows add one bounded projected draw without shadow-map passes', () => {
+  const scene = new THREE.Scene();
+  const shadows = new LongShadows(scene, { capacity: 3 });
+  const player = new Player(scene);
+  const police = { group: { visible: true, position: new THREE.Vector3(1, 0, 8) } };
+  const entries = [0, 1].map((lane) => ({
+    type: 'obstacle', kind: lane ? 'private-bus' : 'car', spec: { width: 2.05, depth: 3.9 },
+    mesh: { position: new THREE.Vector3(lane ? 3.1 : -3.1, 0, -8) },
+  }));
+  shadows.update(player, police, entries);
+  assert.equal(shadows.mesh.isInstancedMesh, true);
+  assert.equal(shadows.getStats().drawCalls, 1);
+  assert.equal(shadows.getStats().instances, 3);
+  assert.equal(shadows.getStats().shadowMapPasses, 0);
+  assert.equal(shadows.mesh.count, 3);
+  assert.equal(shadows.mesh.castShadow || shadows.mesh.receiveShadow, false);
+  const matrix = new THREE.Matrix4();
+  shadows.mesh.getMatrixAt(0, matrix);
+  player.group.position.x = 2;
+  shadows.update(player, police, entries);
+  const moved = new THREE.Matrix4();
+  shadows.mesh.getMatrixAt(0, moved);
+  assert.notDeepEqual(matrix.elements, moved.elements, 'projected shadow must follow its character');
   shadows.reset();
   assert.equal(shadows.mesh.count, 0);
 });

@@ -85,8 +85,8 @@ jobs:
           "$AAPT" dump --include-meta-data badging "$APK" | tee apk-badging.txt
           grep -F "package: name='lk.shaun.slbadboy'" apk-badging.txt
           grep -F "application-label:'SL BAD BOY'" apk-badging.txt
-          grep -F "versionCode='12'" apk-badging.txt
-          grep -F "versionName='2.7.1'" apk-badging.txt
+          grep -F "versionCode='13'" apk-badging.txt
+          grep -F "versionName='2.8.0'" apk-badging.txt
           grep -F "sdkVersion:'24'" apk-badging.txt
           grep -F 'com.google.android.gms.ads.APPLICATION_ID' apk-badging.txt
           grep -F 'ca-app-pub-7175777292239029~3414423328' apk-badging.txt
@@ -109,10 +109,13 @@ jobs:
                          'jaffna-rider', 'sacred-explorer', 'harbour-captain', 'night-ace', 'island-legend']
               for runner in runners:
                   assert len(apk.read(f'assets/public/assets/runners/{runner}.png')) > 5000, runner
-              rewarded_unit = b'ca-app-pub-7175777292239029/3200257177'
-              assert any(rewarded_unit in apk.read(name) for name in apk.namelist()
-                         if name.startswith('assets/public/assets/') and name.endswith('.js')), 'rewarded ad unit missing'
-          print(f'All {len(checks)} launcher/splash PNGs, 10 portraits and the production rewarded ad unit are packaged.')
+              bundled_js = b'\n'.join(apk.read(name) for name in apk.namelist()
+                                      if name.startswith('assets/public/assets/') and name.endswith('.js'))
+              for marker in [b'ca-app-pub-7175777292239029/3200257177',
+                             b'Batched golden-hour god rays',
+                             b'Batched low-sun projected long shadows']:
+                  assert marker in bundled_js, f'packaged feature missing: {marker!r}'
+          print(f'All {len(checks)} launcher/splash PNGs, 10 portraits, rewarded ads and cinematic graphics are packaged.')
           PY
           mkdir -p artifacts
           cp "$APK" artifacts/SL-BAD-BOY.apk

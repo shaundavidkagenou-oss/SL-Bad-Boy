@@ -18,7 +18,7 @@ button { font: inherit; }
 button:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
 #scene, #scene canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .sun-glow { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(circle at 74% 12%, rgba(255,235,171,.24), transparent 32%); }
-.vignette { position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 140px rgba(12,25,35,.28); }
+.vignette { position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 145px rgba(14,8,31,.36); transition: box-shadow .25s ease-out; }
 
 /* Shaun David Studios — monochrome five-second production ident. */
 .studio-loading { display: grid; place-items: center; overflow: hidden; padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); background: #050505; color: #fff; font-family: "Arial Narrow", "Segoe UI", Arial, sans-serif; }
@@ -122,13 +122,13 @@ kbd { min-width: 28px; height: 27px; padding: 0 7px; display: inline-flex; align
 .hud-brand strong, .hud-brand span { display: block; }
 .hud-brand strong { font-size: 13px; letter-spacing: 1px; }
 .hud-brand span { font-size: 7px; letter-spacing: 1.7px; color: var(--gold); margin-top: 3px; }
-.hud-metrics { display: flex; background: rgba(19,29,50,.82); border: 1px solid rgba(255,255,255,.13); border-radius: 5px 17px 5px 17px; overflow: hidden; }
+.hud-metrics { display: flex; position: relative; background: linear-gradient(145deg, rgba(43,55,83,.72), rgba(13,22,42,.54)); border: 1px solid rgba(255,255,255,.27); border-radius: 7px 19px 7px 19px; overflow: hidden; box-shadow: inset 0 1px rgba(255,255,255,.24), inset 0 -1px rgba(255,255,255,.04), 0 9px 28px rgba(5,11,28,.24); backdrop-filter: blur(10px) saturate(1.25); -webkit-backdrop-filter: blur(10px) saturate(1.25); }
 .metric { min-width: 116px; padding: 10px 22px; text-align: center; position: relative; }
 .metric + .metric::before { content: ""; position: absolute; left: 0; top: 12px; bottom: 12px; width: 1px; background: rgba(255,255,255,.13); }
 .metric span, .result-grid span, .final-score span { display: block; font-size: 8px; letter-spacing: 1.7px; font-weight: 700; color: #aebfc1; }
-.metric strong { display: block; margin-top: 3px; font-size: 20px; font-variant-numeric: tabular-nums; }
+.metric strong { display: block; margin-top: 3px; font-size: 20px; font-weight: 800; letter-spacing: .2px; color: #fffdf4; text-shadow: 0 2px 9px rgba(0,0,0,.28); font-variant-numeric: tabular-nums; transform-origin: center; }
 .hud-actions { display: flex; gap: 10px; pointer-events: auto; }
-.coin-pill { height: 52px; min-width: 85px; padding: 0 17px; display: flex; align-items: center; justify-content: center; gap: 9px; background: rgba(19,29,50,.85); border: 1px solid rgba(255,255,255,.13); border-radius: 25px; }
+.coin-pill { height: 52px; min-width: 85px; padding: 0 17px; display: flex; align-items: center; justify-content: center; gap: 9px; background: linear-gradient(145deg, rgba(54,61,84,.76), rgba(16,24,45,.56)); border: 1px solid rgba(255,255,255,.28); border-radius: 25px; box-shadow: inset 0 1px rgba(255,255,255,.25), 0 8px 24px rgba(5,11,28,.22); backdrop-filter: blur(10px) saturate(1.25); -webkit-backdrop-filter: blur(10px) saturate(1.25); }
 .coin-icon { color: var(--gold); font-size: 26px; text-shadow: 0 0 0 #9c6c17, 0 2px 0 #9c6c17; }
 .coin-pill strong { font-size: 20px; }
 .icon-button { width: 52px; height: 52px; border-radius: 50%; border: 1px solid rgba(255,255,255,.2); background: rgba(19,29,50,.85); color: #fff; font-weight: 900; font-size: 20px; cursor: pointer; }
@@ -190,7 +190,7 @@ h1 { text-shadow: 0 4px 0 rgba(0,0,0,.15); }
 .boost-track { height: 5px; margin: 8px 0 6px; overflow: hidden; background: rgba(0,0,0,.28); border-radius: 5px; }
 .boost-track span { display: block; width: 100%; height: 100%; transform-origin: left; background: linear-gradient(90deg, #34c9c0, #b5fff0, #f8c14c); }
 .boost-hud small { display: block; color: #b8e5df; font-size: 7px; letter-spacing: 1.7px; text-align: center; }
-body.scooter-active .vignette { box-shadow: inset 0 0 90px rgba(51,238,222,.22); }
+body.scooter-active .vignette { box-shadow: inset 0 0 105px rgba(14,8,31,.42), inset 0 0 64px rgba(51,238,222,.13); }
 
 .district-banner { position: absolute; z-index: 7; top: 17%; left: 50%; min-width: 240px; padding: 12px 26px; text-align: center; transform: translate(-50%, -12px); opacity: 0; pointer-events: none; background: rgba(18,29,50,.87); border-top: 2px solid var(--gold); border-radius: 4px 4px 15px 15px; transition: opacity .3s, transform .3s; }
 .district-banner.is-visible { opacity: 1; transform: translate(-50%, 0); }

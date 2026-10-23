@@ -47,9 +47,9 @@ export function createScooter(color = 0x16877d) {
     box(scooter, [0.18, 0.07, 0.12], [side * 0.37, 1.35, -0.73], 0x171d22);
   }
   sphere(scooter, 0.18, [0, 1.19, -0.73], 0xffe6a0, {
-    scale: [1.15, 0.85, 0.35], emissive: 0xffc957, emissiveIntensity: 0.45,
+    scale: [1.15, 0.85, 0.35], emissive: 0xffc957, emissiveIntensity: 1.15,
   });
-  sphere(scooter, 0.1, [0, 0.83, 0.88], 0xe34d42, { scale: [1.25, 0.75, 0.35], emissive: 0x8a140c, emissiveIntensity: 0.3 });
+  sphere(scooter, 0.1, [0, 0.83, 0.88], 0xe34d42, { scale: [1.25, 0.75, 0.35], emissive: 0x8a140c, emissiveIntensity: 0.65 });
   box(scooter, [0.36, 0.18, 0.035], [0, 0.58, 0.93], 0xf1e2a4);
   torus(scooter, 0.37, 0.025, [0, 0.35, -0.82], 0x6e7b80, { rotation: [0, Math.PI / 2, 0], metalness: 0.5 });
   return batchStaticGroup(scooter, { preserve: new Set(scooter.userData.wheels) });

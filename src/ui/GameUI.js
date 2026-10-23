@@ -15,6 +15,8 @@ export class GameUI {
     this.score = byId('score-value');
     this.coins = byId('coin-value');
     this.coinPill = byId('coin-pill');
+    this.coinAnimation = null;
+    this.scoreAnimation = null;
     this.speed = byId('speed-value');
     this.boostHud = byId('boost-hud');
     this.boostTime = byId('boost-time');
@@ -296,9 +298,19 @@ export class GameUI {
   }
 
   pulseCoin() {
-    this.coinPill.animate?.([
-      { transform: 'scale(1)' }, { transform: 'scale(1.16)', offset: 0.45 }, { transform: 'scale(1)' },
-    ], { duration: 220, easing: 'ease-out' });
+    this.coinAnimation?.cancel();
+    this.scoreAnimation?.cancel();
+    this.coinAnimation = this.coinPill.animate?.([
+      { transform: 'scale(1)' },
+      { transform: 'scale(1.2) rotate(-2deg)', offset: 0.34 },
+      { transform: 'scale(.96) rotate(1deg)', offset: 0.6 },
+      { transform: 'scale(1.06)', offset: 0.8 },
+      { transform: 'scale(1)' },
+    ], { duration: 340, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    this.scoreAnimation = this.score.animate?.([
+      { transform: 'scale(1)' }, { transform: 'scale(1.13)', offset: 0.38 },
+      { transform: 'scale(.98)', offset: 0.66 }, { transform: 'scale(1)' },
+    ], { duration: 300, easing: 'ease-out' });
   }
 
   flashImpact() {

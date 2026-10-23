@@ -93,7 +93,11 @@ try {
     leg: window.__LANKA_RUN__.player.joints.leftLeg.rotation.x,
     head: window.__LANKA_RUN__.player.joints.head.rotation.y,
   }));
-  await new Promise((resolve) => setTimeout(resolve, 200));
+  await waitForFunction((before) => {
+    const player = window.__LANKA_RUN__.player;
+    return player.visual.position.y > 0 && (Math.abs(player.joints.leftLeg.rotation.x - before.leg) > 0.01
+      || Math.abs(player.joints.head.rotation.y - before.head) > 0.01);
+  }, menuPoseBefore);
   const menuPoseAfter = await page.evaluate(() => ({
     leg: window.__LANKA_RUN__.player.joints.leftLeg.rotation.x,
     head: window.__LANKA_RUN__.player.joints.head.rotation.y,
@@ -782,6 +786,44 @@ try {
   await page.click('#revive-button');
   await waitForFunction(() => window.__LANKA_RUN__.state === 'running' && window.__LANKA_RUN__.juice.count === 0);
   passed.push('portrait juice and rewarded-ad revive dialog stays within the screen and returns to the same run');
+
+  // Exercise the hardware/high-quality path separately from the software and
+  // mobile fallbacks above. A small viewport keeps SwiftShader verification bounded.
+  await page.setViewport({ width: 640, height: 360, deviceScaleFactor: 1 });
+  await page.goto(`${url}/?quality=high`, { waitUntil: 'networkidle0' });
+  await page.waitForFunction(() => window.__LANKA_RUN__?.state === 'menu'
+    && document.getElementById('studio-loading').hidden, { timeout: 30000 });
+  await page.evaluate(() => {
+    const game = window.__LANKA_RUN__;
+    game.startRun(42);
+    game.spawner.collisionEnabled = false;
+    game.player.startScooter();
+  });
+  await waitForFunction(() => window.__LANKA_RUN__.graphics.boost > 0.35);
+  const cinematic = await page.evaluate(() => {
+    const game = window.__LANKA_RUN__;
+    game.ui.pulseCoin();
+    return {
+      graphics: game.graphics.getStats(), godRays: game.godRays.getStats(),
+      longShadows: game.longShadows.getStats(), roughnessMap: Boolean(game.world.sections[0].children[0].material.roughnessMap),
+      lowSun: game.sun.position.y <= 12 && game.sun.intensity > game.hemisphere.intensity * 2.5,
+      hudGlass: getComputedStyle(document.querySelector('.hud-metrics')).backdropFilter,
+      coinAnimation: document.getElementById('coin-pill').getAnimations().length,
+      scoreAnimation: document.getElementById('score-value').getAnimations().length,
+    };
+  });
+  assert.equal(cinematic.graphics.postprocessing, true);
+  assert.equal(cinematic.graphics.cinematic, true);
+  assert.ok(cinematic.graphics.bloomStrength >= 0.2);
+  assert.ok(cinematic.graphics.boost > 0.35);
+  assert.equal(cinematic.godRays.drawCalls, 1);
+  assert.equal(cinematic.longShadows.drawCalls, 1);
+  assert.equal(cinematic.longShadows.shadowMapPasses, 0);
+  assert.equal(cinematic.roughnessMap, true);
+  assert.equal(cinematic.lowSun, true);
+  assert.match(cinematic.hudGlass, /blur/);
+  assert.ok(cinematic.coinAnimation > 0 && cinematic.scoreAnimation > 0);
+  passed.push('high-quality sunset bloom, grading, god rays, long shadows, boost blur, road roughness and glass HUD work');
 
   assert.deepEqual(runtimeErrors, []);
   passed.push('no browser runtime errors, page errors or missing-resource errors');

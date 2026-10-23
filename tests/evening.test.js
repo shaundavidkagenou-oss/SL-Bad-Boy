@@ -10,6 +10,9 @@ import { createCoin } from '../src/art/MeshKit.js';
 import { PoliceChase, POLICE_MIN_GAP } from '../src/game/PoliceChase.js';
 import { Player } from '../src/game/Player.js';
 import { CameraRig } from '../src/game/CameraRig.js';
+import { GodRays } from '../src/game/GodRays.js';
+import { createCinematicGradePass } from '../src/game/CinematicGradePass.js';
+import { createUtilityWires } from '../src/art/Environment.js';
 
 test('all districts retain cached evening palettes without mutating their source themes', () => {
   for (const theme of ENVIRONMENT_THEMES) {
@@ -56,6 +59,49 @@ test('bus road glow is one bounded instanced draw and is skipped on software ren
   assert.equal(lights.getStats().instances, 0);
   assert.equal(lights.getStats().drawCalls, 0);
   assert.equal(lights.mesh.visible, false);
+});
+
+test('golden-hour god rays use one bounded instanced draw and recycle without new geometry', () => {
+  const scene = new THREE.Scene();
+  const rays = new GodRays(scene, { capacity: 5 });
+  const geometry = rays.mesh.geometry;
+  rays.update(0.5, 28, 'running');
+  assert.equal(rays.mesh.isInstancedMesh, true);
+  assert.equal(rays.getStats().drawCalls, 1);
+  assert.equal(rays.getStats().instances, 5);
+  assert.equal(rays.material.blending, THREE.AdditiveBlending);
+  for (let frame = 0; frame < 20; frame += 1) rays.update(0.5, 28, 'running');
+  assert.equal(rays.mesh.geometry, geometry);
+  assert.ok(rays.state[2] < 19, 'ray positions must recycle behind the camera');
+  rays.enabled = false;
+  rays.update(0.5, 28, 'running');
+  assert.equal(rays.getStats().drawCalls, 0);
+  assert.equal(rays.mesh.visible, false);
+});
+
+test('combined cinematic pass includes saturation, contrast, vignette and boost-only radial blur', () => {
+  const pass = createCinematicGradePass();
+  assert.ok(pass.uniforms.saturation.value > 1.1);
+  assert.ok(pass.uniforms.contrast.value > 1);
+  assert.ok(pass.uniforms.vignette.value > 0);
+  assert.equal(pass.uniforms.boost.value, 0);
+  assert.match(pass.material.fragmentShader, /if \(boost > 0\.001\)/);
+  assert.match(pass.material.fragmentShader, /radial/);
+  pass.uniforms.boost.value = 0.85;
+  assert.equal(pass.uniforms.boost.value, 0.85);
+  pass.dispose();
+});
+
+test('Colombo wire crosshatch combines seven cables into one cached line draw', () => {
+  const first = createUtilityWires(30);
+  const second = createUtilityWires(30);
+  const wires = first.children[0];
+  assert.equal(first.children.length, 1);
+  assert.equal(wires.isLineSegments, true);
+  assert.equal(wires.userData.cableCount, 7);
+  assert.equal(wires.geometry, second.children[0].geometry);
+  assert.equal(wires.geometry.attributes.position.count, 136);
+  assert.ok(Math.max(...wires.geometry.attributes.position.array) > 14, 'cross-street spans must cross the road');
 });
 
 test('coin trails render through one bounded instanced pool while retaining collision proxies', () => {

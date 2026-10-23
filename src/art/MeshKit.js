@@ -175,18 +175,20 @@ function surfaceTexture(name, bump = false) {
 
 function surfaceMaterial(name, color, options = {}) {
   const defaultRoughness = name === 'water' ? 0.2 : name === 'asphalt' || name === 'grass' ? 0.91 : 0.84;
-  const bumpEnabled = surfaceQuality.bump || (name === 'asphalt' && surfaceQuality.roadBump);
-  const key = `surface:${name}:${color}:${bumpEnabled}:${surfaceQuality.anisotropy}:${options.roughness ?? defaultRoughness}:${options.side ?? THREE.FrontSide}:${options.vertexColors ?? false}`;
+  const asphaltDetailed = name === 'asphalt' && surfaceQuality.roadBump;
+  const bumpEnabled = surfaceQuality.bump || asphaltDetailed;
+  const key = `surface:${name}:${color}:${bumpEnabled}:${asphaltDetailed}:${surfaceQuality.anisotropy}:${options.roughness ?? defaultRoughness}:${options.side ?? THREE.FrontSide}:${options.vertexColors ?? false}`;
   if (!materialCache.has(key)) {
     materialCache.set(key, new THREE.MeshStandardMaterial({
       color,
       map: surfaceTexture(name),
       bumpMap: bumpEnabled ? surfaceTexture(name, true) : null,
       bumpScale: bumpEnabled ? (name === 'water' ? 0.075 : name === 'asphalt' ? 0.055 : 0.035) : 0,
-      roughness: options.roughness ?? defaultRoughness,
+      roughnessMap: asphaltDetailed ? surfaceTexture(name, true) : null,
+      roughness: options.roughness ?? (asphaltDetailed ? 1 : defaultRoughness),
       metalness: options.metalness ?? (name === 'water' ? 0.12 : 0),
       side: options.side ?? THREE.FrontSide,
-      envMapIntensity: name === 'water' ? 1.1 : name === 'asphalt' || name === 'grass' ? 0.32 : 0.5,
+      envMapIntensity: name === 'water' ? 1.1 : asphaltDetailed ? 0.5 : name === 'asphalt' || name === 'grass' ? 0.32 : 0.5,
       flatShading: options.flatShading ?? false,
       vertexColors: options.vertexColors ?? false,
     }));
@@ -357,7 +359,10 @@ export function createCoin() {
     merged.userData.crest = 'lotus-sun';
     return merged;
   });
-  const coinMaterial = material(0xffffff, { metalness: 0.58, roughness: 0.24, vertexColors: true });
+  const coinMaterial = material(0xffffff, {
+    metalness: 0.58, roughness: 0.24, vertexColors: true,
+    emissive: 0xf6b91f, emissiveIntensity: 0.72,
+  });
   coinMaterial.envMapIntensity = 0.85;
   const coin = new THREE.Mesh(geo, coinMaterial);
   coin.name = 'Sri Lankan lotus-sun coin';
@@ -375,6 +380,7 @@ export function getMeshKitStats() {
     surfaceTextures: surfaceTextureCache.size,
     bumpMapping: surfaceQuality.bump,
     roadBumpMapping: surfaceQuality.roadBump,
+    roadRoughnessMapping: surfaceQuality.roadBump,
     anisotropy: surfaceQuality.anisotropy,
   };
 }

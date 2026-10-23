@@ -57,13 +57,23 @@ test('visual effect pools overwrite old particles and never allocate extra geome
   for (let index = 0; index < 30; index += 1) effects.coin(player.group.position);
   assert.equal(effects.getStats().active, 16);
   assert.equal(effects.getStats().capacity, 16);
-  for (let index = 0; index < 120; index += 1) effects.update(1 / 60, 14, player, 'running', 1);
+  player.group.position.y = 1;
+  effects.update(1 / 60, 14, player, 'running', 1);
+  const settledColorUploads = effects.getStats().colorUploads;
+  for (let index = 0; index < 119; index += 1) effects.update(1 / 60, 14, player, 'running', 1);
+  assert.equal(effects.getStats().colorUploads, settledColorUploads,
+    'unchanged particle colors must not be uploaded every frame');
   assert.equal(effects.geometry, geometry);
   assert.equal(effects.lineGeometry, lineGeometry);
   assert.equal(effects.getStats().geometries, 2);
   player.scooterActive = true;
-  effects.update(1 / 60, 140, player, 'running', 1);
+  const police = { group: { visible: true, position: new THREE.Vector3(1, 0, 5) } };
+  const entries = [{ type: 'obstacle', kind: 'public-bus', spec: { depth: 6.52 },
+    mesh: { position: new THREE.Vector3(0, 0, -8) } }];
+  effects.update(1 / 60, 140, player, 'running', 1, police, entries);
   assert.equal(effects.lines.visible, true);
+  assert.ok(effects.getStats().exhaustEmitted > 0, 'Leyland bus must emit pooled exhaust');
+  assert.ok(effects.getStats().policeDustEmitted > 0, 'officer slippers must kick up pooled dust');
   effects.reset(player);
   assert.equal(effects.getStats().active, 0);
   assert.equal(effects.lines.visible, false);

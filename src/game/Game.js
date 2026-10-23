@@ -16,6 +16,8 @@ import { GraphicsPipeline, isSoftwareRenderer } from './GraphicsPipeline.js';
 import { configureSurfaceQuality } from '../art/MeshKit.js';
 import { VisualEffects } from './VisualEffects.js';
 import { ContactShadows } from './ContactShadows.js';
+import { LongShadows } from './LongShadows.js';
+import { GodRays } from './GodRays.js';
 import { RoadLightPools } from './RoadLightPools.js';
 import { eveningPalette } from './Evening.js';
 import { RewardedAds } from '../mobile/RewardedAds.js';
@@ -50,26 +52,26 @@ export class Game {
     });
     const pixelRatioLimit = this.softwareRenderer ? 0.75 : coarsePointer ? 1.25 : 1.4;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelRatioLimit));
-    // Shadows are intentionally disabled on every device. Directional and
-    // hemisphere lighting still provide depth without a second scene render.
+    // Batched projected/contact shadows ground the scene without a costly
+    // second shadow-map scene render on mid-range phones.
     this.renderer.shadowMap.enabled = false;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.12;
+    this.renderer.toneMappingExposure = 1.08;
     container.appendChild(this.renderer.domElement);
 
-    const hemisphere = new THREE.HemisphereLight(0x8fa8d6, 0x3c3140, 1.15);
+    const hemisphere = new THREE.HemisphereLight(0x8fa8d6, 0x3c3140, 0.62);
     this.scene.add(hemisphere);
     this.hemisphere = hemisphere;
-    const sun = new THREE.DirectionalLight(0xffad73, 1.15);
-    sun.position.set(36, 18, -55);
+    const sun = new THREE.DirectionalLight(0xffad73, 2.15);
+    sun.position.set(46, 12, -62);
     sun.castShadow = false;
     sun.target.position.set(0, 0, -18);
     this.scene.add(sun, sun.target);
     this.sun = sun;
-    // The main sun lights the character's front. A soft camera-side fill makes
-    // the back, shoulders and road readable without any shadow-map render.
-    const fill = new THREE.DirectionalLight(0x9bbcff, 1.35);
+    // A restrained camera-side fill preserves runner/road readability while
+    // allowing the warm low sun to define the scene instead of flat ambient light.
+    const fill = new THREE.DirectionalLight(0x9bbcff, 0.68);
     fill.position.set(-18, 20, 32);
     fill.target.position.set(0, 1, -10);
     fill.castShadow = false;
@@ -103,6 +105,12 @@ export class Game {
     }, this.shop.selectedId);
     this.police = new PoliceChase(this.scene);
     this.contactShadows = new ContactShadows(this.scene, { capacity: coarsePointer ? 40 : 48 });
+    this.longShadows = new LongShadows(this.scene, {
+      enabled: !this.softwareRenderer, capacity: coarsePointer ? 20 : 32,
+    });
+    this.godRays = new GodRays(this.scene, {
+      enabled: !this.softwareRenderer, capacity: coarsePointer ? 4 : 7,
+    });
     this.roadLights = new RoadLightPools(this.scene, {
       enabled: !this.softwareRenderer, capacity: coarsePointer ? 16 : 24,
     });
@@ -192,7 +200,7 @@ export class Game {
     this.themeTargets = {
       sky: new THREE.Color(), fog: new THREE.Color(), fogNear: 82, fogFar: 285,
       sun: new THREE.Color(0xffad73), fill: new THREE.Color(0x9bbcff),
-      exposure: 1.12, sunIntensity: 1.15, hemisphereIntensity: 1.15,
+      exposure: 1.08, sunIntensity: 2.15, hemisphereIntensity: 0.62,
     };
     this.handleResize = () => this.resize();
     this.handleVisibility = () => {
@@ -435,9 +443,9 @@ export class Game {
       const mist = ['hill', 'rail', 'tea'].includes(theme.layout);
       this.themeTargets.sun.set(hot ? 0xffa06b : mist ? 0xffb987 : 0xffad73);
       this.themeTargets.fill.set(mist ? 0x92b9ef : 0x9bbcff);
-      this.themeTargets.exposure = hot ? 1.08 : mist ? 1.1 : 1.12;
-      this.themeTargets.sunIntensity = hot ? 1.05 : mist ? 0.85 : 1.15;
-      this.themeTargets.hemisphereIntensity = mist ? 1.05 : 1.15;
+      this.themeTargets.exposure = hot ? 1.04 : mist ? 1.06 : 1.08;
+      this.themeTargets.sunIntensity = hot ? 2.0 : mist ? 1.65 : 2.15;
+      this.themeTargets.hemisphereIntensity = mist ? 0.72 : 0.62;
       this.ui.setDistrict(theme, announce);
     }
     const lightBlend = delta === 0 ? 1 : 1 - Math.exp(-delta * 0.9);
@@ -509,11 +517,16 @@ export class Game {
     this.updateTheme(frameDelta);
     this.audio.update(frameDelta, this.state);
     this.cameraRig.update(frameDelta, this.player, this.speed, presentationState);
-    this.effects.update(frameDelta, this.speed, this.player, this.state, this.renderer.getPixelRatio());
+    this.effects.update(frameDelta, this.speed, this.player, this.state,
+      this.renderer.getPixelRatio(), this.police, this.spawner.entries);
     this.contactShadows.update(this.player, this.police, this.spawner.entries);
+    this.longShadows.update(this.player, this.police, this.spawner.entries);
+    this.godRays.enabled = !this.softwareRenderer && this.graphics.adaptations < 2;
+    this.godRays.update(frameDelta, this.speed, this.state);
     this.world.setPerformanceMode(this.graphics.performanceMode);
     this.roadLights.enabled = !this.softwareRenderer && !this.graphics.performanceMode;
     this.roadLights.update(this.spawner.entries);
-    this.graphics.render(frameDelta);
+    const boostTarget = this.state === 'running' && this.player.scooterActive ? 0.85 : 0;
+    this.graphics.render(frameDelta, boostTarget);
   }
 }

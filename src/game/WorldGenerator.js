@@ -80,7 +80,7 @@ export class WorldGenerator {
     section.name = `Road section ${index}`;
     section.userData.sequence = index;
     const length = ROAD.sectionLength;
-    box(section, [10.5, 0.2, length + 0.04], [0, -0.09, 0], 0x495052, {
+    box(section, [10.5, 0.2, length + 0.04], [0, -0.09, 0], 0x52585b, {
       castShadow: false, receiveShadow: false, surface: 'asphalt',
     });
     for (const side of [-1, 1]) {
@@ -98,7 +98,7 @@ export class WorldGenerator {
     }
     for (const x of [-1.55, 1.55]) {
       for (let z = -12; z <= 12; z += 6) {
-        box(section, [0.12, 0.025, 3.1], [x, 0.015, z], 0xf4eed8, { castShadow: false });
+        box(section, [0.12, 0.025, 3.1], [x, 0.015, z], 0xe8c15a, { castShadow: false });
       }
       for (const z of [-9, 3]) {
         box(section, [0.15, 0.045, 0.11], [x, 0.038, z], 0xf4b942, { castShadow: false });

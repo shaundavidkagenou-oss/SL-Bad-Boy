@@ -3,8 +3,11 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { createCinematicGradePass } from './CinematicGradePass.js';
 
-const SUNSET_HORIZON = new THREE.Color(0xd17a63);
+const SUNSET_HORIZON = new THREE.Color(0xf08a62);
+const SUNSET_MID = new THREE.Color(0xc46183);
+const SUNSET_ZENITH = new THREE.Color(0x342b62);
 
 export function isSoftwareRenderer(renderer) {
   try {
@@ -75,10 +78,11 @@ function createSky() {
     depthWrite: false,
     depthTest: false,
     uniforms: {
-      topColor: { value: new THREE.Color(0x243b58) },
-      horizonColor: { value: new THREE.Color(0xb66f62) },
-      sunColor: { value: new THREE.Color(0xffad73) },
-      sunDirection: { value: new THREE.Vector3(0.48, 0.16, -0.86).normalize() },
+      topColor: { value: new THREE.Color(0x342b62) },
+      midColor: { value: new THREE.Color(0xc46183) },
+      horizonColor: { value: new THREE.Color(0xf08a62) },
+      sunColor: { value: new THREE.Color(0xffb07a) },
+      sunDirection: { value: new THREE.Vector3(46, 12, -62).normalize() },
     },
     vertexShader: `
       varying vec3 vWorldPosition;
@@ -90,18 +94,19 @@ function createSky() {
     `,
     fragmentShader: `
       uniform vec3 topColor;
+      uniform vec3 midColor;
       uniform vec3 horizonColor;
       uniform vec3 sunColor;
       uniform vec3 sunDirection;
       varying vec3 vWorldPosition;
       void main() {
         vec3 direction = normalize(vWorldPosition - cameraPosition);
-        float heightMix = smoothstep(-0.12, 0.72, direction.y);
-        vec3 color = mix(horizonColor, topColor, heightMix);
+        vec3 color = mix(horizonColor, midColor, smoothstep(-0.08, 0.24, direction.y));
+        color = mix(color, topColor, smoothstep(0.18, 0.76, direction.y));
         float sunDot = max(dot(direction, sunDirection), 0.0);
         float disc = pow(sunDot, 850.0);
-        float halo = pow(sunDot, 22.0) * 0.24;
-        color += sunColor * (disc * 2.1 + halo);
+        float halo = pow(sunDot, 18.0) * 0.32;
+        color += sunColor * (disc * 2.6 + halo);
         float horizonHaze = pow(1.0 - max(direction.y, 0.0), 7.0) * 0.08;
         color += sunColor * horizonHaze;
         gl_FragColor = vec4(color, 1.0);
@@ -162,6 +167,7 @@ export class GraphicsPipeline {
 
     this.composer = null;
     this.bloomPass = null;
+    this.cinematicPass = null;
     this.outputPass = null;
     this.postprocessing = false;
     if (this.hdrSupported) {
@@ -171,9 +177,10 @@ export class GraphicsPipeline {
       });
       this.composer = new EffectComposer(renderer, target);
       this.composer.addPass(new RenderPass(scene, camera));
-      this.bloomPass = new UnrealBloomPass(new THREE.Vector2(1, 1),
-        coarsePointer ? 0.09 : 0.13, 0.28, 1.35);
+      this.bloomPass = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.24, 0.32, 0.95);
       this.composer.addPass(this.bloomPass);
+      this.cinematicPass = createCinematicGradePass();
+      this.composer.addPass(this.cinematicPass);
       this.outputPass = new OutputPass();
       this.composer.addPass(this.outputPass);
       this.postprocessing = true;
@@ -185,18 +192,21 @@ export class GraphicsPipeline {
     this.slowWindows = 0;
     this.adaptations = 0;
     this.performanceMode = false;
+    this.boost = 0;
   }
 
   resize(width, height) {
     this.width = width;
     this.height = height;
     this.composer?.setSize(width, height);
+    this.cinematicPass?.uniforms.resolution.value.set(width, height);
   }
 
   setTheme(skyColor, fogColor) {
     const uniforms = this.sky.material.uniforms;
-    uniforms.topColor.value.copy(skyColor).multiplyScalar(0.55);
-    uniforms.horizonColor.value.copy(fogColor).lerp(SUNSET_HORIZON, 0.38);
+    uniforms.topColor.value.copy(skyColor).lerp(SUNSET_ZENITH, 0.62).multiplyScalar(0.72);
+    uniforms.midColor.value.copy(fogColor).lerp(SUNSET_MID, 0.6);
+    uniforms.horizonColor.value.copy(fogColor).lerp(SUNSET_HORIZON, 0.65);
   }
 
   adapt(delta) {
@@ -222,7 +232,10 @@ export class GraphicsPipeline {
     } else if (this.postprocessing) {
       this.composer.dispose();
       this.bloomPass.dispose();
+      this.cinematicPass?.dispose();
       this.composer = null;
+      this.bloomPass = null;
+      this.cinematicPass = null;
       this.postprocessing = false;
       this.quality = 'adaptive-direct';
     } else if (this.coarsePointer && (!this.performanceMode || this.environmentTarget)) {
@@ -238,7 +251,10 @@ export class GraphicsPipeline {
     this.adaptations += 1;
   }
 
-  render(delta) {
+  render(delta, boostTarget = 0) {
+    const boostBlend = 1 - Math.exp(-Math.max(0, delta) * 8);
+    this.boost = THREE.MathUtils.lerp(this.boost, THREE.MathUtils.clamp(boostTarget, 0, 1), boostBlend);
+    if (this.cinematicPass) this.cinematicPass.uniforms.boost.value = this.boost;
     this.sky.position.copy(this.camera.position);
     for (let index = 0; index < this.clouds.length; index += 1) {
       const cloud = this.clouds[index];
@@ -256,6 +272,9 @@ export class GraphicsPipeline {
       quality: this.quality,
       pixelRatio: this.renderer.getPixelRatio(),
       postprocessing: this.postprocessing,
+      cinematic: Boolean(this.cinematicPass),
+      bloomStrength: this.bloomPass?.strength ?? 0,
+      boost: this.boost,
       performanceMode: this.performanceMode,
       adaptations: this.adaptations,
       clouds: this.clouds.length,

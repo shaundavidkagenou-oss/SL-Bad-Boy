@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-function createShadowTexture(size = 64) {
+export function createShadowTexture(size = 64) {
   const data = new Uint8Array(size * size * 4);
   for (let y = 0; y < size; y += 1) {
     for (let x = 0; x < size; x += 1) {

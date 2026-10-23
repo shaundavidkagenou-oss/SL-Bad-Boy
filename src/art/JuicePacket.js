@@ -4,7 +4,8 @@ import { batchStaticGroup } from './StaticBatcher.js';
 
 const HALO_GEOMETRY = new THREE.TorusGeometry(0.48, 0.018, 5, 28);
 const HALO_MATERIAL = new THREE.MeshBasicMaterial({
-  color: 0xffd45c, transparent: true, opacity: 0.5, depthWrite: false,
+  color: 0xffd45c, transparent: true, opacity: 0.58, depthWrite: false,
+  blending: THREE.AdditiveBlending, toneMapped: false,
 });
 
 /** Original mango juice packet: a rare, emissive revive pickup with no dynamic light. */
@@ -12,7 +13,7 @@ export function createJuicePacket() {
   const root = new THREE.Group();
   root.name = 'Rare mango juice revive packet';
   roundedBox(root, [0.46, 0.66, 0.17], [0, 0, 0], 0xf2a72e, {
-    radius: 0.045, segments: 2, roughness: 0.5, emissive: 0x7a3708, emissiveIntensity: 0.22,
+    radius: 0.045, segments: 2, roughness: 0.5, emissive: 0x9b4c0c, emissiveIntensity: 0.6,
   });
   roundedBox(root, [0.47, 0.075, 0.18], [0, 0.31, 0], 0xffdf78, { radius: 0.018 });
   roundedBox(root, [0.47, 0.055, 0.18], [0, -0.31, 0], 0xd77b24, { radius: 0.015 });
@@ -21,7 +22,7 @@ export function createJuicePacket() {
   });
   sphere(root, 1, [0, -0.18, 0.102], 0xffc434, {
     scale: [0.105, 0.085, 0.025], widthSegments: 12, heightSegments: 8,
-    emissive: 0xff9b24, emissiveIntensity: 0.35,
+    emissive: 0xff9b24, emissiveIntensity: 0.85,
   });
   capsule(root, 0.022, 0.1, [0.085, -0.11, 0.11], 0x38825b, {
     rotation: [0, 0, -0.7], radialSegments: 6, capSegments: 2,

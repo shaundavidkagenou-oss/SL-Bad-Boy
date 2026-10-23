@@ -216,18 +216,38 @@ export function createUtilityPole() {
 
 export function createUtilityWires(length = 30) {
   const root = new THREE.Group();
-  for (const x of [-0.62, 0, 0.62]) {
-    const key = `${length}:${x}`;
-    if (!wireGeometries.has(key)) {
-      const points = [];
-      for (let i = 0; i <= 12; i += 1) {
-        const t = i / 12;
-        points.push(new THREE.Vector3(x, 5.93 - Math.sin(t * Math.PI) * 0.22, -length / 2 + t * length));
+  const key = `colombo-crosshatch:${length}`;
+  if (!wireGeometries.has(key)) {
+    const segments = [];
+    const segment = (a, b) => segments.push(a, b);
+    // Three continuous roadside cables retain the original utility run.
+    for (const x of [-0.62, 0, 0.62]) {
+      for (let index = 0; index < 12; index += 1) {
+        const point = (step) => {
+          const t = step / 12;
+          return new THREE.Vector3(x, 5.93 - Math.sin(t * Math.PI) * 0.22, -length / 2 + t * length);
+        };
+        segment(point(index), point(index + 1));
       }
-      wireGeometries.set(key, new THREE.BufferGeometry().setFromPoints(points));
     }
-    root.add(new THREE.Line(wireGeometries.get(key), wireMaterial));
+    // Four sagging cross-street spans add Colombo's characteristic tangled
+    // skyline. All seven cables share one LineSegments draw per road section.
+    for (let cable = 0; cable < 4; cable += 1) {
+      const z = -10.5 + cable * 7;
+      const drift = cable % 2 ? 2.4 : -2.4;
+      const point = (step) => {
+        const t = step / 8;
+        return new THREE.Vector3(14.5 * t, 6.12 + (cable % 2) * 0.24
+          - Math.sin(t * Math.PI) * (0.3 + cable * 0.045), z + drift * (t - 0.5));
+      };
+      for (let index = 0; index < 8; index += 1) segment(point(index), point(index + 1));
+    }
+    wireGeometries.set(key, new THREE.BufferGeometry().setFromPoints(segments));
   }
+  const wires = new THREE.LineSegments(wireGeometries.get(key), wireMaterial);
+  wires.name = 'Seven-cable Colombo utility crosshatch';
+  wires.userData.cableCount = 7;
+  root.add(wires);
   return root;
 }
 
