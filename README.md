@@ -97,8 +97,8 @@ Menus and the HUD pause button are clickable. The sound button toggles mute and 
 - Continuous running/control animation with foot roll, head movement, backpack bounce, jump tuck, landing compression, lean-back slide, lane-change lean and collision stumble. The former menu wave and coin arm celebration are intentionally removed.
 - Original Sri Lankan police officer in a khaki uniform, navy peaked cap, belt and boots, with detailed facial features, fingers, collar, seams, pockets, pouches, radio, boot laces and Sinhala/English back patch.
 - Pelvis/torso counter-motion, heel-to-toe movement, baton follow-through, a pursuit point, split-leg hurdles, landing compression, braced slides and a catch-breath stop reaction.
-- The officer is hidden on the menu, sprints in when the run starts, follows at the player's shoulder and reacts to road hazards. He never catches the player or causes a collision; a scooter boost lets him fall far behind before he returns.
-- Red-and-white public buses and four colourful private-bus palettes with windshields, doors, windows, trim, lights, mirrors and destination boards.
+- The officer joins the schoolboy in a non-catching menu showcase, sprints in when the run starts, follows at the player's shoulder and reacts to road hazards. He never catches the player or causes a collision; a scooter boost lets him fall far behind before he returns.
+- Red-and-white public buses and four colourful private-bus palettes with windshields, doors, warm illuminated windows, trim, mirrors and destination boards. Evening headlamps use emissive geometry plus one capped instanced road-glow draw on hardware, never per-bus point/spot lights; software rendering skips the extra glow pass.
 - Normal planner traffic retains road speed for predictable three-lane decisions. Faster approaching buses are reserved for explicit isolated flow/collision tests, where predictive same-lane braking, safe separation and swept collision coverage also apply at low FPS.
 - Cars, a compact van, improved three-wheeled tuk-tuks and travel-driven wheel rotation.
 - Original obstacle models remain matched to the Phase 1 collision dimensions and fair spawn patterns.
@@ -123,9 +123,9 @@ Menus and the HUD pause button are clickable. The sound button toggles mute and 
 - A five-second black-and-white **Shaun David Studios** production ident with an original S/D monogram, scanlines, animated typography, timed progress and a readiness-based handoff.
 - The intro remains until local fonts and the 3D game are ready, then exits cleanly; it is responsive and respects reduced-motion preferences.
 - Smoothed third-person camera with restrained lane/jump following, bounded speed/scooter FOV, impact impulses and a portrait-specific view. Feedback and camera transforms reset cleanly on restart/menu return.
-- Smooth PBR shading, procedural sky/sun and soft clouds, plus one pooled instanced draw for soft character/vehicle contact grounding. **Real-time shadow maps and mesh/light shadow flags remain disabled.** Hardware renderers use a generated reflection environment; hardware mobile also keeps road-only height detail. HDR/bloom is reserved for supported desktop hardware, while mobile and software GPUs render directly.
-- Crested lotus-sun coins retain one shared vertex-colored mesh each. Fixed-pool road dust, coin/near-miss/shield/crash particles and scooter speed lines provide feedback without creating new meshes every frame.
-- Polished title screen, compact notch-safe HUD, daily missions/rank display, district pill/banner, milestone and near-miss feedback, responsive scooter countdown, pause audio settings, impact flash and game-over reward presentation.
+- Smooth PBR shading, cached district-specific evening palettes, a low warm sun, procedural sunset sky/clouds and a generated dusk reflection environment, plus one pooled instanced draw for soft character/vehicle contact grounding. **Real-time shadow maps and mesh/light shadow flags remain disabled.** Hardware mobile keeps road-only height detail. HDR/bloom is reserved for supported desktop hardware, while mobile and software GPUs render directly.
+- Crested lotus-sun coin trails retain their shared vertex-colored geometry and render through one dynamic instanced draw capped at 96 coins. Fixed-pool road dust, coin/near-miss/shield/crash particles and scooter speed lines provide feedback without creating new meshes every frame.
+- An original character-led evening title screen with a close drifting camera, prominent Play action and expandable daily goals; compact notch-safe HUD, district pill/banner, milestone and near-miss feedback, responsive scooter countdown, pause audio settings, impact flash and game-over reward presentation.
 - Original Web Audio pentatonic music and synthesis for footsteps, lane movement, coins, near misses, milestones, scooter pickup, shield impacts, jumping, landing, sliding, collisions, buttons, ambient traffic and distant bus horns.
 - Persistent mute and independent music/SFX volumes, desktop keyboard input and mobile touch gestures.
 
@@ -172,7 +172,9 @@ src/art/DistrictBackdrop.js     District-specific distant skylines and landscape
 src/art/Landmarks.js           District landmarks, landscape strips and tunnels
 src/art/MoreLandmarks.js        Fort, ancient-city, Jaffna and Trincomalee detail
 src/game/Game.js               Game state, real-time substeps and single animation loop
-src/game/GraphicsPipeline.js   Atmosphere, reflections, bloom and adaptive quality
+src/game/GraphicsPipeline.js   Sunset atmosphere, reflections, bloom and adaptive quality
+src/game/Evening.js            Cached district-specific dusk palettes
+src/game/RoadLightPools.js     Capped one-draw hardware bus road glow
 src/game/VisualEffects.js      Fixed-pool particles and scooter speed lines
 src/game/ContactShadows.js     Pooled one-draw soft contact grounding
 src/game/ProgressionManager.js Local-day missions, stars, ranks and lifetime totals
@@ -182,7 +184,7 @@ src/game/CameraRig.js          Smoothed desktop/portrait camera
 src/game/AudioManager.js       Gesture-unlocked synthesized audio
 src/game/WorldGenerator.js     Road recycling and seeded themed scenery
 src/game/EnvironmentThemes.js  Pure district schedule and theme definitions
-src/game/ObstacleSpawner.js    Traffic, coin/scooter lifecycle, swept collisions and shield contact
+src/game/ObstacleSpawner.js    Traffic, instanced coins, scooter lifecycle, swept collisions and shield contact
 src/game/PatternPlanner.js     Fair speed-tier gameplay-row generation
 src/game/InputController.js    Keyboard and touch gestures
 src/game/ScoreManager.js       Score and persistent best record
@@ -202,7 +204,7 @@ npm test
 npm run build
 ```
 
-Current release-source verification: **53/53 Node tests**, **24/24 Chromium checks** and a **67-module production build** passed. An emulated 390×844, DPR 2 hardware-path diagnostic rendered the matched cleared scene at **316 calls / 202,440 triangles** with DPR 1.5, MSAA, generated reflections, 18 one-draw animated crowns and no browser errors. Additional live Chromium checks confirmed one 250-point near miss, no duplicate/adjacent-lane award, mission progress, reward presentation and functional volume sliders.
+Current release-source verification: **58/58 Node tests**, **24/24 Chromium checks** and a **70-module production build** passed. An identical emulated 390×844, DPR 2 hardware-path diagnostic kept the cleared scene at **320 calls / 202,924 triangles** in both 2.4.0 and 2.5.0; the same seeded 28-entry scene dropped from **460 to 445 calls**, while two bus road-glow instances added only four triangles in one draw. The matched scene retained DPR 1.5, MSAA, generated reflections, all 18 one-draw animated crowns and no browser errors. Additional live Chromium checks confirmed one 250-point near miss, no duplicate/adjacent-lane award, mission progress, reward presentation and functional volume sliders. These are rendering-cost checks, not physical-device FPS measurements.
 
 The suite retains the original physics, scoring, collision and persistence assertions and adds longer district scheduling, all landmark builders, consecutive tunnels, bounded geometry across repeated district cycles, speed-tier fairness, predictive bus separation at normal and low FPS, touch gestures without bottom buttons, continuous skin deformation, animated elephants, lazy audio, travel-driven wheels, absence of the schoolboy gestures, scooter pickup/duration/reset/shield behavior, literal 1.2× speed, police sprint/separation/return behavior, vertex-color batch/disposal, fixed effect pools, software-GPU detection, Android Back behavior and duplicate-listener prevention, plus crested one-mesh coins, pooled contact shadows, true near-miss clearance/scoring, clean camera resets, live daily rollover, independent audio levels, UV-safe batching and one-draw animated crowns.
 
@@ -213,6 +215,6 @@ npm install --no-save --package-lock=false puppeteer-core@25.15.0 @sparticuz/chr
 npm run test:browser
 ```
 
-It checks the five-second studio intro and desktop/mobile wordmark bounds, startup with no idle officer, audio unlock/mute, keyboard, real dispatched touch gestures with no bottom direction buttons, regular and oncoming traffic, detailed police pursuit and pointing, coin pickup without an arm gesture, live scooter pickup and exact 1.2× speed, shield contact, natural expiry and police return, jump/slide collision behavior, game over, pause/resume, clean restart, saved best score, road/ground ordering, every district and city-transition tunnels, real Sinhala sign meshes and local fonts, portrait mobile/HUD layout, a batched-scene draw-call ceiling, and 7,200 metres of themed recycling with stable scene/GPU resource counts. Screenshots are written to the ignored `test-results/` directory.
+It checks the five-second studio intro and desktop/mobile wordmark bounds, the visible but non-chasing menu officer, gameplay portrait-FOV restoration, audio unlock/mute, keyboard, real dispatched touch gestures with no bottom direction buttons, regular and oncoming traffic, detailed police pursuit and pointing, coin pickup without an arm gesture, live scooter pickup and exact 1.2× speed, shield contact, natural expiry and police return, jump/slide collision behavior, game over, pause/resume, clean restart, saved best score, road/ground ordering, every district and city-transition tunnels, real Sinhala sign meshes and local fonts, portrait mobile/HUD layout, a batched-scene draw-call ceiling, and 7,200 metres of themed recycling with stable scene/GPU resource counts. Screenshots are written to the ignored `test-results/` directory.
 
 To use an installed Chrome/Chromium instead of the optional package, set `CHROME_PATH` to its executable. The resource stress test and software-WebGL screenshots are not hardware-specific GTX 1660 Super or physical-mobile frame-rate benchmarks. Native APK compilation/package validation is separate from physical-device audio, lifecycle and FPS validation.

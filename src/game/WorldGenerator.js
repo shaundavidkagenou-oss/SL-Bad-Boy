@@ -30,6 +30,7 @@ import { batchStaticGroup, disposeBatchedGeometry } from '../art/StaticBatcher.j
 import { createDistrictGateway, createSriLankanRoadside } from '../art/Roadside.js';
 import { createDistrictSideFill } from '../art/DistrictDetail.js';
 import { createElephant, updateElephant } from '../art/Elephant.js';
+import { eveningPalette } from './Evening.js';
 
 export class WorldGenerator {
   constructor(scene) {
@@ -371,7 +372,7 @@ export class WorldGenerator {
     }
     const theme = this.getCurrentTheme();
     this.updateBackdrop(theme);
-    this.groundTarget.set(theme.ground);
+    this.groundTarget.set(eveningPalette(theme).ground);
     this.ground.material.color.lerp(this.groundTarget, Math.min(1, delta * 1.5));
     for (const section of this.sections) {
       for (const elephant of section.userData.animatedScenery || []) updateElephant(elephant, this.animationTime);

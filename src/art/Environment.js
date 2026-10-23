@@ -201,7 +201,7 @@ export function createStreetlight(side = 1) {
   box(root, [1.25, 0.09, 0.09], [-side * 0.57, 5.32, 0], 0x4a585c);
   box(root, [0.58, 0.15, 0.3], [-side * 1.15, 5.24, 0], 0x36464b);
   box(root, [0.44, 0.035, 0.23], [-side * 1.15, 5.15, 0], 0xffdf8a, {
-    emissive: 0xffc95c, emissiveIntensity: 0.45, castShadow: false,
+    emissive: 0xffc95c, emissiveIntensity: 1.35, castShadow: false,
   });
   return root;
 }

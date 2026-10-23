@@ -144,6 +144,7 @@ export class Player {
       this.runPhase += delta * 2;
       this.visual.position.y = 0;
       this.visual.rotation.x = 0;
+      this.visual.rotation.y = damp(this.visual.rotation.y, Math.PI, 5, delta);
       this.joints.leftArm.rotation.x = Math.sin(this.runPhase) * 0.045;
       this.joints.rightArm.rotation.x = -Math.sin(this.runPhase) * 0.045;
       this.joints.leftElbow.rotation.x = -0.12;

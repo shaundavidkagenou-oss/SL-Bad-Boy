@@ -89,9 +89,10 @@ try {
   assert.equal(await page.$eval('#fatal-error', (node) => node.hidden), true);
   assert.equal(await page.$eval('#scene canvas', (node) => node.width > 0), true);
   await page.screenshot({ path: 'test-results/menu.png' });
-  assert.equal(await page.evaluate(() => window.__LANKA_RUN__.police.group.visible), false);
+  assert.equal(await page.evaluate(() => window.__LANKA_RUN__.police.group.visible), true);
+  assert.equal(await page.evaluate(() => window.__LANKA_RUN__.police.chaseStarted), false);
   assert.equal(await page.$eval('.world-tag span', (node) => node.textContent), '14 DISTRICTS');
-  passed.push('game opens with a WebGL canvas, fourteen-district menu and no idle officer');
+  passed.push('game opens with a WebGL canvas and a character-led fourteen-district evening menu');
 
   assert.equal(await page.evaluate(() => window.__LANKA_RUN__.audio.context === null), true);
   await page.click('#mute-button');
@@ -480,11 +481,13 @@ try {
   await waitForFunction(() => window.__LANKA_RUN__?.state === 'menu' && document.getElementById('studio-loading').hidden);
   await new Promise((resolve) => setTimeout(resolve, 250));
   assert.equal(await page.$eval('#scene canvas', (node) => node.clientWidth), 390);
-  assert.ok(await page.evaluate(() => window.__LANKA_RUN__.camera.fov >= 67));
+  const menuFov = await page.evaluate(() => window.__LANKA_RUN__.camera.fov);
+  assert.ok(menuFov >= 50 && menuFov <= 67, `menu camera FOV was ${menuFov}`);
   assert.equal(await page.$eval('.touch-tip', (node) => getComputedStyle(node).display), 'block');
   await page.screenshot({ path: 'test-results/mobile-menu.png' });
   await page.click('#play-button');
   await waitForFunction(() => window.__LANKA_RUN__.state === 'running');
+  assert.ok(await page.evaluate(() => Math.abs(window.__LANKA_RUN__.camera.fov - 67) < 0.2));
   await page.evaluate(() => { window.__LANKA_RUN__.spawner.collisionEnabled = false; });
   await new Promise((resolve) => setTimeout(resolve, 250));
   const mobileGraphics = await page.evaluate(async () => {

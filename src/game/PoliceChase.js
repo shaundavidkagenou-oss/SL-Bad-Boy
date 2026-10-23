@@ -98,9 +98,8 @@ export class PoliceChase {
   update(delta, speed, player, mode = 'running', entries = []) {
     if (mode === 'paused') return;
     if (mode === 'menu') {
-      this.group.visible = false;
+      this.group.visible = true;
       this.chaseStarted = false;
-      return;
     }
     if (mode === 'running' && !this.chaseStarted) {
       this.chaseStarted = true;
@@ -133,8 +132,8 @@ export class PoliceChase {
       this.targetLane = 1;
       this.avoiding = false;
       const menu = mode === 'menu';
-      this.group.position.x = damp(this.group.position.x, menu ? 0.7 : player.group.position.x, 3, delta);
-      this.group.position.z = damp(this.group.position.z, PLAYER_Z + (menu ? 3.3 : 2.55), 3, delta);
+      this.group.position.x = damp(this.group.position.x, menu ? -1.35 : player.group.position.x, 3, delta);
+      this.group.position.z = damp(this.group.position.z, PLAYER_Z + (menu ? 2.45 : 2.55), 3, delta);
     }
     // This invariant makes catching the schoolboy impossible, including after a crash.
     this.group.position.z = Math.max(PLAYER_Z + POLICE_MIN_GAP, this.group.position.z);
@@ -163,6 +162,7 @@ export class PoliceChase {
     this.visual.scale.y = damp(this.visual.scale.y, scaleY, 20, delta);
     this.visual.scale.x = this.baseScale;
     this.visual.scale.z = this.baseScale;
+    this.visual.rotation.y = damp(this.visual.rotation.y, mode === 'menu' ? Math.PI : 0, 5, delta);
     this.visual.rotation.x = damp(this.visual.rotation.x,
       sliding ? 0.92 : airborne ? -0.12 : running ? (this.startTimer > 0 ? -0.2 : -0.1) : 0, 16, delta);
     const visualOffset = this.targetLane === LANES.length - 1 ? -0.55 : 0.55;

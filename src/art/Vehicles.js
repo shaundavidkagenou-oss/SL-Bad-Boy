@@ -72,7 +72,7 @@ function createBus(isPrivate, variant) {
   for (let x = -0.4; x <= 0.4; x += 0.2) box(bus, [0.05, 0.26, 0.065], [x, 1.1, 3.34], 0x82919a);
   for (const side of [-1, 1]) {
     sphere(bus, 0.15, [side * 0.88, 1.08, 3.32], 0xffe6a1, {
-      scale: [1.15, 0.8, 0.35], emissive: 0xffc95c, emissiveIntensity: 0.4,
+      scale: [1.15, 0.8, 0.35], emissive: 0xffc95c, emissiveIntensity: 2.1,
     });
     sphere(bus, 0.065, [side * 0.88, 1.32, 3.32], 0xe98535, { scale: [1.1, 0.8, 0.35] });
     box(bus, [0.24, 0.16, 0.16], [side * 1.32, 2.34, 2.83], DARK);
@@ -85,7 +85,9 @@ function createBus(isPrivate, variant) {
 
   for (const side of [-1, 1]) {
     for (const z of [-2.24, -0.86, 0.52, 1.9]) {
-      roundedBox(bus, [0.045, 0.72, 1.05], [side * 1.22, 2.2, z], GLASS, { radius: 0.02, roughness: 0.27 });
+      roundedBox(bus, [0.045, 0.72, 1.05], [side * 1.22, 2.2, z], 0x615c53, {
+        radius: 0.02, roughness: 0.27, emissive: 0xffc777, emissiveIntensity: 0.3,
+      });
       box(bus, [0.055, 0.05, 1.08], [side * 1.24, 1.82, z], 0xd8d6ca);
     }
     // A visible folding door and vertical seams on the pavement side.

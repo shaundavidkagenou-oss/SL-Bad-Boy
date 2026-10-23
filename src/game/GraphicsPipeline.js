@@ -4,6 +4,8 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
+const SUNSET_HORIZON = new THREE.Color(0xd17a63);
+
 export function isSoftwareRenderer(renderer) {
   try {
     const gl = renderer.getContext();
@@ -24,16 +26,16 @@ function createReflectionEnvironment(renderer, scene, compact = false) {
   canvas.height = 256;
   const context = canvas.getContext('2d');
   const sky = context.createLinearGradient(0, 0, 0, 256);
-  sky.addColorStop(0, '#79a9c5');
-  sky.addColorStop(0.46, '#d9e6d8');
-  sky.addColorStop(0.54, '#a7b19a');
-  sky.addColorStop(1, '#4a473b');
+  sky.addColorStop(0, '#1d3455');
+  sky.addColorStop(0.46, '#b66758');
+  sky.addColorStop(0.54, '#4e4a52');
+  sky.addColorStop(1, '#171d25');
   context.fillStyle = sky;
   context.fillRect(0, 0, 512, 256);
   const sun = context.createRadialGradient(350, 63, 1, 350, 63, 52);
-  sun.addColorStop(0, 'rgba(255,250,218,1)');
-  sun.addColorStop(0.12, 'rgba(255,224,157,.9)');
-  sun.addColorStop(1, 'rgba(255,213,143,0)');
+  sun.addColorStop(0, 'rgba(255,222,174,1)');
+  sun.addColorStop(0.12, 'rgba(255,164,105,.9)');
+  sun.addColorStop(1, 'rgba(255,132,92,0)');
   context.fillStyle = sun;
   context.fillRect(298, 11, 104, 104);
   const texture = new THREE.CanvasTexture(canvas);
@@ -73,10 +75,10 @@ function createSky() {
     depthWrite: false,
     depthTest: false,
     uniforms: {
-      topColor: { value: new THREE.Color(0x70aebc) },
-      horizonColor: { value: new THREE.Color(0xb7d5c8) },
-      sunColor: { value: new THREE.Color(0xffe1a3) },
-      sunDirection: { value: new THREE.Vector3(0.42, 0.48, -0.77).normalize() },
+      topColor: { value: new THREE.Color(0x243b58) },
+      horizonColor: { value: new THREE.Color(0xb66f62) },
+      sunColor: { value: new THREE.Color(0xffad73) },
+      sunDirection: { value: new THREE.Vector3(0.48, 0.16, -0.86).normalize() },
     },
     vertexShader: `
       varying vec3 vWorldPosition;
@@ -141,8 +143,8 @@ export class GraphicsPipeline {
     this.clouds = [];
     if (typeof document !== 'undefined') {
       const cloudMaterial = new THREE.SpriteMaterial({
-        map: createCloudTexture(), transparent: true, opacity: 0.52,
-        depthWrite: false, fog: true, color: 0xf5f4df,
+        map: createCloudTexture(), transparent: true, opacity: 0.34,
+        depthWrite: false, fog: true, color: 0xd8a19a,
       });
       this.cloudMaterial = cloudMaterial;
       const positions = [[-66, 30, -140, 34], [-24, 42, -190, 42], [31, 35, -165, 37],
@@ -192,8 +194,8 @@ export class GraphicsPipeline {
 
   setTheme(skyColor, fogColor) {
     const uniforms = this.sky.material.uniforms;
-    uniforms.topColor.value.copy(skyColor).multiplyScalar(0.85);
-    uniforms.horizonColor.value.copy(fogColor).lerp(skyColor, 0.22);
+    uniforms.topColor.value.copy(skyColor).multiplyScalar(0.55);
+    uniforms.horizonColor.value.copy(fogColor).lerp(SUNSET_HORIZON, 0.38);
   }
 
   adapt(delta) {

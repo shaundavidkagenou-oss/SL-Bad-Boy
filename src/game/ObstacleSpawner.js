@@ -10,6 +10,7 @@ import { disposeBatchedGeometry } from '../art/StaticBatcher.js';
 const SCOOTER_HALO_GEOMETRY = new THREE.TorusGeometry(1.05, 0.045, 6, 28);
 const SCOOTER_HALO_MATERIAL = new THREE.MeshBasicMaterial({ color: 0x73fff2, transparent: true, opacity: 0.72, depthWrite: false });
 const NEAR_MISS_VEHICLES = new Set(['public-bus', 'private-bus', 'car', 'tuk-tuk']);
+const COIN_CAPACITY = 96;
 
 export class ObstacleSpawner {
   constructor(scene, { onCoin = () => {}, onHit = () => {}, onScooter = () => {}, onShieldHit = () => {}, onNearMiss = () => {} } = {}) {
@@ -17,6 +18,14 @@ export class ObstacleSpawner {
     this.group.name = 'Traffic, road hazards and coins';
     scene.add(this.group);
     this.entries = [];
+    const coinTemplate = createCoin();
+    this.coinPool = new THREE.InstancedMesh(coinTemplate.geometry, coinTemplate.material, COIN_CAPACITY);
+    this.coinPool.name = 'Instanced lotus-sun coin trails';
+    this.coinPool.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.coinPool.frustumCulled = false;
+    this.coinPool.count = 0;
+    this.coinPool.visible = false;
+    this.group.add(this.coinPool);
     this.planner = new PatternPlanner();
     this.onCoin = onCoin;
     this.onHit = onHit;
@@ -40,6 +49,7 @@ export class ObstacleSpawner {
       this.group.remove(entry.mesh);
     }
     this.entries.length = 0;
+    this.syncCoins();
   }
 
   reset(seed = Date.now()) {
@@ -53,6 +63,7 @@ export class ObstacleSpawner {
     }
     // The first pickup is centered between rows, so it is always reachable.
     this.spawnScooter(1, -57);
+    this.syncCoins();
   }
 
   spawnPattern(pattern, z) {
@@ -98,9 +109,11 @@ export class ObstacleSpawner {
   }
 
   spawnCoin(lane, z, y = 1, rowId = -1) {
-    const mesh = createCoin();
+    // Lightweight transform proxies retain the existing collision/gameplay API;
+    // the shared InstancedMesh renders every coin trail in one draw.
+    const mesh = new THREE.Object3D();
+    mesh.userData.coin = true;
     mesh.position.set(LANES[lane], y, z);
-    this.group.add(mesh);
     const entry = {
       type: 'coin', kind: 'coin', lane, rowId, mesh, baseY: y,
       spec: { width: 0.62, depth: 0.4, minY: -0.32, maxY: 0.32 },
@@ -182,6 +195,19 @@ export class ObstacleSpawner {
     }
   }
 
+  syncCoins() {
+    let count = 0;
+    for (const entry of this.entries) {
+      if (entry.type !== 'coin' || count >= COIN_CAPACITY) continue;
+      entry.mesh.updateMatrix();
+      this.coinPool.setMatrixAt(count, entry.mesh.matrix);
+      count += 1;
+    }
+    this.coinPool.count = count;
+    this.coinPool.visible = count > 0;
+    if (count > 0) this.coinPool.instanceMatrix.needsUpdate = true;
+  }
+
   update(delta, speed, player) {
     const travel = speed * delta;
     this.updateTrafficFlow(delta);
@@ -236,6 +262,7 @@ export class ObstacleSpawner {
         this.onShieldHit(entry);
       } else {
         this.onHit(entry);
+        this.syncCoins();
         return 'hit';
       }
     }
@@ -248,6 +275,7 @@ export class ObstacleSpawner {
       this.spawnScooter(this.planner.randomLane(), GAME.spawnZ + 12);
       this.nextScooterIn = 280 + Math.floor(this.planner.random() * 140);
     }
+    this.syncCoins();
     return 'running';
   }
 

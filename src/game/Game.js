@@ -14,6 +14,8 @@ import { GraphicsPipeline, isSoftwareRenderer } from './GraphicsPipeline.js';
 import { configureSurfaceQuality } from '../art/MeshKit.js';
 import { VisualEffects } from './VisualEffects.js';
 import { ContactShadows } from './ContactShadows.js';
+import { RoadLightPools } from './RoadLightPools.js';
+import { eveningPalette } from './Evening.js';
 
 export function speedForElapsed(elapsed, scooterActive = false) {
   const cruiseSpeed = Math.min(GAME.maxSpeed, GAME.baseSpeed + Math.max(0, elapsed) * GAME.acceleration);
@@ -24,8 +26,8 @@ export class Game {
   constructor(container) {
     this.container = container;
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x9fcfd0);
-    this.scene.fog = new THREE.Fog(0xa8cfcb, 82, 285);
+    this.scene.background = new THREE.Color(0x243b58);
+    this.scene.fog = new THREE.Fog(0x4c6072, 82, 285);
     this.cameraRig = new CameraRig();
     this.camera = this.cameraRig.camera;
 
@@ -50,21 +52,21 @@ export class Game {
     this.renderer.shadowMap.enabled = false;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.16;
+    this.renderer.toneMappingExposure = 1.12;
     container.appendChild(this.renderer.domElement);
 
-    const hemisphere = new THREE.HemisphereLight(0xf2f8ff, 0x8a7c60, 1.65);
+    const hemisphere = new THREE.HemisphereLight(0x8fa8d6, 0x3c3140, 1.15);
     this.scene.add(hemisphere);
     this.hemisphere = hemisphere;
-    const sun = new THREE.DirectionalLight(0xffe9c4, 3.0);
-    sun.position.set(26, 34, -45);
+    const sun = new THREE.DirectionalLight(0xffad73, 1.15);
+    sun.position.set(36, 18, -55);
     sun.castShadow = false;
     sun.target.position.set(0, 0, -18);
     this.scene.add(sun, sun.target);
     this.sun = sun;
     // The main sun lights the character's front. A soft camera-side fill makes
     // the back, shoulders and road readable without any shadow-map render.
-    const fill = new THREE.DirectionalLight(0xd9ecff, 1.35);
+    const fill = new THREE.DirectionalLight(0x9bbcff, 1.35);
     fill.position.set(-18, 20, 32);
     fill.target.position.set(0, 1, -10);
     fill.castShadow = false;
@@ -88,6 +90,9 @@ export class Game {
     });
     this.police = new PoliceChase(this.scene);
     this.contactShadows = new ContactShadows(this.scene, { capacity: coarsePointer ? 40 : 48 });
+    this.roadLights = new RoadLightPools(this.scene, {
+      enabled: !this.softwareRenderer, capacity: coarsePointer ? 16 : 24,
+    });
     this.effects = new VisualEffects(this.scene, { capacity: coarsePointer ? 112 : 144 });
     this.spawner = new ObstacleSpawner(this.scene, {
       onCoin: () => {
@@ -148,8 +153,8 @@ export class Game {
     this.currentTheme = null;
     this.themeTargets = {
       sky: new THREE.Color(), fog: new THREE.Color(), fogNear: 82, fogFar: 285,
-      sun: new THREE.Color(0xffe9c4), fill: new THREE.Color(0xd9ecff),
-      exposure: 1.16, sunIntensity: 3, hemisphereIntensity: 1.65,
+      sun: new THREE.Color(0xffad73), fill: new THREE.Color(0x9bbcff),
+      exposure: 1.12, sunIntensity: 1.15, hemisphereIntensity: 1.15,
     };
     this.handleResize = () => this.resize();
     this.handleVisibility = () => {
@@ -272,17 +277,18 @@ export class Game {
       const announce = Boolean(this.currentTheme && this.state === 'running');
       this.currentTheme = theme;
       this.spawner.setDistrict(theme.id);
-      this.themeTargets.sky.set(theme.sky);
-      this.themeTargets.fog.set(theme.fog);
-      this.themeTargets.fogNear = theme.fogNear ?? 82;
-      this.themeTargets.fogFar = theme.fogFar ?? 285;
+      const palette = eveningPalette(theme);
+      this.themeTargets.sky.set(palette.sky);
+      this.themeTargets.fog.set(palette.fog);
+      this.themeTargets.fogNear = palette.fogNear ?? 82;
+      this.themeTargets.fogFar = palette.fogFar ?? 285;
       const hot = ['ancient', 'palmyrah'].includes(theme.layout);
       const mist = ['hill', 'rail', 'tea'].includes(theme.layout);
-      this.themeTargets.sun.set(hot ? 0xffd39a : mist ? 0xe4efff : 0xffe9c4);
-      this.themeTargets.fill.set(mist ? 0xd5e7ff : 0xd9ecff);
-      this.themeTargets.exposure = hot ? 1.12 : mist ? 1.14 : 1.16;
-      this.themeTargets.sunIntensity = hot ? 2.75 : mist ? 2.65 : 3;
-      this.themeTargets.hemisphereIntensity = mist ? 1.55 : 1.65;
+      this.themeTargets.sun.set(hot ? 0xffa06b : mist ? 0xffb987 : 0xffad73);
+      this.themeTargets.fill.set(mist ? 0x92b9ef : 0x9bbcff);
+      this.themeTargets.exposure = hot ? 1.08 : mist ? 1.1 : 1.12;
+      this.themeTargets.sunIntensity = hot ? 1.05 : mist ? 0.85 : 1.15;
+      this.themeTargets.hemisphereIntensity = mist ? 1.05 : 1.15;
       this.ui.setDistrict(theme, announce);
     }
     const lightBlend = delta === 0 ? 1 : 1 - Math.exp(-delta * 0.9);
@@ -339,10 +345,12 @@ export class Game {
         }
       }
     } else if (this.state === 'menu') {
+      this.world.update(frameDelta, 0);
       this.player.update(frameDelta, 0, 'menu');
       for (const entry of this.spawner.entries) {
         if (entry.type === 'coin') entry.mesh.rotation.y += frameDelta * 1.8;
       }
+      this.spawner.syncCoins();
     } else if (this.state === 'gameover') {
       this.player.update(frameDelta, this.speed, 'gameover');
     }
@@ -353,6 +361,7 @@ export class Game {
     this.cameraRig.update(frameDelta, this.player, this.speed, this.state);
     this.effects.update(frameDelta, this.speed, this.player, this.state, this.renderer.getPixelRatio());
     this.contactShadows.update(this.player, this.police, this.spawner.entries);
+    this.roadLights.update(this.spawner.entries);
     this.graphics.render(frameDelta);
   }
 }

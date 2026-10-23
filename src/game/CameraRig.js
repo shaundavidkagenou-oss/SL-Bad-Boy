@@ -9,6 +9,7 @@ export class CameraRig {
     this.baseFov = 57;
     this.feedback = 0;
     this.laneFeedback = 0;
+    this.menuTime = 0;
     this.camera.position.set(0, this.baseY, this.baseZ);
     this.camera.lookAt(0, 1.3, -8.5);
   }
@@ -29,6 +30,7 @@ export class CameraRig {
   reset() {
     this.feedback = 0;
     this.laneFeedback = 0;
+    this.menuTime = 0;
     this.camera.fov = this.baseFov;
     this.camera.position.set(0, this.baseY, this.baseZ);
     this.lookTarget.set(0, 1.3, -8.5);
@@ -45,6 +47,23 @@ export class CameraRig {
     const jump = player.group.position.y;
     this.feedback = THREE.MathUtils.damp(this.feedback, 0, 9, delta);
     this.laneFeedback = THREE.MathUtils.damp(this.laneFeedback, 0, 8, delta);
+    if (state === 'menu') {
+      this.menuTime += delta;
+      const portrait = this.baseFov > 60;
+      const nextFov = THREE.MathUtils.damp(this.camera.fov, portrait ? 54 : 50, 4, delta);
+      if (Math.abs(nextFov - this.camera.fov) > 0.0001) {
+        this.camera.fov = nextFov;
+        this.camera.updateProjectionMatrix();
+      }
+      this.camera.position.x = THREE.MathUtils.damp(
+        this.camera.position.x, 2.2 + Math.sin(this.menuTime * 0.24) * 0.14, 3.5, delta,
+      );
+      this.camera.position.y = THREE.MathUtils.damp(this.camera.position.y, 2.65, 4, delta);
+      this.camera.position.z = THREE.MathUtils.damp(this.camera.position.z, 11.8, 4, delta);
+      this.lookTarget.set(0, 1.25, 5.2);
+      this.camera.lookAt(this.lookTarget);
+      return;
+    }
     const cruiseLift = state === 'running' ? THREE.MathUtils.clamp((speed - 14) / 22, 0, 1) * 1.1 : 0;
     const boostLift = player.scooterActive ? 2.3 : 0;
     const targetFov = this.baseFov + cruiseLift + boostLift;

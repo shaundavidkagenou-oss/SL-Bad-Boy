@@ -155,13 +155,14 @@ test('1.2-times speed is literal and scooter traffic shield replaces only booste
   assert.equal(hits, 1);
 });
 
-test('officer is hidden on menu, sprints on run start, falls behind on scooter and returns', () => {
+test('officer presents the menu without chasing, then sprints, separates on scooter and returns', () => {
   const scene = new THREE.Scene();
   const player = new Player(scene);
   const police = new PoliceChase(scene);
   police.update(1 / 60, 0, player, 'menu', []);
-  assert.equal(police.group.visible, false);
+  assert.equal(police.group.visible, true);
   assert.equal(police.chaseStarted, false);
+  assert.ok(police.getGap() >= POLICE_MIN_GAP);
   const phase = police.runPhase;
   police.update(1 / 60, 14, player, 'running', []);
   assert.equal(police.chaseStarted, true);
