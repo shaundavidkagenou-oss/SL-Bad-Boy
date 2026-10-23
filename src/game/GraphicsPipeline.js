@@ -80,8 +80,8 @@ function createSky() {
       topColor: { value: new THREE.Color(0x342b62) },
       midColor: { value: new THREE.Color(0xc46183) },
       horizonColor: { value: new THREE.Color(0xf08a62) },
-      sunColor: { value: new THREE.Color(0xffb07a) },
-      sunDirection: { value: new THREE.Vector3(46, 12, -62).normalize() },
+      sunColor: { value: new THREE.Color(0xffc38a) },
+      sunDirection: { value: new THREE.Vector3(24, 8.5, -90).normalize() },
     },
     vertexShader: `
       varying vec3 vWorldPosition;
@@ -103,10 +103,10 @@ function createSky() {
         vec3 color = mix(horizonColor, midColor, smoothstep(-0.08, 0.24, direction.y));
         color = mix(color, topColor, smoothstep(0.18, 0.76, direction.y));
         float sunDot = max(dot(direction, sunDirection), 0.0);
-        float disc = pow(sunDot, 850.0);
-        float halo = pow(sunDot, 18.0) * 0.32;
-        color += sunColor * (disc * 2.6 + halo);
-        float horizonHaze = pow(1.0 - max(direction.y, 0.0), 7.0) * 0.08;
+        float disc = smoothstep(0.9982, 0.99925, sunDot);
+        float halo = pow(sunDot, 18.0) * 0.42;
+        color += sunColor * (disc * 3.1 + halo);
+        float horizonHaze = pow(1.0 - max(direction.y, 0.0), 7.0) * 0.14;
         color += sunColor * horizonHaze;
         gl_FragColor = vec4(color, 1.0);
         #include <tonemapping_fragment>

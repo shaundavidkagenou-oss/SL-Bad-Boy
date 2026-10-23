@@ -100,6 +100,16 @@ test('software GPU detection uses capability strings and tolerates restricted co
   assert.equal(isSoftwareRenderer({ getContext: () => { throw new Error('blocked'); } }), false);
 });
 
+test('visible sunset disc stays low in the forward sky in every rendering tier', () => {
+  const pipeline = new GraphicsPipeline({ getPixelRatio: () => 1 }, new THREE.Scene(),
+    new THREE.PerspectiveCamera(), { software: true });
+  const direction = pipeline.sky.material.uniforms.sunDirection.value;
+  assert.ok(direction.y > 0.04 && direction.y < 0.12, `sun elevation was ${direction.y}`);
+  assert.ok(direction.z < -0.9 && Math.abs(direction.x) > 0.1);
+  assert.match(pipeline.sky.material.fragmentShader, /smoothstep\(0\.9982, 0\.99925, sunDot\)/);
+  assert.match(pipeline.sky.material.fragmentShader, /horizonHaze/);
+});
+
 test('mobile resolution adapts promptly but never drops below its sharpness floor', () => {
   const pipeline = Object.create(GraphicsPipeline.prototype);
   let ratio = 1.5;

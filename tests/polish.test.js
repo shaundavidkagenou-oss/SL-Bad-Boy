@@ -250,3 +250,46 @@ test('seeded palm and banana crowns animate while retaining batched geometry', (
     assert.equal(Boolean(node.castShadow || node.receiveShadow), false);
   });
 });
+
+test('recycled scenery builds offscreen in bounded stages and resets unfinished drafts cleanly', () => {
+  const world = new WorldGenerator(new THREE.Scene(), { detailDistance: 210, generationBudget: 0 });
+  const section = world.sections[0];
+  const previous = section.userData.scenery;
+  let ownedGeometry;
+  previous.traverse((node) => {
+    if (!ownedGeometry && node.userData.batchOwnedGeometry) ownedGeometry = node.geometry;
+  });
+  assert.ok(ownedGeometry);
+  let disposals = 0;
+  ownedGeometry.addEventListener('dispose', () => { disposals += 1; });
+  const rebuilds = world.rebuildCount;
+
+  section.position.z = 46;
+  world.update(0, 0, false);
+  assert.equal(world.getStats().pendingScenery, 1);
+  assert.equal(previous.visible, false, 'recycled district must not appear ahead while drafting');
+  assert.equal(world.rebuildCount, rebuilds, 'construction does not count as committed scenery');
+
+  let stages = 0;
+  while (world.getStats().pendingScenery && stages < 30) {
+    world.processSceneryQueue(0);
+    stages += 1;
+  }
+  assert.ok(stages > 1 && stages < 30, `generation used ${stages} stages`);
+  assert.equal(world.getStats().pendingScenery, 0);
+  assert.equal(world.rebuildCount, rebuilds + 1);
+  assert.notEqual(section.userData.scenery, previous);
+  assert.equal(disposals, 1, 'replaced batch geometry is disposed exactly once');
+  assert.equal(world.getStats().activeSceneryGroups, 9);
+  assert.equal(world.getStats().maxGenerationQueue, 1);
+  assert.ok(world.getStats().generationStages >= stages);
+
+  section.position.z = 46;
+  world.update(0, 0, false);
+  assert.equal(world.getStats().pendingScenery, 1);
+  world.processSceneryQueue(0);
+  world.reset();
+  assert.equal(world.getStats().pendingScenery, 0);
+  assert.equal(world.getStats().activeSceneryGroups, 9);
+  assert.equal(world.sections.every((section) => !section.userData.generationJob), true);
+});

@@ -8,10 +8,14 @@ export { createDistrictBackdrop as createBackdrop } from './DistrictBackdrop.js'
 
 const wireGeometries = new Map();
 const wireMaterial = new THREE.LineBasicMaterial({ color: 0x303638 });
+const LIT_WINDOW_COLOR = 0xffd69a;
+const LIT_WINDOW_OPTIONS = Object.freeze({ roughness: 0.28, emissive: 0xffb85c, emissiveIntensity: 0.95 });
 
-function addWindow(parent, x, y, z, width = 1, height = 1, shutters = false) {
+function addWindow(parent, x, y, z, width = 1, height = 1, shutters = false, lit = false) {
   box(parent, [width + 0.14, height + 0.14, 0.08], [x, y, z], 0xeee4cf);
-  box(parent, [width, height, 0.09], [x, y, z + 0.045], 0x396776, { roughness: 0.16, metalness: 0.12 });
+  box(parent, [width, height, 0.09], [x, y, z + 0.045], lit ? LIT_WINDOW_COLOR : 0x396776,
+    lit ? LIT_WINDOW_OPTIONS : { roughness: 0.16, metalness: 0.12 });
+  if (lit) parent.userData.litWindows = (parent.userData.litWindows || 0) + 1;
   box(parent, [width + 0.22, 0.09, 0.2], [x, y - height / 2 - 0.08, z + 0.08], 0xd8cfba);
   box(parent, [0.045, height, 0.04], [x, y, z + 0.1], 0xd9d6c7);
   box(parent, [width, 0.045, 0.04], [x, y, z + 0.1], 0xd9d6c7);
@@ -83,6 +87,8 @@ function commercialBuilding(variant, style) {
     ? ['තැඹිලි', 'එළවළු', 'කුළු බඩු', 'රෙදි කඩේ', 'පළතුරු', 'සහල් කඩේ']
     : ['තේ කඩේ', 'පොත් කඩේ', 'කෑම කඩේ', 'පාසල් උපකරණ', 'ඖෂධ කඩේ', 'ආයුබෝවන්'];
   const localSign = hasLocalSignFonts() && variant % 2 === 0;
+  const shopLit = variant % 3 !== 1;
+  root.userData.shopLight = shopLit;
   const signColors = ['#7f2d43', '#166b63', '#25466d', '#a84b2a'];
   box(root, [width * 0.9, 0.68, 0.14], [0, 2.63, front + 0.08], 0x213b56);
   label(root, localSign ? sinhalaShopNames[variant % shopNames.length] : shopNames[variant % shopNames.length],
@@ -91,6 +97,9 @@ function commercialBuilding(variant, style) {
       fontFamily: localSign ? LOCAL_SIGN_FONT : 'Arial, sans-serif',
     });
   addAwning(root, width * 0.96, 2.18, front + 0.47, market ? 0xc44d42 : 0x278276, variant % 2 === 0);
+  if (shopLit) {
+    box(root, [width * 0.72, 0.055, 0.07], [0, 2.25, front + 0.57], LIT_WINDOW_COLOR, LIT_WINDOW_OPTIONS);
+  }
 
   box(root, [0.92, 1.75, 0.1], [0, 0.9, front + 0.07], 0x29454a);
   for (const side of [-1, 1]) {
@@ -99,7 +108,8 @@ function commercialBuilding(variant, style) {
       box(root, [1.25, 1.55, 0.09], [x, 0.95, front + 0.07], 0x718082);
       for (let y = 0.35; y < 1.65; y += 0.22) box(root, [1.2, 0.035, 0.04], [x, y, front + 0.13], 0x4f6164);
     } else {
-      addWindow(root, x, 1.15, front + 0.07, 1.08, 1.15, false);
+      addWindow(root, x, 1.15, front + 0.07, 1.08, 1.15, false,
+        shopLit && (side < 0 || variant % 2 === 0));
     }
   }
 
@@ -107,7 +117,8 @@ function commercialBuilding(variant, style) {
   for (let floor = 0; floor < floors; floor += 1) {
     const y = 3.75 + floor * 1.8;
     for (const side of [-1, 1]) {
-      addWindow(root, side * width * 0.25, y, front + 0.04, 0.9, 1.02, variant % 4 === 2);
+      addWindow(root, side * width * 0.25, y, front + 0.04, 0.9, 1.02, variant % 4 === 2,
+        (variant + floor + (side > 0 ? 1 : 0)) % 4 === 0);
       for (const sideZ of [-0.85, 0.65]) {
         box(root, [0.075, 0.9, 0.82], [side * (width / 2 + 0.035), y, sideZ], 0x426c75);
         box(root, [0.085, 0.05, 0.86], [side * (width / 2 + 0.045), y - 0.47, sideZ], 0xe2d8c2);
@@ -152,8 +163,17 @@ export function createHouse(variant = 0) {
   roof.rotation.y = Math.PI / 4;
   roof.scale.z *= 0.72;
   box(house, [1.0, 1.85, 0.1], [0, 0.94, depth / 2 + 0.06], 0x31554e);
-  for (const side of [-1, 1]) addWindow(house, side * width * 0.29, 1.35, depth / 2 + 0.04, 0.92, 1.08, true);
+  const houseLit = variant % 3 !== 1;
+  house.userData.houseLight = houseLit;
+  for (const side of [-1, 1]) {
+    addWindow(house, side * width * 0.29, 1.35, depth / 2 + 0.04, 0.92, 1.08, true,
+      houseLit && (variant + (side > 0 ? 1 : 0)) % 2 === 0);
+  }
   addAwning(house, width * 0.72, 2.15, depth / 2 + 0.45, variant % 2 ? 0x49766b : 0xb07145, false);
+  if (houseLit) {
+    sphere(house, 0.075, [0, 1.96, depth / 2 + 0.16], LIT_WINDOW_COLOR,
+      { ...LIT_WINDOW_OPTIONS, widthSegments: 12, heightSegments: 8 });
+  }
   box(house, [width * 0.8, 0.15, 1.25], [0, 0.08, depth / 2 + 0.48], 0xc4bca7, { surface: 'paving' });
   sphere(house, 0.06, [0.32, 0.95, depth / 2 + 0.15], 0xd9b86c, { widthSegments: 12, heightSegments: 8 });
   for (const side of [-1, 1]) {

@@ -844,6 +844,38 @@ try {
   assert.ok(cinematic.coinAnimation > 0 && cinematic.scoreAnimation > 0);
   passed.push('high-quality sunset bloom, grading, god rays, long shadows, boost blur, road roughness and glass HUD work');
 
+  const generationAndSunset = await page.evaluate(() => {
+    const game = window.__LANKA_RUN__;
+    let litBatches = 0;
+    game.world.group.traverse((node) => {
+      if (node.isMesh && node.material.emissive?.getHex() === 0xffb85c
+        && node.material.emissiveIntensity >= 0.9) litBatches += 1;
+    });
+    const world = game.world;
+    const section = world.sections[0];
+    section.position.z = 46;
+    world.update(0, 0, false);
+    const queued = world.getStats().pendingScenery;
+    let stages = 0;
+    while (world.getStats().pendingScenery && stages < 30) {
+      world.processSceneryQueue(0);
+      stages += 1;
+    }
+    return {
+      litBatches, queued, stages,
+      pending: world.getStats().pendingScenery,
+      activeScenery: world.getStats().activeSceneryGroups,
+      sunDirection: game.graphics.sky.material.uniforms.sunDirection.value.toArray(),
+    };
+  });
+  assert.ok(generationAndSunset.litBatches > 0);
+  assert.ok(generationAndSunset.sunDirection[1] > 0.04 && generationAndSunset.sunDirection[1] < 0.12);
+  assert.equal(generationAndSunset.queued, 1);
+  assert.ok(generationAndSunset.stages > 1 && generationAndSunset.stages < 30);
+  assert.equal(generationAndSunset.pending, 0);
+  assert.equal(generationAndSunset.activeScenery, 9);
+  passed.push('offscreen staged map generation, visible sunset direction and batched shop lighting work in WebGL');
+
   await page.setViewport({ width: 1920, height: 1020, deviceScaleFactor: 1.25 });
   await waitForFunction(() => {
     const game = window.__LANKA_RUN__;

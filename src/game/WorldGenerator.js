@@ -33,11 +33,12 @@ import { createElephant, updateElephant } from '../art/Elephant.js';
 import { eveningPalette } from './Evening.js';
 
 export class WorldGenerator {
-  constructor(scene, { detailDistance = Infinity, animationHz = 60 } = {}) {
+  constructor(scene, { detailDistance = Infinity, animationHz = 60, generationBudget = 2 } = {}) {
     this.scene = scene;
     this.baseDetailDistance = detailDistance;
     this.detailDistance = detailDistance;
     this.animationInterval = 1 / Math.max(1, animationHz);
+    this.generationBudget = Math.max(0, generationBudget);
     this.animationAccumulator = 0;
     this.performanceMode = false;
     this.group = new THREE.Group();
@@ -46,6 +47,10 @@ export class WorldGenerator {
     this.sections = [];
     this.pendingScenery = [];
     this.rebuildCount = 0;
+    this.generationStages = 0;
+    this.generationCommits = 0;
+    this.generationMilliseconds = 0;
+    this.maxGenerationQueue = 0;
     this.travelled = 0;
     this.animationTime = 0;
     this.groundTarget = new THREE.Color();
@@ -129,7 +134,7 @@ export class WorldGenerator {
     return section;
   }
 
-  buildScenery(section, sequence) {
+  *buildSceneryDraft(section, sequence) {
     if (section.userData.scenery) {
       disposeBatchedGeometry(section.userData.scenery);
       section.remove(section.userData.scenery);
@@ -139,7 +144,6 @@ export class WorldGenerator {
     section.userData.scenery = scenery;
     section.userData.sequence = sequence;
     section.add(scenery);
-    this.rebuildCount += 1;
 
     const theme = themeForSequence(sequence);
     const localIndex = themeSectionIndex(sequence);
@@ -238,6 +242,8 @@ export class WorldGenerator {
       if (!isTunnel && side !== approachVistaSide && !(landmarkId && side === activeLandmarkSide)) {
         scenery.add(createDistrictSideFill(theme.id, side, sequence));
       }
+      // Each roadside is a bounded generation stage instead of one long task.
+      yield section;
     }
 
     if (hasLandscapeStrip) {
@@ -267,6 +273,7 @@ export class WorldGenerator {
       roadside.rotation.y = -side * Math.PI / 2;
       scenery.add(roadside);
     }
+    yield section;
 
     if (!isTunnel) {
       const sinhalaBoard = createSinhalaBoard(sequence, theme.id);
@@ -329,24 +336,119 @@ export class WorldGenerator {
       });
       scenery.add(tunnel);
     }
+    yield section;
     for (const sway of section.userData.animatedVegetation) batchStaticGroup(sway.root);
+    yield section;
     batchStaticGroup(scenery, { preserve: swayRoots, freeze: true });
     for (const sway of section.userData.animatedVegetation) {
       sway.root.matrixAutoUpdate = true;
       sway.root.updateMatrix();
     }
     if (elephantSide) {
+      yield section;
       const elephant = createElephant(sequence);
       elephant.position.set(elephantSide * 10.1, 0, 1.5);
       elephant.rotation.y = -elephantSide * Math.PI / 2 + 0.22;
       scenery.add(elephant);
       section.userData.animatedScenery.push(elephant);
     }
+    return section;
+  }
+
+  createSceneryJob(section, sequence) {
+    const draft = new THREE.Group();
+    draft.name = `Offscreen scenery draft ${sequence}`;
+    return { section, sequence, draft, stages: this.buildSceneryDraft(draft, sequence), done: false };
+  }
+
+  cancelSceneryJob(section) {
+    const job = section.userData.generationJob;
+    if (!job) return;
+    job.done = true;
+    const index = this.pendingScenery.indexOf(job);
+    if (index >= 0) this.pendingScenery.splice(index, 1);
+    disposeBatchedGeometry(job.draft);
+    section.userData.generationJob = null;
+  }
+
+  queueScenery(section, sequence) {
+    this.cancelSceneryJob(section);
+    const job = this.createSceneryJob(section, sequence);
+    section.userData.generationJob = job;
+    // A recycled section is far ahead of the camera. Never show its previous
+    // district while the replacement is being prepared offscreen.
+    if (section.userData.scenery) section.userData.scenery.visible = false;
+    this.pendingScenery.push(job);
+    this.maxGenerationQueue = Math.max(this.maxGenerationQueue, this.pendingScenery.length);
+    return job;
+  }
+
+  commitScenery(job) {
+    if (job.done) return;
+    job.done = true;
+    const { section, draft } = job;
+    const previous = section.userData.scenery;
+    if (previous) {
+      disposeBatchedGeometry(previous);
+      previous.removeFromParent();
+    }
+    for (const key of ['scenery', 'sequence', 'theme', 'tunnel', 'landmark',
+      'approachLandmark', 'featureLandmark', 'animatedScenery', 'animatedVegetation']) {
+      section.userData[key] = draft.userData[key];
+    }
+    const scenery = draft.userData.scenery;
+    section.add(scenery);
+    scenery.visible = section.position.z > -this.detailDistance;
+    section.userData.generationJob = null;
+    this.rebuildCount += 1;
+    this.generationCommits += 1;
+  }
+
+  advanceSceneryJob(job) {
+    const result = job.stages.next();
+    this.generationStages += 1;
+    if (result.done) this.commitScenery(job);
+    return result.done;
+  }
+
+  finishSceneryJob(job) {
+    const started = globalThis.performance?.now?.() ?? Date.now();
+    while (!job.done) this.advanceSceneryJob(job);
+    const index = this.pendingScenery.indexOf(job);
+    if (index >= 0) this.pendingScenery.splice(index, 1);
+    this.generationMilliseconds += (globalThis.performance?.now?.() ?? Date.now()) - started;
+  }
+
+  processSceneryQueue(budget = this.generationBudget) {
+    if (!this.pendingScenery.length) return 0;
+    const started = globalThis.performance?.now?.() ?? Date.now();
+    let stages = 0;
+    while (this.pendingScenery.length) {
+      const job = this.pendingScenery[0];
+      if (this.advanceSceneryJob(job)) this.pendingScenery.shift();
+      stages += 1;
+      // Always complete one bounded stage, then yield to input/rendering.
+      if ((globalThis.performance?.now?.() ?? Date.now()) - started >= budget) break;
+    }
+    this.generationMilliseconds += (globalThis.performance?.now?.() ?? Date.now()) - started;
+    return stages;
+  }
+
+  buildScenery(section, sequence) {
+    this.cancelSceneryJob(section);
+    this.finishSceneryJob(this.createSceneryJob(section, sequence));
   }
 
   updateVisibility() {
     for (const section of this.sections) {
-      if (section.userData.scenery) section.userData.scenery.visible = section.position.z > -this.detailDistance;
+      const job = section.userData.generationJob;
+      // Normal generation finishes in the hidden distance. This fallback is
+      // only for a starved queue or an unlimited-detail test/world.
+      if (job && section.position.z > -this.detailDistance) this.finishSceneryJob(job);
+      if (section.userData.scenery) {
+        section.userData.scenery.visible = !section.userData.generationJob
+          && section.position.z > -this.detailDistance;
+      }
     }
   }
 
@@ -363,6 +465,7 @@ export class WorldGenerator {
     this.animationTime = 0;
     this.animationAccumulator = 0;
     this.nextSequence = ROAD.sectionCount;
+    for (const section of this.sections) this.cancelSceneryJob(section);
     this.pendingScenery.length = 0;
     this.updateBackdrop(themeForSequence(0));
     this.sections.forEach((section, index) => {
@@ -372,7 +475,7 @@ export class WorldGenerator {
     this.updateVisibility();
   }
 
-  update(delta, speed) {
+  update(delta, speed, processGeneration = true) {
     const travel = speed * delta;
     this.travelled += travel;
     this.animationTime += delta;
@@ -381,16 +484,10 @@ export class WorldGenerator {
       const previous = section.position.z;
       section.position.z = advanceSectionCenter(previous, travel);
       if (section.position.z < previous) {
-        section.userData.sequence = this.nextSequence;
+        const sequence = this.nextSequence;
         this.nextSequence += 1;
-        this.pendingScenery.push(section);
+        this.queueScenery(section, sequence);
       }
-    }
-    // Normally one section recycles at a time. The queue also protects against
-    // large catch-up steps without rebuilding several detailed groups at once.
-    if (this.pendingScenery.length) {
-      const section = this.pendingScenery.shift();
-      this.buildScenery(section, section.userData.sequence);
     }
     this.updateVisibility();
     const theme = this.getCurrentTheme();
@@ -408,6 +505,7 @@ export class WorldGenerator {
         }
       }
     }
+    if (processGeneration) this.processSceneryQueue();
   }
 
   getCurrentTheme() {
@@ -427,6 +525,10 @@ export class WorldGenerator {
       performanceMode: this.performanceMode,
       pendingScenery: this.pendingScenery.length,
       rebuildCount: this.rebuildCount,
+      generationStages: this.generationStages,
+      generationCommits: this.generationCommits,
+      generationMilliseconds: this.generationMilliseconds,
+      maxGenerationQueue: this.maxGenerationQueue,
       animatedElephants: this.sections.reduce((count, section) => count + (section.userData.animatedScenery?.length || 0), 0),
       animatedVegetation: this.sections.reduce((count, section) => count + (section.userData.animatedVegetation?.length || 0), 0),
       travelled: this.travelled,

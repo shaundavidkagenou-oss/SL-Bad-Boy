@@ -96,6 +96,7 @@ export class Game {
     this.world = new WorldGenerator(this.scene, {
       detailDistance: coarsePointer ? 175 : this.softwareRenderer ? 165 : 210,
       animationHz: coarsePointer ? 20 : 60,
+      generationBudget: coarsePointer ? 1.25 : 2,
     });
     this.player = new Player(this.scene, {
       jump: () => { this.audio.play('jump'); this.cameraRig.pulse(0.08); },
@@ -495,7 +496,7 @@ export class Game {
       for (let step = 0; step < steps && this.state === 'running'; step += 1) {
         this.elapsed += stepDelta;
         this.speed = speedForElapsed(this.elapsed, this.player.scooterActive);
-        this.world.update(stepDelta, this.speed);
+        this.world.update(stepDelta, this.speed, false);
         this.player.update(stepDelta, this.speed, 'running');
         const result = this.spawner.update(stepDelta, this.speed, this.player);
         if (result !== 'hit' && this.state === 'running') this.score.update(stepDelta, this.speed);
@@ -513,7 +514,7 @@ export class Game {
         }
       }
     } else if (this.state === 'menu' || this.state === 'shop') {
-      this.world.update(frameDelta, 0);
+      this.world.update(frameDelta, 0, false);
       this.player.update(frameDelta, 0, 'menu');
       for (const entry of this.spawner.entries) {
         if (entry.type === 'coin') entry.mesh.rotation.y += frameDelta * 1.8;
@@ -523,6 +524,9 @@ export class Game {
       this.player.update(frameDelta, this.speed, 'gameover');
     }
 
+    // Process at most one small generation budget per rendered frame, never
+    // once per physics catch-up substep.
+    this.world.processSceneryQueue();
     const presentationState = this.state === 'shop' ? 'menu' : this.state;
     if (!policeAdvanced) this.police.update(frameDelta, this.speed, this.player, presentationState, this.spawner.entries);
     this.updateTheme(frameDelta);

@@ -12,7 +12,8 @@ import { Player } from '../src/game/Player.js';
 import { CameraRig } from '../src/game/CameraRig.js';
 import { GodRays } from '../src/game/GodRays.js';
 import { createCinematicGradePass } from '../src/game/CinematicGradePass.js';
-import { createUtilityWires } from '../src/art/Environment.js';
+import { createUtilityWires, createHouse, createBuilding } from '../src/art/Environment.js';
+import { batchStaticGroup } from '../src/art/StaticBatcher.js';
 
 test('all districts retain cached evening palettes without mutating their source themes', () => {
   for (const theme of ENVIRONMENT_THEMES) {
@@ -72,6 +73,42 @@ test('bus lamp halos and road glow share one bounded draw across quality tiers',
   assert.equal(lights.getStats().instances, 0);
   assert.equal(lights.getStats().drawCalls, 0);
   assert.equal(lights.mesh.visible, false);
+});
+
+test('seeded house and shop lights share one emissive batch while leaving some buildings dark', () => {
+  const litMaterials = new Set();
+  const houseWindows = [];
+  const shopLights = [];
+  for (let variant = 0; variant < 6; variant += 1) {
+    const house = createHouse(variant);
+    const shop = createBuilding(variant, 'colombo');
+    houseWindows.push(house.userData.litWindows || 0);
+    shopLights.push(shop.userData.shopLight);
+    for (const model of [house, shop]) {
+      model.traverse((node) => {
+        assert.equal(Boolean(node.isLight), false, 'window glow must not create dynamic lights');
+        if (!node.isMesh) return;
+        if (node.material.emissiveIntensity >= 0.9 && node.material.emissive?.getHex() !== 0) {
+          litMaterials.add(node.material.uuid);
+        }
+      });
+    }
+  }
+  assert.ok(houseWindows.some((count) => count > 0));
+  assert.ok(houseWindows.some((count) => count === 0));
+  assert.equal(shopLights.includes(true), true);
+  assert.equal(shopLights.includes(false), true);
+  assert.equal(litMaterials.size, 1, 'all warm windows, porch lamps and shop strips should share one material');
+
+  const block = new THREE.Group();
+  block.add(createHouse(0), createBuilding(0, 'colombo'));
+  batchStaticGroup(block);
+  let emissiveBatches = 0;
+  block.traverse((node) => {
+    if (node.userData.batchOwnedGeometry && node.material.emissiveIntensity >= 0.9
+      && node.material.emissive?.getHex() !== 0) emissiveBatches += 1;
+  });
+  assert.equal(emissiveBatches, 1, 'lit details must not add one draw per window');
 });
 
 test('golden-hour god rays use one bounded instanced draw and recycle without new geometry', () => {
