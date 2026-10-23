@@ -1,6 +1,6 @@
 {
   "name": "sl-bad-boy",
-  "version": "2.5.0",
+  "version": "2.6.0",
   "private": true,
   "type": "module",
   "description": "SL BAD BOY — an original 3D Sri Lankan endless runner for web and Android.",
@@ -11,6 +11,7 @@
     "test": "node --test tests/*.test.js",
     "test:browser": "node tests/browser-smoke.mjs",
     "assets:android": "node scripts/render-mobile-assets.mjs",
+    "assets:runners": "node scripts/render-runner-previews.mjs",
     "android:sync": "npm run build && npm run assets:android && cap sync android",
     "android:open": "cap open android"
   },

@@ -1,6 +1,7 @@
 import './styles.css';
 import './ui/polish.css';
 import './ui/evening.css';
+import './ui/shop.css';
 import '@fontsource/noto-sans-sinhala/sinhala-700.css';
 import '@fontsource/noto-sans-tamil/tamil-700.css';
 import { Game } from './game/Game.js';

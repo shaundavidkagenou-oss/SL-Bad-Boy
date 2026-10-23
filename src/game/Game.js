@@ -6,6 +6,8 @@ import { Player } from './Player.js';
 import { PoliceChase } from './PoliceChase.js';
 import { ScoreManager } from './ScoreManager.js';
 import { ProgressionManager } from './ProgressionManager.js';
+import { ShopManager } from './ShopManager.js';
+import { JuiceInventory } from './JuiceInventory.js';
 import { InputController } from './InputController.js';
 import { CameraRig } from './CameraRig.js';
 import { AudioManager } from './AudioManager.js';
@@ -32,7 +34,7 @@ export class Game {
     this.camera = this.cameraRig.camera;
 
     const coarsePointer = window.matchMedia?.('(pointer: coarse)').matches ?? false;
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    this.renderer = new THREE.WebGLRenderer({ antialias: !coarsePointer, powerPreference: 'high-performance' });
     const requestedQuality = new URLSearchParams(window.location.search).get('quality');
     this.softwareRenderer = requestedQuality === 'high' ? false : isSoftwareRenderer(this.renderer);
     if (this.softwareRenderer) {
@@ -42,10 +44,10 @@ export class Game {
     }
     configureSurfaceQuality({
       bump: !this.softwareRenderer && !coarsePointer,
-      roadBump: !this.softwareRenderer,
+      roadBump: !this.softwareRenderer && !coarsePointer,
       anisotropy: this.softwareRenderer ? 1 : coarsePointer ? 2 : 4,
     });
-    const pixelRatioLimit = this.softwareRenderer ? 0.75 : coarsePointer ? 1.5 : 1.4;
+    const pixelRatioLimit = this.softwareRenderer ? 0.75 : coarsePointer ? 1.25 : 1.4;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelRatioLimit));
     // Shadows are intentionally disabled on every device. Directional and
     // hemisphere lighting still provide depth without a second scene render.
@@ -75,19 +77,29 @@ export class Game {
     this.graphics = new GraphicsPipeline(this.renderer, this.scene, this.camera, {
       coarsePointer, software: this.softwareRenderer,
     });
+    if (coarsePointer) {
+      this.graphics.performanceMode = true;
+      this.graphics.quality = 'performance-mobile';
+      for (const cloud of this.graphics.clouds) cloud.visible = false;
+    }
 
     this.score = new ScoreManager();
     this.progress = new ProgressionManager();
+    this.shop = new ShopManager(globalThis.localStorage, { legacyCoins: this.progress.totals.coins });
+    this.juice = new JuiceInventory(globalThis.localStorage);
     this.runRewards = null;
     this.audio = new AudioManager();
-    this.world = new WorldGenerator(this.scene);
+    this.world = new WorldGenerator(this.scene, {
+      detailDistance: coarsePointer ? 175 : this.softwareRenderer ? 165 : Infinity,
+      animationHz: coarsePointer ? 20 : 60,
+    });
     this.player = new Player(this.scene, {
       jump: () => { this.audio.play('jump'); this.cameraRig.pulse(0.08); },
       land: () => { this.audio.play('land'); this.cameraRig.pulse(0.2); },
       slide: () => this.audio.play('slide'),
       lane: (direction) => { this.audio.play('lane'); this.cameraRig.pulse(0.06, direction); },
       step: () => this.audio.play('step'),
-    });
+    }, this.shop.selectedId);
     this.police = new PoliceChase(this.scene);
     this.contactShadows = new ContactShadows(this.scene, { capacity: coarsePointer ? 40 : 48 });
     this.roadLights = new RoadLightPools(this.scene, {
@@ -97,6 +109,7 @@ export class Game {
     this.spawner = new ObstacleSpawner(this.scene, {
       onCoin: () => {
         this.score.addCoin();
+        this.shop.earn(1);
         this.audio.play('coin');
         this.effects.coin(this.player.group.position);
         this.ui?.pulseCoin();
@@ -125,6 +138,20 @@ export class Game {
         this.cameraRig.pulse(0.16, direction);
         this.ui?.showFeedback('NEAR MISS', '+250');
       },
+      onJuice: (entry) => {
+        if (!this.juice.add()) {
+          if (!entry.fullNotified) {
+            entry.fullNotified = true;
+            this.ui?.showFeedback('JUICE PACK FULL', '3 / 3 PACKETS');
+          }
+          return false;
+        }
+        this.audio.play('powerup');
+        this.effects.juice(this.player.group.position);
+        this.ui?.setJuice(this.juice.count);
+        this.ui?.showFeedback('JUICE PACKET', 'REVIVE READY');
+        return true;
+      },
     });
     this.ui = new GameUI({
       control: (action) => this.handleAction(action),
@@ -133,6 +160,11 @@ export class Game {
       pause: () => { this.buttonFeedback(); this.pause(); },
       resume: () => { this.buttonFeedback(); this.resume(); },
       menu: () => { this.buttonFeedback(); this.goToMenu(); },
+      shop: () => { this.buttonFeedback(); this.openShop(); },
+      closeShop: () => { this.buttonFeedback(); this.closeShop(); },
+      chooseCharacter: (id) => { this.buttonFeedback(); this.chooseCharacter(id); },
+      revive: () => { this.buttonFeedback(); this.respawn(); },
+      finish: () => { this.buttonFeedback(); this.finishRun(); },
       mute: () => {
         this.audio.unlock();
         const muted = this.audio.toggleMute();
@@ -165,6 +197,7 @@ export class Game {
     this.resize();
     this.spawner.reset();
     this.ui.showMenu(this.score.bestScore, this.progress.getSnapshot());
+    this.ui.setInventory(this.shop.wallet, this.juice.count);
     this.ui.setMuted(this.audio.muted);
     this.ui.setVolumes(this.audio.musicVolume, this.audio.sfxVolume);
     this.updateTheme(0);
@@ -186,6 +219,7 @@ export class Game {
   }
 
   startRun(seed = (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0) {
+    this.shop.save();
     this.state = 'running';
     this.speed = GAME.baseSpeed;
     this.elapsed = 0;
@@ -202,12 +236,14 @@ export class Game {
     this.spawner.reset(seed);
     this.audio.setState('running');
     this.ui.showRunning();
+    this.ui.setJuice(this.juice.count);
     this.ui.updateHud(this.score, this.speed, true, this.player);
   }
 
   pause() {
     if (this.state !== 'running') return;
     this.state = 'paused';
+    this.shop.save();
     this.audio.setState('paused');
     this.ui.showPause();
   }
@@ -222,16 +258,72 @@ export class Game {
 
   endRun() {
     if (this.state !== 'running') return;
+    this.shop.save();
+    if (this.juice.count > 0) {
+      this.state = 'revive';
+      this.player.crash();
+      this.audio.setState('gameover');
+      this.ui.showRevive(this.juice.count);
+      return;
+    }
+    this.finishRun();
+  }
+
+  finishRun() {
+    if (this.state !== 'running' && this.state !== 'revive') return;
     this.state = 'gameover';
     this.player.crash();
     this.score.finish();
+    this.shop.save();
     this.runRewards = this.progress.recordRun(this.score);
     this.audio.setState('gameover');
     this.ui.flashImpact();
     this.ui.showGameOver(this.score, this.runRewards, this.progress.getSnapshot());
   }
 
+  respawn() {
+    if (this.state !== 'revive' || !this.juice.consume()) return false;
+    this.player.respawn();
+    this.spawner.prepareRespawn();
+    this.police.reset();
+    this.cameraRig.reset();
+    this.effects.reset(this.player);
+    this.state = 'running';
+    this.lastTime = performance.now();
+    this.audio.setState('running');
+    this.ui.showRunning();
+    this.ui.setJuice(this.juice.count);
+    this.ui.updateHud(this.score, this.speed, true, this.player);
+    this.ui.showFeedback('JUICE REVIVE', '3 SECOND SAFETY SHIELD');
+    return true;
+  }
+
+  openShop() {
+    if (this.state !== 'menu') return;
+    this.state = 'shop';
+    this.ui.showShop(this.shop.getSnapshot());
+  }
+
+  closeShop() {
+    if (this.state !== 'shop') return;
+    this.state = 'menu';
+    this.ui.showMenu(this.score.bestScore, this.progress.getSnapshot());
+    this.ui.setInventory(this.shop.wallet, this.juice.count);
+  }
+
+  chooseCharacter(id) {
+    if (this.state !== 'shop') return;
+    const result = this.shop.buyOrSelect(id);
+    if (result.ok) {
+      this.player.setCharacter(this.shop.selectedId);
+      this.ui.updateShop(this.shop.getSnapshot(), `${result.definition.name} EQUIPPED`);
+    } else if (result.reason === 'coins') {
+      this.ui.updateShop(this.shop.getSnapshot(), `COLLECT ${result.needed} MORE COINS`);
+    }
+  }
+
   goToMenu() {
+    this.shop.save();
     this.state = 'menu';
     this.speed = GAME.baseSpeed;
     this.elapsed = 0;
@@ -245,12 +337,22 @@ export class Game {
     this.spawner.reset();
     this.audio.setState('menu');
     this.ui.showMenu(this.score.bestScore, this.progress.getSnapshot());
+    this.ui.setInventory(this.shop.wallet, this.juice.count);
   }
 
   handleAction(action) {
     this.audio.unlock();
     if (this.state === 'menu') {
       if (action === 'confirm') { this.audio.play('button'); this.startRun(); }
+      return;
+    }
+    if (this.state === 'shop') {
+      if (action === 'confirm' || action === 'pause') this.closeShop();
+      return;
+    }
+    if (this.state === 'revive') {
+      if (action === 'confirm') this.respawn();
+      else if (action === 'pause') this.finishRun();
       return;
     }
     if (this.state === 'gameover') {
@@ -344,23 +446,26 @@ export class Game {
           this.ui.showFeedback(`${milestone.toLocaleString()} M`, 'ISLAND MILESTONE');
         }
       }
-    } else if (this.state === 'menu') {
+    } else if (this.state === 'menu' || this.state === 'shop') {
       this.world.update(frameDelta, 0);
       this.player.update(frameDelta, 0, 'menu');
       for (const entry of this.spawner.entries) {
         if (entry.type === 'coin') entry.mesh.rotation.y += frameDelta * 1.8;
       }
       this.spawner.syncCoins();
-    } else if (this.state === 'gameover') {
+    } else if (this.state === 'gameover' || this.state === 'revive') {
       this.player.update(frameDelta, this.speed, 'gameover');
     }
 
-    if (!policeAdvanced) this.police.update(frameDelta, this.speed, this.player, this.state, this.spawner.entries);
+    const presentationState = this.state === 'shop' ? 'menu' : this.state;
+    if (!policeAdvanced) this.police.update(frameDelta, this.speed, this.player, presentationState, this.spawner.entries);
     this.updateTheme(frameDelta);
     this.audio.update(frameDelta, this.state);
-    this.cameraRig.update(frameDelta, this.player, this.speed, this.state);
+    this.cameraRig.update(frameDelta, this.player, this.speed, presentationState);
     this.effects.update(frameDelta, this.speed, this.player, this.state, this.renderer.getPixelRatio());
     this.contactShadows.update(this.player, this.police, this.spawner.entries);
+    this.world.setPerformanceMode(this.graphics.performanceMode);
+    this.roadLights.enabled = !this.softwareRenderer && !this.graphics.performanceMode;
     this.roadLights.update(this.spawner.entries);
     this.graphics.render(frameDelta);
   }

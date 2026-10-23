@@ -1,6 +1,6 @@
 # SL BAD BOY — Schoolboy Rush
 
-An original 3D Sri Lankan endless runner for **web and Android**, built with **Three.js, JavaScript, Vite and Capacitor**. It includes fourteen long themed districts, original approach and main landmark scenery, hill-country tunnels, continuous skinned characters, a Sri Lankan police pursuit, a 10-second 1.2× scooter boost, fair speed-scaled traffic, direct swipe gestures and synthesized audio. Models, textures, signs and sounds are generated locally; the Android launcher and native splash use the supplied SL BAD BOY poster artwork. No branded game assets, CDN scripts or copyrighted Subway Surfers content are used.
+An original 3D Sri Lankan endless runner for **web and Android**, built with **Three.js, JavaScript, Vite and Capacitor**. It includes fourteen long themed districts, original approach and main landmark scenery, hill-country tunnels, ten purchasable articulated runners, rare mango-juice revives, a Sri Lankan police pursuit, a 10-second 1.2× scooter boost, fair speed-scaled traffic, direct swipe gestures and synthesized audio. Models, textures, signs and sounds are generated locally; the Android launcher and native splash use the supplied SL BAD BOY poster artwork. No branded game assets, CDN scripts or copyrighted Subway Surfers content are used.
 
 ## Android APK
 
@@ -69,7 +69,7 @@ The static production site is generated in `dist/`. Serve it over HTTP rather th
 | Enter | Play, resume or restart from the relevant screen |
 | Touch swipe left/right | Change lanes on touch devices |
 | Touch swipe up/down | Jump or slide on touch devices |
-| Android Back | Pause/resume; game over returns to menu; menu exits the app |
+| Android Back | Pause/resume; close shop; end a pending revive; game over returns to menu; menu exits |
 
 Menus and the HUD pause button are clickable. The sound button toggles mute and remembers the preference; the pause screen also has independent music and sound-effects volume sliders. Audio is initialized only after user interaction to comply with browser autoplay rules. Android app backgrounding pauses an active run. The HUD, menus, loader and controls account for portrait/landscape layouts and display safe areas.
 
@@ -103,6 +103,15 @@ Menus and the HUD pause button are clickable. The sound button toggles mute and 
 - Cars, a compact van, improved three-wheeled tuk-tuks and travel-driven wheel rotation.
 - Original obstacle models remain matched to the Phase 1 collision dimensions and fair spawn patterns.
 
+### Character shop and rare juice revives
+
+- A working shop offers **ten original playable runners**: the free SL Schoolboy plus Colombo Scout, Kandy Runner, Coastal Sprinter, Tea Country Trekker, Jaffna Rider, City Explorer, Harbour Captain, Night Route Ace and Island Legend. Outfits, hair, caps, glasses, wristbands and packs differ while all retain the continuous four-limb animation rig.
+- Run coins become spendable shop currency. Characters are bought once, ownership/selection and the wallet persist locally, and coins earned before the shop existed migrate once. Buying or selecting immediately replaces the live model; old skinned GPU buffers are released and only one runner rig remains in the scene.
+- Shop portraits are transparent local renders of the actual procedural 3D rigs, not copyrighted character artwork. They load only when the shop is used; `npm run assets:runners` regenerates them with the optional Chromium tooling.
+- A rare original **mango juice packet** appears on the second, fourth, sixth and subsequent even district transitions. It uses a planner-approved free lane and never replaces traffic fairness with an unavoidable pickup row.
+- Juice inventory persists and is capped at **three packets**. A packet touched with a full inventory remains in the world instead of being silently consumed.
+- A collision with at least one packet opens a real revive choice. Drinking one packet preserves the current score, distance and coins, clears nearby fatal traffic and respawns the selected runner with **three seconds of collision protection**. The player can instead end the run; without a packet, collision follows the normal game-over flow.
+
 ### Scooter boost and speed-scaled difficulty
 
 - An original scooter pickup appears on a reachable route. The schoolboy visibly sits on it, holds the handlebars and turns its wheels with travelled distance.
@@ -131,16 +140,16 @@ Menus and the HUD pause button are clickable. The sound button toggles mute and 
 
 ### Endless performance design
 
-- The original nine connected road centers and gap-free recycling math are preserved.
+- The original nine connected road centers and gap-free recycling math are preserved. Mobile visibility culling only hides distant scenery draws; it never deletes landmarks, road sections or recycling data.
 - Scenery uses seeded variants and changes only when sections recycle; queued rebuilds are limited to one per update.
 - Unit primitive geometries, shared materials/textures and bounded label caches prevent resource growth from procedural variation.
 - Compatible static and rigid-body meshes are batched with original colors preserved in vertex colors. UVs are discarded only when no UV-dependent texture uses them; mapped surfaces retain their coordinates. Static world/backdrop matrices are frozen, while each swaying crown remains one draw and animated joints, wheels, signs and transparent effects remain independent.
 - Recycled scenery and removed traffic explicitly dispose owned batch geometry without disposing shared primitives; the effects pools have fixed typed-array capacity.
 - Obstacle spawning and decorative world generation remain separate.
-- Pixel ratio is capped at **1.5 on hardware mobile**, **1.4 on hardware desktop** and **0.75 on software GPUs**. Hardware mobile keeps MSAA, generated reflections and road-only bump mapping but disables HDR/bloom; mobile/software paths use two cloud sprites. Software GPUs use no MSAA, reflections or bump mapping. HUD DOM writes are rate-limited, and sustained slow hardware can reduce resolution and then shed post-processing.
+- Pixel ratio is capped at **1.25 on hardware mobile**, **1.4 on hardware desktop** and **0.75 on software GPUs**. Coarse-pointer mobile uses direct rendering without MSAA, bump mapping or HDR/bloom; its performance mode hides cloud sprites and extra road glow, culls far scenery to 135 m and throttles vegetation/elephant poses to 20 Hz while movement remains frame-rate independent. Hardware mobile retains a one-time generated reflection environment initially, but sustained slow frames can reduce resolution and release it. Desktop retains the richer atmosphere; software GPUs use no MSAA, reflections or bump mapping. HUD DOM writes are rate-limited.
 - Gameplay uses bounded real-time frames divided into collision-safe substeps, so low rendering FPS does not arbitrarily stretch the 10-second boost or cruise-speed progression.
 
-Scoring is **10 points per metre + 100 points per coin + 250 points per valid near miss**. Cruise speed rises from 14 to 36 world units/second; the temporary scooter multiplier applies on top of that cruise speed. Best score, mute/volume preferences and island progression use browser `localStorage`; blocked storage does not prevent play.
+Scoring is **10 points per metre + 100 points per coin + 250 points per valid near miss**. Cruise speed rises from 14 to 36 world units/second; the temporary scooter multiplier applies on top of that cruise speed. Best score, mute/volume preferences, island progression, shop ownership/wallet/selection and juice inventory use browser `localStorage`; blocked storage does not prevent play.
 
 ## Project structure
 
@@ -151,6 +160,7 @@ build-apk.bat                  Complete Windows Android APK builder
 capacitor.config.json          Native app identity and splash configuration
 android/                       Capacitor Android project and native resources
 scripts/render-mobile-assets.mjs  Cross-platform launcher/splash renderer
+scripts/render-runner-previews.mjs Actual-rig transparent shop portrait renderer
 .github/workflows/android-apk.yml  Tested remote APK build and validation
 src/main.js                    Font loading, native lifecycle and game bootstrap
 src/mobile/MobilePlatform.js   Android Back, app-state and native splash handling
@@ -159,7 +169,8 @@ src/ui/polish.css              Compact missions, rewards, feedback and volume st
 src/config.js                  Lane, physics and collider constants
 src/art/MeshKit.js             Shared geometry, procedural surfaces and sign textures
 src/art/StaticBatcher.js       Vertex-color static/rigid batching and owned disposal
-src/art/Schoolboy.js           Original continuous-skinned articulated schoolboy
+src/art/Schoolboy.js           Original continuous-skinned articulated runner variants
+src/art/JuicePacket.js         Original mango-juice revive pickup
 src/art/Scooter.js             Original rideable scooter and wheel assemblies
 src/art/Policeman.js           Original uniformed Sri Lankan police officer
 src/art/Vehicles.js            Original buses, cars, van, tuk-tuks and hazards
@@ -178,13 +189,16 @@ src/game/RoadLightPools.js     Capped one-draw hardware bus road glow
 src/game/VisualEffects.js      Fixed-pool particles and scooter speed lines
 src/game/ContactShadows.js     Pooled one-draw soft contact grounding
 src/game/ProgressionManager.js Local-day missions, stars, ranks and lifetime totals
-src/game/Player.js             Movement and articulated animation
+src/game/CharacterCatalog.js   Ten original runner definitions and prices
+src/game/ShopManager.js        Persistent wallet, ownership and selection
+src/game/JuiceInventory.js     Persistent capped revive inventory
+src/game/Player.js             Movement, model switching, respawn and articulated animation
 src/game/PoliceChase.js        Non-catching pursuit, hazard response and safe gap
 src/game/CameraRig.js          Smoothed desktop/portrait camera
 src/game/AudioManager.js       Gesture-unlocked synthesized audio
 src/game/WorldGenerator.js     Road recycling and seeded themed scenery
 src/game/EnvironmentThemes.js  Pure district schedule and theme definitions
-src/game/ObstacleSpawner.js    Traffic, instanced coins, scooter lifecycle, swept collisions and shield contact
+src/game/ObstacleSpawner.js    Fair traffic, coins, scooter/juice pickups and swept collisions
 src/game/PatternPlanner.js     Fair speed-tier gameplay-row generation
 src/game/InputController.js    Keyboard and touch gestures
 src/game/ScoreManager.js       Score and persistent best record
@@ -204,7 +218,7 @@ npm test
 npm run build
 ```
 
-Current release-source verification: **58/58 Node tests**, **24/24 Chromium checks** and a **70-module production build** passed. An identical emulated 390×844, DPR 2 hardware-path diagnostic kept the cleared scene at **320 calls / 202,924 triangles** in both 2.4.0 and 2.5.0; the same seeded 28-entry scene dropped from **460 to 445 calls**, while two bus road-glow instances added only four triangles in one draw. The matched scene retained DPR 1.5, MSAA, generated reflections, all 18 one-draw animated crowns and no browser errors. Additional live Chromium checks confirmed one 250-point near miss, no duplicate/adjacent-lane award, mission progress, reward presentation and functional volume sliders. These are rendering-cost checks, not physical-device FPS measurements.
+Current 2.6.0 source verification: **68/68 Node tests**, **30/30 Chromium checks** and a **75-module production build** passed. In the same live 390×844 software-WebGL mobile scene, the full-detail comparison rendered **440 calls / 222,492 triangles**, while mobile culling rendered **346 calls / 161,536 triangles**—about **21% fewer calls** and **27% fewer triangles**. The browser run also verified real purchase/equip behavior, all ten portrait assets, live juice pickup, death/revive/score preservation, safety shielding, clean restarts, all fourteen districts and stable resources over 7,200 metres. These are rendering-cost diagnostics, **not physical-device FPS measurements**.
 
 The suite retains the original physics, scoring, collision and persistence assertions and adds longer district scheduling, all landmark builders, consecutive tunnels, bounded geometry across repeated district cycles, speed-tier fairness, predictive bus separation at normal and low FPS, touch gestures without bottom buttons, continuous skin deformation, animated elephants, lazy audio, travel-driven wheels, absence of the schoolboy gestures, scooter pickup/duration/reset/shield behavior, literal 1.2× speed, police sprint/separation/return behavior, vertex-color batch/disposal, fixed effect pools, software-GPU detection, Android Back behavior and duplicate-listener prevention, plus crested one-mesh coins, pooled contact shadows, true near-miss clearance/scoring, clean camera resets, live daily rollover, independent audio levels, UV-safe batching and one-draw animated crowns.
 
@@ -215,6 +229,6 @@ npm install --no-save --package-lock=false puppeteer-core@25.15.0 @sparticuz/chr
 npm run test:browser
 ```
 
-It checks the five-second studio intro and desktop/mobile wordmark bounds, the visible but non-chasing menu officer, gameplay portrait-FOV restoration, audio unlock/mute, keyboard, real dispatched touch gestures with no bottom direction buttons, regular and oncoming traffic, detailed police pursuit and pointing, coin pickup without an arm gesture, live scooter pickup and exact 1.2× speed, shield contact, natural expiry and police return, jump/slide collision behavior, game over, pause/resume, clean restart, saved best score, road/ground ordering, every district and city-transition tunnels, real Sinhala sign meshes and local fonts, portrait mobile/HUD layout, a batched-scene draw-call ceiling, and 7,200 metres of themed recycling with stable scene/GPU resource counts. Screenshots are written to the ignored `test-results/` directory.
+It checks the five-second studio intro and desktop/mobile wordmark bounds, the visible but non-chasing menu officer, gameplay portrait-FOV restoration, audio unlock/mute, keyboard, real dispatched touch gestures with no bottom direction buttons, regular and oncoming traffic, detailed police pursuit and pointing, coin pickup without an arm gesture, live scooter pickup and exact 1.2× speed, shield contact, natural expiry and police return, jump/slide collision behavior, game over, pause/resume, clean restart, saved best score, road/ground ordering, every district and city-transition tunnels, real Sinhala sign meshes and local fonts, portrait mobile/HUD/shop/revive layout, real character purchase/equip and juice-revive flows, same-scene mobile culling reductions, a batched-scene draw-call ceiling, and 7,200 metres of themed recycling with stable scene/GPU resource counts. Screenshots are written to the ignored `test-results/` directory.
 
 To use an installed Chrome/Chromium instead of the optional package, set `CHROME_PATH` to its executable. The resource stress test and software-WebGL screenshots are not hardware-specific GTX 1660 Super or physical-mobile frame-rate benchmarks. Native APK compilation/package validation is separate from physical-device audio, lifecycle and FPS validation.

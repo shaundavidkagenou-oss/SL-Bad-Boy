@@ -5,7 +5,11 @@ const byId = (id) => document.getElementById(id);
 export class GameUI {
   constructor(actions) {
     this.actions = actions;
-    this.screens = { menu: byId('menu-screen'), pause: byId('pause-screen'), gameover: byId('gameover-screen') };
+    this.screens = {
+      menu: byId('menu-screen'), pause: byId('pause-screen'), gameover: byId('gameover-screen'),
+      shop: byId('shop-screen'), revive: byId('revive-screen'),
+    };
+    this.characterGrid = byId('character-grid');
     this.hud = byId('hud');
     this.distance = byId('distance-value');
     this.score = byId('score-value');
@@ -24,6 +28,14 @@ export class GameUI {
     byId('pause-restart-button').addEventListener('click', actions.restart);
     byId('pause-menu-button').addEventListener('click', actions.menu);
     byId('gameover-menu-button').addEventListener('click', actions.menu);
+    byId('shop-button').addEventListener('click', actions.shop);
+    byId('shop-close').addEventListener('click', actions.closeShop);
+    byId('revive-button').addEventListener('click', actions.revive);
+    byId('revive-end-button').addEventListener('click', actions.finish);
+    this.characterGrid.addEventListener('click', (event) => {
+      const card = event.target.closest('button[data-character]');
+      if (card) actions.chooseCharacter?.(card.dataset.character);
+    });
     byId('mute-button').addEventListener('click', actions.mute);
     byId('music-volume').addEventListener('input', (event) => actions.musicVolume?.(Number(event.target.value)));
     byId('sfx-volume').addEventListener('input', (event) => actions.sfxVolume?.(Number(event.target.value)));
@@ -69,6 +81,80 @@ export class GameUI {
       byId(`mission-${index}-fill`).style.transform = `scaleX(${mission.ratio})`;
       byId(`mission-${index}-fill`).closest('.mission-row').classList.toggle('is-complete', mission.completed);
     });
+  }
+
+  setInventory(wallet, juice) {
+    byId('menu-wallet').textContent = wallet.toLocaleString();
+    byId('shop-wallet').textContent = wallet.toLocaleString();
+    this.setJuice(juice);
+  }
+
+  setJuice(count) {
+    byId('juice-value').textContent = String(count);
+    byId('shop-juice').textContent = String(count);
+    byId('revive-count').textContent = String(count);
+  }
+
+  updateShop(snapshot, message = '') {
+    const cards = snapshot.characters.map((character, index) => {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.dataset.character = character.id;
+      card.className = `character-card${character.selected ? ' is-selected' : ''}${character.owned ? ' is-owned' : ''}`;
+      card.setAttribute('aria-pressed', String(character.selected));
+      const action = character.selected ? 'EQUIPPED' : character.owned ? 'SELECT'
+        : character.affordable ? `BUY • ${character.price}` : `${character.price} COINS`;
+      card.setAttribute('aria-label', `${character.name}: ${action}`);
+      const number = document.createElement('span');
+      number.className = 'character-number';
+      number.textContent = String(index + 1).padStart(2, '0');
+      const portrait = document.createElement('img');
+      portrait.className = 'character-portrait';
+      portrait.src = `/assets/runners/${character.id}.png`;
+      portrait.alt = '';
+      portrait.width = 280;
+      portrait.height = 340;
+      portrait.loading = 'lazy';
+      portrait.decoding = 'async';
+      portrait.draggable = false;
+      const swatches = document.createElement('span');
+      swatches.className = 'character-swatches';
+      swatches.setAttribute('aria-hidden', 'true');
+      for (const color of [character.shirt, character.accent, character.shorts]) {
+        const swatch = document.createElement('i');
+        swatch.style.backgroundColor = `#${color.toString(16).padStart(6, '0')}`;
+        swatches.appendChild(swatch);
+      }
+      const name = document.createElement('strong');
+      name.textContent = character.name;
+      const description = document.createElement('small');
+      description.textContent = character.description;
+      const price = document.createElement('b');
+      price.className = 'character-action';
+      price.textContent = action;
+      card.append(number, portrait, swatches, name, description, price);
+      return card;
+    });
+    this.characterGrid.replaceChildren(...cards);
+    byId('shop-wallet').textContent = snapshot.wallet.toLocaleString();
+    if (message) byId('shop-status').textContent = message;
+  }
+
+  showShop(snapshot) {
+    this.updateBoost(null);
+    this.updateShop(snapshot);
+    this.hud.classList.remove('is-visible');
+    this.showScreen('shop');
+    document.body.dataset.gameState = 'shop';
+  }
+
+  showRevive(count) {
+    this.updateBoost(null);
+    this.feedbackAnimation?.cancel();
+    this.setJuice(count);
+    this.hud.classList.remove('is-visible');
+    this.showScreen('revive');
+    document.body.dataset.gameState = 'revive';
   }
 
   showRunning() {

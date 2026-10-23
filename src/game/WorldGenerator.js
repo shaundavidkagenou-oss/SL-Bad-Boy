@@ -33,8 +33,13 @@ import { createElephant, updateElephant } from '../art/Elephant.js';
 import { eveningPalette } from './Evening.js';
 
 export class WorldGenerator {
-  constructor(scene) {
+  constructor(scene, { detailDistance = Infinity, animationHz = 60 } = {}) {
     this.scene = scene;
+    this.baseDetailDistance = detailDistance;
+    this.detailDistance = detailDistance;
+    this.animationInterval = 1 / Math.max(1, animationHz);
+    this.animationAccumulator = 0;
+    this.performanceMode = false;
     this.group = new THREE.Group();
     this.group.name = 'Recycled Sri Lankan road world';
     scene.add(this.group);
@@ -339,9 +344,24 @@ export class WorldGenerator {
     }
   }
 
+  updateVisibility() {
+    for (const section of this.sections) {
+      if (section.userData.scenery) section.userData.scenery.visible = section.position.z > -this.detailDistance;
+    }
+  }
+
+  setPerformanceMode(enabled) {
+    const next = Boolean(enabled);
+    if (next === this.performanceMode) return;
+    this.performanceMode = next;
+    this.detailDistance = next ? Math.min(this.baseDetailDistance, 135) : this.baseDetailDistance;
+    this.updateVisibility();
+  }
+
   reset() {
     this.travelled = 0;
     this.animationTime = 0;
+    this.animationAccumulator = 0;
     this.nextSequence = ROAD.sectionCount;
     this.pendingScenery.length = 0;
     this.updateBackdrop(themeForSequence(0));
@@ -349,12 +369,14 @@ export class WorldGenerator {
       section.position.z = 15 - index * ROAD.sectionLength;
       this.buildScenery(section, index);
     });
+    this.updateVisibility();
   }
 
   update(delta, speed) {
     const travel = speed * delta;
     this.travelled += travel;
     this.animationTime += delta;
+    this.animationAccumulator += delta;
     for (const section of this.sections) {
       const previous = section.position.z;
       section.position.z = advanceSectionCenter(previous, travel);
@@ -370,15 +392,20 @@ export class WorldGenerator {
       const section = this.pendingScenery.shift();
       this.buildScenery(section, section.userData.sequence);
     }
+    this.updateVisibility();
     const theme = this.getCurrentTheme();
     this.updateBackdrop(theme);
     this.groundTarget.set(eveningPalette(theme).ground);
     this.ground.material.color.lerp(this.groundTarget, Math.min(1, delta * 1.5));
-    for (const section of this.sections) {
-      for (const elephant of section.userData.animatedScenery || []) updateElephant(elephant, this.animationTime);
-      for (const sway of section.userData.animatedVegetation || []) {
-        sway.root.rotation.z = sway.baseZ + Math.sin(this.animationTime * 0.82 + sway.phase) * sway.amplitude;
-        sway.root.rotation.x = sway.baseX + Math.cos(this.animationTime * 0.63 + sway.phase) * sway.amplitude * 0.55;
+    if (this.animationAccumulator + 1e-9 >= this.animationInterval) {
+      this.animationAccumulator = 0;
+      for (const section of this.sections) {
+        if (!section.userData.scenery?.visible) continue;
+        for (const elephant of section.userData.animatedScenery || []) updateElephant(elephant, this.animationTime);
+        for (const sway of section.userData.animatedVegetation || []) {
+          sway.root.rotation.z = sway.baseZ + Math.sin(this.animationTime * 0.82 + sway.phase) * sway.amplitude;
+          sway.root.rotation.x = sway.baseX + Math.cos(this.animationTime * 0.63 + sway.phase) * sway.amplitude * 0.55;
+        }
       }
     }
   }
@@ -395,6 +422,9 @@ export class WorldGenerator {
     return {
       activeSections: this.sections.length,
       activeSceneryGroups: this.sections.filter((section) => section.userData.scenery).length,
+      visibleSceneryGroups: this.sections.filter((section) => section.userData.scenery?.visible).length,
+      detailDistance: this.detailDistance,
+      performanceMode: this.performanceMode,
       pendingScenery: this.pendingScenery.length,
       rebuildCount: this.rebuildCount,
       animatedElephants: this.sections.reduce((count, section) => count + (section.userData.animatedScenery?.length || 0), 0),

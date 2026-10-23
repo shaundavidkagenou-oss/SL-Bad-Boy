@@ -22,6 +22,21 @@ test('Android Back follows pause, resume, game-over and menu navigation', () => 
   assert.deepEqual(calls, ['pause', 'resume', 'menu', 'exit']);
 });
 
+test('Android Back closes the shop and safely ends a pending revive', () => {
+  const calls = [];
+  const game = {
+    state: 'shop',
+    closeShop: () => { calls.push('close-shop'); game.state = 'menu'; },
+    finishRun: () => { calls.push('finish-revive'); game.state = 'gameover'; },
+  };
+  handleNativeBack(game, () => calls.push('exit'));
+  assert.equal(game.state, 'menu');
+  game.state = 'revive';
+  handleNativeBack(game, () => calls.push('exit'));
+  assert.equal(game.state, 'gameover');
+  assert.deepEqual(calls, ['close-shop', 'finish-revive']);
+});
+
 test('web platform skips native setup and splash without touching the DOM', async () => {
   assert.equal(prepareMobilePlatform(), false);
   await hideNativeSplash();

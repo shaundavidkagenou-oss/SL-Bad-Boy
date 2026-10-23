@@ -103,6 +103,29 @@ try {
   assert.equal(await page.evaluate(() => window.__LANKA_RUN__.audio.muted), false);
   passed.push('audio unlocks only after interaction and the mute control works');
 
+  await page.evaluate(() => {
+    const game = window.__LANKA_RUN__;
+    game.shop.earn(1000);
+    game.shop.save();
+    game.ui.setInventory(game.shop.wallet, game.juice.count);
+  });
+  await page.click('#shop-button');
+  await waitForFunction(() => window.__LANKA_RUN__.state === 'shop');
+  assert.equal(await page.$$eval('#character-grid button[data-character]', (cards) => cards.length), 10);
+  await page.evaluate(() => document.querySelector('#character-grid button:last-child').scrollIntoView({ block: 'center' }));
+  await waitForFunction(() => [...document.querySelectorAll('.character-portrait')].every((image) => image.complete && image.naturalWidth === 280));
+  await page.click('button[data-character="colombo-scout"]');
+  assert.equal(await page.evaluate(() => window.__LANKA_RUN__.player.characterId), 'colombo-scout');
+  assert.equal(await page.evaluate(() => window.__LANKA_RUN__.shop.wallet), 950);
+  assert.equal(await page.$eval('button[data-character="colombo-scout"]', (card) => card.classList.contains('is-selected')), true);
+  await page.evaluate(() => { document.querySelector('.shop-panel').scrollTop = 0; });
+  await page.screenshot({ path: 'test-results/character-shop.png' });
+  await page.click('button[data-character="schoolboy"]');
+  await page.click('#shop-close');
+  assert.equal(await page.evaluate(() => window.__LANKA_RUN__.state), 'menu');
+  assert.equal(await page.evaluate(() => window.__LANKA_RUN__.player.characterId), 'schoolboy');
+  passed.push('ten real 3D runner portraits load and buying/equipping updates the live model and persistent wallet');
+
   await page.click('#play-button');
   assert.equal(await page.evaluate(() => window.__LANKA_RUN__.audio.context === window.__testAudioContext), true);
   await waitForFunction(() => window.__LANKA_RUN__?.state === 'running');
@@ -326,6 +349,55 @@ try {
   await waitForFunction(() => window.__LANKA_RUN__.player.group.position.y === 0);
   passed.push('real dispatched touch swipes change lanes and trigger jumping');
 
+  await page.evaluate(() => {
+    const game = window.__LANKA_RUN__;
+    game.spawner.clear();
+    game.spawner.nextSpawnIn = 100000;
+    game.spawner.nextScooterIn = 100000;
+    game.spawner.collisionEnabled = true;
+    game.player.reset();
+    game.spawner.spawnJuice(1, game.player.group.position.z, 920);
+  });
+  await waitForFunction(() => window.__LANKA_RUN__.juice.count === 1);
+  assert.equal(await page.$eval('#juice-value', (node) => node.textContent), '1');
+  await page.screenshot({ path: 'test-results/juice-inventory.png' });
+  await page.evaluate(() => {
+    const game = window.__LANKA_RUN__;
+    game.spawner.clear();
+    game.player.reset();
+    window.__scoreBeforeRevive = { score: game.score.score, distance: game.score.distance };
+    game.spawner.spawnObstacle('car', 1, game.player.group.position.z, 921);
+  });
+  await waitForFunction(() => window.__LANKA_RUN__.state === 'revive');
+  assert.equal(await page.$eval('#revive-screen', (node) => node.classList.contains('is-visible')), true);
+  assert.equal(await page.$eval('#revive-count', (node) => node.textContent), '1');
+  assert.deepEqual(await page.evaluate(() => ({
+    score: window.__LANKA_RUN__.score.score, distance: window.__LANKA_RUN__.score.distance,
+  })), await page.evaluate(() => window.__scoreBeforeRevive));
+  await page.screenshot({ path: 'test-results/juice-revive.png' });
+  await page.click('#revive-button');
+  await waitForFunction(() => window.__LANKA_RUN__.state === 'running' && window.__LANKA_RUN__.player.invincibleTimer > 0);
+  assert.equal(await page.evaluate(() => window.__LANKA_RUN__.juice.count), 0);
+  assert.equal(await page.evaluate(() => window.__LANKA_RUN__.player.shield.visible), true);
+  assert.ok(await page.evaluate(() => window.__LANKA_RUN__.score.score >= window.__scoreBeforeRevive.score));
+  assert.ok(await page.evaluate(() => window.__LANKA_RUN__.score.distance >= window.__scoreBeforeRevive.distance));
+  assert.equal(await page.evaluate(() => window.__LANKA_RUN__.spawner.getRowEntries(921).length), 0);
+  await page.evaluate(() => {
+    const game = window.__LANKA_RUN__;
+    game.spawner.clear();
+    game.spawner.spawnObstacle('car', 1, game.player.group.position.z, 922);
+  });
+  await new Promise((resolve) => setTimeout(resolve, 180));
+  assert.equal(await page.evaluate(() => window.__LANKA_RUN__.state), 'running');
+  await page.screenshot({ path: 'test-results/juice-respawn-shield.png' });
+  await page.evaluate(() => {
+    const game = window.__LANKA_RUN__;
+    game.spawner.clear();
+    game.spawner.collisionEnabled = false;
+  });
+  passed.push('live rare juice pickup opens revive on death, preserves score, consumes one packet and restores a safety shield');
+  passed.push('respawn clears the fatal traffic and temporary protection prevents an immediate second collision');
+
   await page.reload({ waitUntil: 'networkidle0' });
   await waitForFunction(() => window.__LANKA_RUN__?.state === 'menu' && document.getElementById('studio-loading').hidden);
   assert.equal(await page.evaluate(() => window.__LANKA_RUN__.score.bestScore), savedBest);
@@ -485,9 +557,22 @@ try {
   assert.ok(menuFov >= 50 && menuFov <= 67, `menu camera FOV was ${menuFov}`);
   assert.equal(await page.$eval('.touch-tip', (node) => getComputedStyle(node).display), 'block');
   await page.screenshot({ path: 'test-results/mobile-menu.png' });
+  await page.click('#shop-button');
+  await waitForFunction(() => window.__LANKA_RUN__.state === 'shop');
+  assert.equal(await page.$$eval('#character-grid button[data-character]', (cards) => cards.length), 10);
+  const shopBounds = await page.$eval('.shop-panel', (panel) => {
+    const bounds = panel.getBoundingClientRect();
+    return { left: bounds.left, right: bounds.right, top: bounds.top, bottom: bounds.bottom };
+  });
+  assert.ok(shopBounds.left >= 0 && shopBounds.right <= 390 && shopBounds.top >= 0 && shopBounds.bottom <= 844,
+    `mobile shop overflow: ${JSON.stringify(shopBounds)}`);
+  await page.evaluate(() => document.querySelector('#character-grid button:last-child').scrollIntoView({ block: 'center' }));
+  await page.screenshot({ path: 'test-results/mobile-character-shop.png' });
+  await page.click('#shop-close');
   await page.click('#play-button');
   await waitForFunction(() => window.__LANKA_RUN__.state === 'running');
   assert.ok(await page.evaluate(() => Math.abs(window.__LANKA_RUN__.camera.fov - 67) < 0.2));
+  passed.push('portrait mobile shop keeps all ten runners in a notch-safe scrollable layout');
   await page.evaluate(() => { window.__LANKA_RUN__.spawner.collisionEnabled = false; });
   await new Promise((resolve) => setTimeout(resolve, 250));
   const mobileGraphics = await page.evaluate(async () => {
@@ -504,6 +589,8 @@ try {
       bump: getMeshKitStats().bumpMapping,
       hdr: game.graphics.hdrSupported,
       drawCalls: game.renderer.info.render.calls,
+      visibleClouds: game.graphics.clouds.filter((cloud) => cloud.visible).length,
+      world: game.world.getStats(),
       anatomy: game.player.visual.userData.anatomy,
     };
   });
@@ -514,12 +601,33 @@ try {
   assert.equal(mobileGraphics.hdr, false);
   assert.equal(mobileGraphics.postprocessing, false);
   assert.equal(mobileGraphics.clouds, 2);
+  assert.equal(mobileGraphics.visibleClouds, 0);
+  assert.equal(mobileGraphics.performanceMode, true);
+  assert.ok(mobileGraphics.world.visibleSceneryGroups < mobileGraphics.world.activeSceneryGroups);
+  assert.ok(mobileGraphics.world.detailDistance <= 135);
   assert.equal(mobileGraphics.bump, false);
   assert.ok(mobileGraphics.pixelRatio <= 1.01);
   assert.equal(mobileGraphics.anatomy, 'continuous-skinned-limbs-lathe-torso-shaped-head');
+  const mobileSceneComparison = await page.evaluate(() => {
+    const game = window.__LANKA_RUN__;
+    for (const section of game.world.sections) section.userData.scenery.visible = true;
+    for (const cloud of game.graphics.clouds) cloud.visible = true;
+    game.graphics.render(0);
+    const full = { calls: game.renderer.info.render.calls, triangles: game.renderer.info.render.triangles };
+    game.world.updateVisibility();
+    for (const cloud of game.graphics.clouds) cloud.visible = false;
+    game.graphics.render(0);
+    const optimized = { calls: game.renderer.info.render.calls, triangles: game.renderer.info.render.triangles };
+    return { full, optimized };
+  });
+  assert.ok(mobileSceneComparison.optimized.calls < mobileSceneComparison.full.calls,
+    `mobile culling did not reduce calls: ${JSON.stringify(mobileSceneComparison)}`);
+  assert.ok(mobileSceneComparison.optimized.triangles < mobileSceneComparison.full.triangles,
+    `mobile culling did not reduce triangles: ${JSON.stringify(mobileSceneComparison)}`);
+  passed.push(`same-scene mobile culling reduced ${mobileSceneComparison.full.calls} to ${mobileSceneComparison.optimized.calls} calls and ${mobileSceneComparison.full.triangles} to ${mobileSceneComparison.optimized.triangles} triangles`);
   await page.screenshot({ path: 'test-results/mobile-gameplay.png' });
   passed.push('portrait mobile layout and touch controls use direct shadow-free, low-cost rendering');
-  passed.push(`mobile quality capped pixel ratio, MSAA, HDR/bloom, bump maps and clouds (${mobileGraphics.drawCalls} software-renderer draw calls)`);
+  passed.push(`mobile quality capped pixel ratio, MSAA, HDR/bloom, bump maps, clouds and far scenery (${mobileGraphics.drawCalls} software-renderer draw calls; ${mobileGraphics.world.visibleSceneryGroups}/${mobileGraphics.world.activeSceneryGroups} scenery groups visible)`);
 
   assert.equal(await page.$('#touch-controls'), null);
   await swipe(195, 420, 95, 420);
@@ -552,6 +660,25 @@ try {
   await page.screenshot({ path: 'test-results/mobile-scooter-boost.png' });
   await page.evaluate(() => window.__LANKA_RUN__.player.stopScooter());
   passed.push('portrait scooter HUD and seated rider stay within the mobile layout');
+
+  await page.evaluate(() => {
+    const game = window.__LANKA_RUN__;
+    game.spawner.clear();
+    game.spawner.collisionEnabled = false;
+    game.juice.add();
+    game.endRun();
+  });
+  await waitForFunction(() => window.__LANKA_RUN__.state === 'revive');
+  const reviveBounds = await page.$eval('.revive-panel', (panel) => {
+    const bounds = panel.getBoundingClientRect();
+    return { left: bounds.left, right: bounds.right, top: bounds.top, bottom: bounds.bottom };
+  });
+  assert.ok(reviveBounds.left >= 0 && reviveBounds.right <= 390 && reviveBounds.top >= 0 && reviveBounds.bottom <= 844,
+    `mobile revive overflow: ${JSON.stringify(reviveBounds)}`);
+  await page.screenshot({ path: 'test-results/mobile-juice-revive.png' });
+  await page.click('#revive-button');
+  await waitForFunction(() => window.__LANKA_RUN__.state === 'running' && window.__LANKA_RUN__.juice.count === 0);
+  passed.push('portrait revive dialog stays within the screen and returns to the same run');
 
   assert.deepEqual(runtimeErrors, []);
   passed.push('no browser runtime errors, page errors or missing-resource errors');

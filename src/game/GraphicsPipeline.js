@@ -184,6 +184,7 @@ export class GraphicsPipeline {
     this.frameCount = 0;
     this.slowWindows = 0;
     this.adaptations = 0;
+    this.performanceMode = false;
   }
 
   resize(width, height) {
@@ -210,7 +211,7 @@ export class GraphicsPipeline {
     if (this.slowWindows < 1) return;
     this.slowWindows = 0;
     const current = this.renderer.getPixelRatio();
-    const minimum = this.coarsePointer ? 0.75 : 0.8;
+    const minimum = this.coarsePointer ? 0.65 : 0.8;
     if (current > minimum + 0.05) {
       const next = Math.max(minimum, current * 0.85);
       this.renderer.setPixelRatio(next);
@@ -224,6 +225,15 @@ export class GraphicsPipeline {
       this.composer = null;
       this.postprocessing = false;
       this.quality = 'adaptive-direct';
+    } else if (this.coarsePointer && (!this.performanceMode || this.environmentTarget)) {
+      this.performanceMode = true;
+      this.quality = 'performance-mobile';
+      this.scene.environment = null;
+      this.environmentTarget?.dispose();
+      this.environmentTarget = null;
+      for (const cloud of this.clouds) cloud.visible = false;
+    } else {
+      return;
     }
     this.adaptations += 1;
   }
@@ -232,6 +242,7 @@ export class GraphicsPipeline {
     this.sky.position.copy(this.camera.position);
     for (let index = 0; index < this.clouds.length; index += 1) {
       const cloud = this.clouds[index];
+      if (this.performanceMode) break;
       cloud.position.x += delta * (0.12 + index * 0.015);
       if (cloud.position.x > cloud.userData.startX + 16) cloud.position.x = cloud.userData.startX - 16;
     }
@@ -245,6 +256,7 @@ export class GraphicsPipeline {
       quality: this.quality,
       pixelRatio: this.renderer.getPixelRatio(),
       postprocessing: this.postprocessing,
+      performanceMode: this.performanceMode,
       adaptations: this.adaptations,
       clouds: this.clouds.length,
       environment: Boolean(this.environmentTarget),

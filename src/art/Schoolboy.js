@@ -9,6 +9,7 @@ const BLUE = 0x172f63;
 const HAIR = 0x171923;
 const SHOE = 0x11141b;
 let shirtGeometry;
+const limbGeometryCache = new Map();
 
 function getShirtGeometry() {
   if (shirtGeometry) return shirtGeometry;
@@ -25,8 +26,13 @@ function getShirtGeometry() {
 
 const limbMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.88, metalness: 0 });
 
-function limbGeometry(kind) {
+function limbGeometry(kind, palette = {}) {
   const arm = kind === 'arm';
+  const shirt = palette.shirt ?? WHITE;
+  const shorts = palette.shorts ?? BLUE;
+  const skinLight = palette.skinLight ?? SKIN_LIGHT;
+  const cacheKey = [kind, shirt, shorts, skinLight, palette.outfit || 'uniform', palette.accent || 0].join(':');
+  if (limbGeometryCache.has(cacheKey)) return limbGeometryCache.get(cacheKey);
   const length = arm ? 0.7 : 0.87;
   const joint = arm ? 0.36 : 0.41;
   const rings = arm ? 30 : 34;
@@ -46,10 +52,14 @@ function limbGeometry(kind) {
     return profile[profile.length - 1][1];
   };
   const colorAt = (t) => {
-    if (arm) return new THREE.Color(t < 0.35 ? WHITE : t < 0.39 ? 0xe5e2d6 : SKIN_LIGHT);
-    if (t < 0.3) return new THREE.Color(BLUE);
-    if (t > 0.81 && t < 0.86) return new THREE.Color(0x34518b);
-    return new THREE.Color(t < 0.72 ? SKIN_LIGHT : WHITE);
+    if (arm) {
+      const sleeveEnd = palette.outfit === 'jacket' ? 0.76 : 0.35;
+      const trim = palette.outfit === 'jacket' ? (palette.accent ?? 0xe5e2d6) : 0xe5e2d6;
+      return new THREE.Color(t < sleeveEnd ? shirt : t < sleeveEnd + 0.04 ? trim : skinLight);
+    }
+    if (t < 0.3) return new THREE.Color(shorts);
+    if (t > 0.81 && t < 0.86) return new THREE.Color(palette.accent ?? 0x34518b);
+    return new THREE.Color(t < 0.72 ? skinLight : WHITE);
   };
   const positions = [];
   const colors = [];
@@ -90,7 +100,7 @@ function limbGeometry(kind) {
     // Close the sleeve above the first ring; an open tube reads as a missing
     // shoulder from the chase camera. The root-weighted fan bends with the arm.
     const center = positions.length / 3;
-    const capColor = new THREE.Color(WHITE);
+    const capColor = new THREE.Color(shirt);
     positions.push(0, 0.105, 0);
     colors.push(capColor.r, capColor.g, capColor.b);
     uvs.push(0.5, 0);
@@ -108,10 +118,11 @@ function limbGeometry(kind) {
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
   geometry.computeBoundingSphere();
+  limbGeometryCache.set(cacheKey, geometry);
   return geometry;
 }
 
-function continuousLimb(kind, side) {
+function continuousLimb(kind, side, palette = {}) {
   const arm = kind === 'arm';
   const root = new THREE.Bone();
   root.name = `${side < 0 ? 'Left' : 'Right'} ${arm ? 'shoulder' : 'hip'}`;
@@ -124,7 +135,7 @@ function continuousLimb(kind, side) {
   end.name = arm ? 'Wrist' : 'Ankle';
   end.position.set(0, arm ? -0.34 : -0.46, 0);
   middle.add(end);
-  const mesh = new THREE.SkinnedMesh(limbGeometry(kind), limbMaterial);
+  const mesh = new THREE.SkinnedMesh(limbGeometry(kind, palette), limbMaterial);
   mesh.name = `Continuous skinned ${kind}`;
   mesh.position.copy(root.position);
   mesh.frustumCulled = false;
@@ -135,27 +146,32 @@ function continuousLimb(kind, side) {
   return { root, middle, end, mesh, bones: [root, middle, end] };
 }
 
-function makeArm(side) {
-  const limb = continuousLimb('arm', side);
+function makeArm(side, palette) {
+  const limb = continuousLimb('arm', side, palette);
   const { root: shoulder, middle: elbow, end: wrist } = limb;
-  sphere(wrist, 0.105, [0, -0.115, -0.015], SKIN_LIGHT, {
+  sphere(wrist, 0.105, [0, -0.115, -0.015], palette.skinLight, {
     scale: [0.82, 1.08, 0.72], widthSegments: 18, heightSegments: 12,
   });
-  sphere(wrist, 0.045, [-side * 0.075, -0.1, -0.03], SKIN, {
+  sphere(wrist, 0.045, [-side * 0.075, -0.1, -0.03], palette.skin, {
     scale: [0.75, 1.2, 0.7], widthSegments: 14, heightSegments: 10,
   });
   for (const x of [-0.037, 0, 0.037]) {
-    capsule(wrist, 0.013, 0.045, [x, -0.195, -0.035], 0xa96b4c, {
+    capsule(wrist, 0.013, 0.045, [x, -0.195, -0.035], palette.skin, {
       radialSegments: 8, capSegments: 3,
+    });
+  }
+  if (palette.accessories.includes('wristbands')) {
+    capsule(wrist, 0.075, 0.025, [0, -0.025, 0], palette.accent, {
+      radialSegments: 10, capSegments: 2,
     });
   }
   return { shoulder, elbow, wrist, mesh: limb.mesh, bones: limb.bones };
 }
 
-function makeLeg(side) {
-  const limb = continuousLimb('leg', side);
+function makeLeg(side, palette) {
+  const limb = continuousLimb('leg', side, palette);
   const { root: hip, middle: knee, end: ankle } = limb;
-  sphere(ankle, 1, [0, -0.07, -0.1], SHOE, {
+  sphere(ankle, 1, [0, -0.07, -0.1], palette.shoe, {
     scale: [0.15, 0.105, 0.25], widthSegments: 20, heightSegments: 14,
   });
   sphere(ankle, 1, [0, -0.145, -0.105], 0x080a0e, {
@@ -178,73 +194,107 @@ function bindLimb(visual, limb) {
   limb.mesh.bind(skeleton, limb.mesh.matrixWorld);
 }
 
-/** Smooth articulated schoolboy with shared, lightweight organic geometry. */
-export function createSchoolboy() {
+/** Smooth articulated runner with shared, lightweight organic geometry. */
+export function createSchoolboy(options = {}) {
+  const palette = {
+    id: 'schoolboy', skin: SKIN, skinLight: SKIN_LIGHT, shirt: WHITE, shorts: BLUE,
+    hair: HAIR, shoe: SHOE, backpack: 0x8b3048, accent: 0x176c68,
+    outfit: 'uniform', hairStyle: 'crop', accessories: ['badge'], ...options,
+  };
   const visual = new THREE.Group();
-  visual.name = 'Smooth articulated Sri Lankan schoolboy';
+  visual.name = `Articulated runner ${palette.id}`;
+  visual.userData.characterId = palette.id;
   visual.userData.detailLevel = 'continuous-skinned-limbs-organic-uniform';
   visual.userData.anatomy = 'continuous-skinned-limbs-lathe-torso-shaped-head';
   visual.userData.shoulders = 'closed-caps-with-rounded-deltoid-joins';
   const body = new THREE.Group();
   visual.add(body);
 
-  const shirt = new THREE.Mesh(getShirtGeometry(), material(WHITE, { roughness: 0.86 }));
+  const shirt = new THREE.Mesh(getShirtGeometry(), material(palette.shirt, { roughness: 0.86 }));
   shirt.position.set(0, 1.48, 0);
   body.add(shirt);
   for (const side of [-1, 1]) {
-    sphere(body, 1, [side * 0.43, 1.68, 0], WHITE, {
+    sphere(body, 1, [side * 0.43, 1.68, 0], palette.shirt, {
       scale: [0.16, 0.17, 0.155], widthSegments: 22, heightSegments: 15,
     });
   }
-  sphere(body, 1, [0, 1.03, 0], BLUE, {
+  sphere(body, 1, [0, 1.03, 0], palette.shorts, {
     scale: [0.37, 0.23, 0.25], widthSegments: 14, heightSegments: 9,
   });
-  const belt = cylinder(body, [0.355], 0.05, [0, 1.16, 0], 0x243e73, { segments: 16 });
+  const belt = cylinder(body, [0.355], 0.05, [0, 1.16, 0], palette.shorts, { segments: 16 });
   belt.scale.z = 0.69;
   roundedBox(body, [0.14, 0.1, 0.035], [0, 1.16, -0.255], 0xb8b9ae, { radius: 0.025, segments: 2 });
-  capsule(body, 0.018, 0.5, [0, 1.49, -0.27], 0xf0eee2, { radialSegments: 7, capSegments: 2 });
-  for (const side of [-1, 1]) {
-    sphere(body, 1, [side * 0.14, 1.82, -0.2], WHITE, {
-      scale: [0.17, 0.065, 0.035], rotation: [0.15, 0, side * 0.38], widthSegments: 10, heightSegments: 6,
+  capsule(body, 0.018, 0.5, [0, 1.49, -0.27], palette.outfit === 'uniform' ? 0xf0eee2 : palette.accent,
+    { radialSegments: 7, capSegments: 2 });
+  if (palette.outfit === 'uniform') {
+    for (const side of [-1, 1]) {
+      sphere(body, 1, [side * 0.14, 1.82, -0.2], palette.shirt, {
+        scale: [0.17, 0.065, 0.035], rotation: [0.15, 0, side * 0.38], widthSegments: 10, heightSegments: 6,
+      });
+    }
+    sphere(body, 1, [0.22, 1.5, -0.255], 0xf0eee2, {
+      scale: [0.125, 0.115, 0.022], widthSegments: 10, heightSegments: 7,
     });
-  }
-  sphere(body, 1, [0.22, 1.5, -0.255], 0xf0eee2, {
-    scale: [0.125, 0.115, 0.022], widthSegments: 10, heightSegments: 7,
-  });
-  sphere(body, 0.055, [-0.25, 1.61, -0.27], 0xf4b942, { scale: [1, 1.15, 0.35] });
-  sphere(body, 0.032, [-0.25, 1.61, -0.292], 0x1f8a70, { scale: [1, 1, 0.3] });
-  for (let y = 1.3; y < 1.75; y += 0.15) {
-    sphere(body, 0.019, [0, y, -0.287], 0x3d4654, { widthSegments: 7, heightSegments: 5 });
+    if (palette.accessories.includes('badge')) {
+      sphere(body, 0.055, [-0.25, 1.61, -0.27], 0xf4b942, { scale: [1, 1.15, 0.35] });
+      sphere(body, 0.032, [-0.25, 1.61, -0.292], 0x1f8a70, { scale: [1, 1, 0.3] });
+    }
+    for (let y = 1.3; y < 1.75; y += 0.15) {
+      sphere(body, 0.019, [0, y, -0.287], 0x3d4654, { widthSegments: 7, heightSegments: 5 });
+    }
+  } else if (palette.outfit === 'jacket') {
+    for (const side of [-1, 1]) {
+      roundedBox(body, [0.19, 0.12, 0.025], [side * 0.23, 1.28, -0.265], palette.shirt, { radius: 0.025 });
+      capsule(body, 0.014, 0.15, [side * 0.23, 1.32, -0.285], palette.accent, {
+        rotation: [0, 0, Math.PI / 2], radialSegments: 6, capSegments: 2,
+      });
+    }
+  } else {
+    for (const side of [-1, 1]) {
+      capsule(body, 0.025, 0.48, [side * 0.3, 1.5, -0.22], palette.accent, {
+        rotation: [0, 0, side * 0.12], radialSegments: 6, capSegments: 2,
+      });
+    }
   }
 
-  capsule(body, 0.11, 0.08, [0, 1.9, 0], SKIN, { radialSegments: 10, capSegments: 4 });
+  capsule(body, 0.11, 0.08, [0, 1.9, 0], palette.skin, { radialSegments: 10, capSegments: 4 });
   const head = new THREE.Group();
   head.position.set(0, 1.91, 0);
   body.add(head);
-  sphere(head, 1, [0, 0.23, 0], SKIN_LIGHT, {
+  sphere(head, 1, [0, 0.23, 0], palette.skinLight, {
     widthSegments: 28, heightSegments: 20, scale: [0.34, 0.38, 0.32], flatShading: false,
   });
-  sphere(head, 1, [0, 0.075, -0.025], SKIN_LIGHT, {
+  sphere(head, 1, [0, 0.075, -0.025], palette.skinLight, {
     widthSegments: 22, heightSegments: 14, scale: [0.27, 0.19, 0.27], flatShading: false,
   });
-  sphere(head, 1, [0, 0.42, 0.07], HAIR, {
-    widthSegments: 24, heightSegments: 16, scale: [0.35, 0.24, 0.32], flatShading: false,
+  sphere(head, 1, [0, 0.42, 0.07], palette.hair, {
+    widthSegments: 24, heightSegments: 16,
+    scale: [0.35, palette.hairStyle === 'fade' ? 0.14 : 0.24, 0.32], flatShading: false,
   });
-  for (let index = 0; index < 6; index += 1) {
-    const x = -0.25 + index * 0.1;
-    sphere(head, 1, [x, 0.42 + (index % 3) * 0.025, -0.19 - (index % 2) * 0.025], HAIR, {
-      scale: [0.095, 0.15 + (index % 2) * 0.025, 0.085],
-      rotation: [0.25, 0, -0.35 + index * 0.12], widthSegments: 10, heightSegments: 7,
+  const hairPieces = palette.hairStyle === 'curly' ? 9 : palette.hairStyle === 'fade' ? 3 : 6;
+  for (let index = 0; index < hairPieces; index += 1) {
+    const centered = index - (hairPieces - 1) / 2;
+    const x = centered * (palette.hairStyle === 'curly' ? 0.075 : 0.1);
+    const curl = palette.hairStyle === 'curly' ? 0.035 : 0;
+    sphere(head, 1, [x, 0.42 + (index % 3) * 0.025 + curl, -0.19 - (index % 2) * 0.025], palette.hair, {
+      scale: [0.095 + curl, 0.15 + (index % 2) * 0.025 + curl, 0.085 + curl],
+      rotation: [0.25, 0, (palette.hairStyle === 'side' ? -0.55 : -0.35) + index * 0.12],
+      widthSegments: 10, heightSegments: 7,
+    });
+  }
+  if (palette.hairStyle === 'long') {
+    sphere(head, 1, [0, 0.23, 0.2], palette.hair, {
+      scale: [0.29, 0.35, 0.18], widthSegments: 18, heightSegments: 12,
     });
   }
   for (const side of [-1, 1]) {
-    sphere(head, 1, [side * 0.335, 0.21, 0], SKIN, {
+    sphere(head, 1, [side * 0.335, 0.21, 0], palette.skin, {
       scale: [0.045, 0.08, 0.055], flatShading: false,
     });
-    sphere(head, 1, [side * 0.35, 0.21, -0.005], 0x9f6247, {
+    sphere(head, 1, [side * 0.35, 0.21, -0.005], palette.skin, {
       scale: [0.018, 0.045, 0.028], flatShading: false,
     });
-    capsule(head, 0.035, 0.11, [side * 0.29, 0.27, -0.13], HAIR, {
+    capsule(head, 0.035, 0.11, [side * 0.29, 0.27, -0.13], palette.hair, {
       rotation: [0.2, 0, side * 0.12], radialSegments: 8, capSegments: 3,
     });
     sphere(head, 1, [side * 0.125, 0.24, -0.303], 0xfff8e8, {
@@ -254,39 +304,77 @@ export function createSchoolboy() {
       scale: [0.029, 0.035, 0.015], widthSegments: 10, heightSegments: 7, flatShading: false,
     });
     sphere(head, 0.011, [side * 0.12, 0.25, -0.341], 0xffffff, { widthSegments: 6, heightSegments: 4 });
-    capsule(head, 0.011, 0.085, [side * 0.125, 0.32, -0.302], HAIR, {
+    capsule(head, 0.011, 0.085, [side * 0.125, 0.32, -0.302], palette.hair, {
       rotation: [0, 0, Math.PI / 2 + side * 0.09], radialSegments: 6, capSegments: 2,
     });
   }
-  sphere(head, 1, [0, 0.155, -0.325], 0xad6c4c, {
+  sphere(head, 1, [0, 0.155, -0.325], palette.skin, {
     scale: [0.043, 0.061, 0.052], flatShading: false,
   });
   const smile = torus(head, 0.073, 0.011, [0, 0.065, -0.296], 0x71382f, { rotation: [0, Math.PI, Math.PI] });
   smile.scale.y = 0.45;
+  if (palette.accessories.includes('headband')) {
+    capsule(head, 0.027, 0.5, [0, 0.37, -0.265], palette.accent, {
+      rotation: [0, 0, Math.PI / 2], radialSegments: 8, capSegments: 2,
+    });
+  }
+  if (palette.accessories.includes('cap')) {
+    sphere(head, 1, [0, 0.51, 0.025], palette.cap ?? palette.shirt, {
+      scale: [0.37, 0.18, 0.34], widthSegments: 20, heightSegments: 12,
+    });
+    roundedBox(head, [0.43, 0.045, 0.25], [0, 0.43, -0.27], palette.accent, { radius: 0.025 });
+  }
+  if (palette.accessories.includes('glasses')) {
+    for (const side of [-1, 1]) {
+      torus(head, 0.073, 0.012, [side * 0.105, 0.24, -0.342], 0x20252e, { arc: Math.PI * 2 });
+    }
+    capsule(head, 0.009, 0.07, [0, 0.24, -0.345], 0x20252e, {
+      rotation: [0, 0, Math.PI / 2], radialSegments: 6, capSegments: 2,
+    });
+  }
 
   const backpack = new THREE.Group();
   body.add(backpack);
-  sphere(backpack, 1, [0, 1.49, 0.35], 0x8b3048, { scale: [0.38, 0.44, 0.22], widthSegments: 26, heightSegments: 18 });
-  sphere(backpack, 1, [0, 1.29, 0.54], 0x176c68, { scale: [0.29, 0.18, 0.1], widthSegments: 22, heightSegments: 14 });
-  capsule(backpack, 0.018, 0.45, [0, 1.72, 0.54], 0xf4b942, {
-    rotation: [0, 0, Math.PI / 2], radialSegments: 7, capSegments: 2,
-  });
-  capsule(backpack, 0.014, 0.5, [0, 1.42, 0.64], 0xe4b46a, {
-    rotation: [0, 0, Math.PI / 2], radialSegments: 7, capSegments: 2,
-  });
-  for (const side of [-1, 1]) {
-    sphere(backpack, 1, [side * 0.36, 1.34, 0.38], 0x176c68, { scale: [0.11, 0.18, 0.13], widthSegments: 18, heightSegments: 12 });
-    capsule(body, 0.048, 0.49, [side * 0.34, 1.51, -0.225], 0x70283c, {
-      rotation: [0, 0, side * 0.12], radialSegments: 8, capSegments: 3,
+  if (palette.accessories.includes('satchel')) {
+    sphere(backpack, 1, [0.34, 1.25, 0.35], palette.backpack, {
+      scale: [0.25, 0.31, 0.16], widthSegments: 22, heightSegments: 14,
     });
-    capsule(body, 0.043, 0.45, [side * 0.31, 1.51, 0.52], 0x70283c, { radialSegments: 8, capSegments: 3 });
+    capsule(body, 0.045, 0.85, [0, 1.52, -0.23], palette.backpack, {
+      rotation: [0, 0, -0.55], radialSegments: 8, capSegments: 3,
+    });
+    capsule(backpack, 0.018, 0.35, [0.34, 1.32, 0.51], palette.accent, {
+      rotation: [0, 0, Math.PI / 2], radialSegments: 7, capSegments: 2,
+    });
+  } else {
+    sphere(backpack, 1, [0, 1.49, 0.35], palette.backpack, {
+      scale: [0.38, 0.44, 0.22], widthSegments: 26, heightSegments: 18,
+    });
+    sphere(backpack, 1, [0, 1.29, 0.54], palette.accent, {
+      scale: [0.29, 0.18, 0.1], widthSegments: 22, heightSegments: 14,
+    });
+    capsule(backpack, 0.018, 0.45, [0, 1.72, 0.54], 0xf4b942, {
+      rotation: [0, 0, Math.PI / 2], radialSegments: 7, capSegments: 2,
+    });
+    capsule(backpack, 0.014, 0.5, [0, 1.42, 0.64], 0xe4b46a, {
+      rotation: [0, 0, Math.PI / 2], radialSegments: 7, capSegments: 2,
+    });
+    const strap = palette.id === 'schoolboy' ? 0x70283c : palette.backpack;
+    for (const side of [-1, 1]) {
+      sphere(backpack, 1, [side * 0.36, 1.34, 0.38], palette.accent, {
+        scale: [0.11, 0.18, 0.13], widthSegments: 18, heightSegments: 12,
+      });
+      capsule(body, 0.048, 0.49, [side * 0.34, 1.51, -0.225], strap, {
+        rotation: [0, 0, side * 0.12], radialSegments: 8, capSegments: 3,
+      });
+      capsule(body, 0.043, 0.45, [side * 0.31, 1.51, 0.52], strap, { radialSegments: 8, capSegments: 3 });
+    }
+    torus(backpack, 0.14, 0.027, [0, 1.94, 0.36], strap, { rotation: [Math.PI / 2, 0, 0] });
   }
-  torus(backpack, 0.14, 0.027, [0, 1.94, 0.36], 0x70283c, { rotation: [Math.PI / 2, 0, 0] });
 
-  const left = makeArm(-1);
-  const right = makeArm(1);
-  const leftLeg = makeLeg(-1);
-  const rightLeg = makeLeg(1);
+  const left = makeArm(-1, palette);
+  const right = makeArm(1, palette);
+  const leftLeg = makeLeg(-1, palette);
+  const rightLeg = makeLeg(1, palette);
   visual.add(left.shoulder, right.shoulder, leftLeg.hip, rightLeg.hip,
     left.mesh, right.mesh, leftLeg.mesh, rightLeg.mesh);
   for (const limb of [left, right, leftLeg, rightLeg]) bindLimb(visual, limb);

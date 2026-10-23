@@ -57,6 +57,7 @@
           <div class="metric speed-metric"><span>SPEED</span><strong id="speed-value">50 km/h</strong></div>
         </div>
         <div class="hud-actions">
+          <div id="juice-pill" class="juice-pill" aria-label="Juice packets"><span class="juice-icon" aria-hidden="true"></span><strong id="juice-value">0</strong></div>
           <div id="coin-pill" class="coin-pill" aria-label="Coins collected"><span class="coin-icon">●</span><strong id="coin-value">0</strong></div>
           <button id="pause-button" class="icon-button" aria-label="Pause game" title="Pause (Escape)">Ⅱ</button>
         </div>
@@ -85,7 +86,10 @@
           </div>
           <div class="menu-dock">
             <div class="best-line"><span>PERSONAL BEST</span><strong id="menu-best">0</strong></div>
-          <button id="play-button" class="primary-button"><span>PLAY NOW</span><kbd>ENTER</kbd></button>
+          <div class="menu-play-row">
+            <button id="play-button" class="primary-button"><span>PLAY NOW</span><kbd>ENTER</kbd></button>
+            <button id="shop-button" class="shop-button" aria-label="Open character shop"><span>SHOP</span><small><b id="menu-wallet">0</b> COINS</small></button>
+          </div>
           <div class="controls" aria-label="Keyboard controls">
             <div><span class="key-pair"><kbd>A</kbd><kbd>←</kbd></span><p><strong>MOVE LEFT</strong></p></div>
             <div><span class="key-pair"><kbd>D</kbd><kbd>→</kbd></span><p><strong>MOVE RIGHT</strong></p></div>
@@ -107,6 +111,34 @@
         </section>
         <div class="world-tag" aria-hidden="true"><span>14 DISTRICTS</span><strong id="world-tag-name">GALLE ROAD</strong><small id="world-tag-theme">CITY STREETS</small></div>
       </main>
+
+      <section id="shop-screen" class="screen centered-screen shop-screen" aria-hidden="true">
+        <div class="panel shop-panel" role="dialog" aria-modal="true" aria-labelledby="shop-title">
+          <button id="shop-close" class="shop-close icon-button" aria-label="Close character shop">×</button>
+          <div class="eyebrow"><span></span> ORIGINAL ISLAND RUNNERS</div>
+          <h2 id="shop-title">CHARACTER SHOP</h2>
+          <p>Buy once. Equip any owned runner.</p>
+          <div class="shop-balance">
+            <span>YOUR COINS</span><strong id="shop-wallet">0</strong>
+            <small><i class="juice-icon" aria-hidden="true"></i><b id="shop-juice">0</b> / 3 JUICE</small>
+          </div>
+          <div id="character-grid" class="character-grid" aria-label="Ten playable characters"></div>
+          <p id="shop-status" class="shop-status" role="status">SELECT A RUNNER OR UNLOCK WITH COINS</p>
+          <small class="shop-note">Portraits come from the original 3D rigs. Only your equipped live model is loaded.</small>
+        </div>
+      </section>
+
+      <section id="revive-screen" class="screen centered-screen" aria-hidden="true">
+        <div class="panel dialog-panel revive-panel" role="dialog" aria-modal="true" aria-labelledby="revive-title">
+          <div class="eyebrow"><span></span> RARE JUICE PACKET RESCUE</div>
+          <div class="revive-packet" aria-hidden="true"><i></i><strong>MANGO<br />JUICE</strong></div>
+          <h2 id="revive-title">RUN IT BACK</h2>
+          <p>Drink one packet to keep this score and respawn with a 3-second safety shield.</p>
+          <div class="revive-stock"><span>PACKETS READY</span><strong id="revive-count">1</strong></div>
+          <button id="revive-button" class="primary-button"><span>DRINK &amp; RESPAWN</span><kbd>ENTER</kbd></button>
+          <button id="revive-end-button" class="text-button">END THIS RUN</button>
+        </div>
+      </section>
 
       <section id="pause-screen" class="screen centered-screen" aria-hidden="true">
         <div class="panel dialog-panel">

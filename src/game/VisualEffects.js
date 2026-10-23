@@ -117,6 +117,10 @@ export class VisualEffects {
     this.burst(position, 0xffcf45, 5, 1.1);
   }
   scooter(position) { this.burst(position, 0x73fff0, 26, 3.1); }
+  juice(position) {
+    this.burst(position, 0xffc434, 14, 2.2);
+    this.burst(position, 0x65c987, 6, 1.6);
+  }
   shield(position) { this.burst(position, 0x8afff3, 24, 3.5); }
   crash(position) {
     this.burst(position, 0xffa43b, 22, 3.7);

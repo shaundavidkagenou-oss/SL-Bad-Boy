@@ -2,16 +2,19 @@ import * as THREE from 'three';
 import { GAME, LANES, PLAYER_Z } from '../config.js';
 import { createSchoolboy } from '../art/Schoolboy.js';
 import { createScooter } from '../art/Scooter.js';
+import { disposeBatchedGeometry } from '../art/StaticBatcher.js';
+import { getCharacter } from './CharacterCatalog.js';
 import { makeCollider } from './Collision.js';
 
 const damp = THREE.MathUtils.damp;
 
 export class Player {
-  constructor(scene, callbacks = {}) {
+  constructor(scene, callbacks = {}, characterId = 'schoolboy') {
     this.callbacks = callbacks;
     this.group = new THREE.Group();
-    this.group.name = 'Player schoolboy';
-    this.visual = createSchoolboy();
+    this.group.name = 'Player runner';
+    this.characterId = getCharacter(characterId).id;
+    this.visual = createSchoolboy(getCharacter(this.characterId));
     this.group.add(this.visual);
     this.scooter = createScooter();
     this.group.add(this.scooter);
@@ -25,6 +28,24 @@ export class Player {
     scene.add(this.group);
     this.joints = this.visual.userData.joints;
     this.reset();
+  }
+
+  setCharacter(characterId) {
+    const definition = getCharacter(characterId);
+    if (definition.id === this.characterId) return false;
+    // Release the old rig's GPU buffers. Palette geometry remains in a bounded
+    // CPU cache and is uploaded again only if that runner is equipped later.
+    const oldGeometries = new Set();
+    this.visual.traverse((node) => { if (node.isSkinnedMesh) oldGeometries.add(node.geometry); });
+    for (const geometry of oldGeometries) geometry.dispose();
+    disposeBatchedGeometry(this.visual);
+    this.visual.removeFromParent();
+    this.characterId = definition.id;
+    this.visual = createSchoolboy(definition);
+    this.group.add(this.visual);
+    this.joints = this.visual.userData.joints;
+    this.reset();
+    return true;
   }
 
   reset() {
@@ -42,6 +63,7 @@ export class Player {
     this.slideTimer = 0;
     this.landingTimer = 0;
     this.crashTimer = 0;
+    this.invincibleTimer = 0;
     this.startTimer = 0.45;
     this.sliding = false;
     this.crashed = false;
@@ -92,7 +114,13 @@ export class Player {
     this.scooterActive = false;
     this.scooterTimer = 0;
     this.scooter.visible = false;
-    this.shield.visible = false;
+    this.shield.visible = this.invincibleTimer > 0;
+  }
+
+  respawn() {
+    this.reset();
+    this.invincibleTimer = 3;
+    this.shield.visible = true;
   }
 
   slide() {
@@ -109,6 +137,7 @@ export class Player {
 
   crash() {
     this.crashed = true;
+    this.invincibleTimer = 0;
     this.stopScooter();
     this.crashTimer = 0;
     this.sliding = false;
@@ -117,6 +146,13 @@ export class Player {
 
   update(delta, speed, mode = 'running') {
     if (mode === 'paused') return;
+    this.invincibleTimer = Math.max(0, this.invincibleTimer - delta);
+    this.shield.visible = !this.crashed && (this.scooterActive || this.invincibleTimer > 0);
+    this.shield.material.color.set(this.scooterActive ? 0x72fff0 : 0xffd15c);
+    if (this.invincibleTimer > 0 && !this.scooterActive) {
+      this.shield.rotation.y += delta * 2.4;
+      this.shield.material.opacity = 0.18 + Math.sin(this.invincibleTimer * 8) * 0.05;
+    }
     const responsiveness = 1 - Math.exp(-18 * delta);
     this.group.position.x += (LANES[this.lane] - this.group.position.x) * responsiveness;
 

@@ -3,6 +3,8 @@ import { GAME, LANES, OBSTACLE_SPECS } from '../config.js';
 import { createObstacleModel } from '../art/Vehicles.js';
 import { createCoin } from '../art/MeshKit.js';
 import { createScooter } from '../art/Scooter.js';
+import { createJuicePacket } from '../art/JuicePacket.js';
+import { ENVIRONMENT_THEMES } from './EnvironmentThemes.js';
 import { PatternPlanner } from './PatternPlanner.js';
 import { intersects, makeCollider } from './Collision.js';
 import { disposeBatchedGeometry } from '../art/StaticBatcher.js';
@@ -13,7 +15,7 @@ const NEAR_MISS_VEHICLES = new Set(['public-bus', 'private-bus', 'car', 'tuk-tuk
 const COIN_CAPACITY = 96;
 
 export class ObstacleSpawner {
-  constructor(scene, { onCoin = () => {}, onHit = () => {}, onScooter = () => {}, onShieldHit = () => {}, onNearMiss = () => {} } = {}) {
+  constructor(scene, { onCoin = () => {}, onHit = () => {}, onScooter = () => {}, onShieldHit = () => {}, onNearMiss = () => {}, onJuice = () => {} } = {}) {
     this.group = new THREE.Group();
     this.group.name = 'Traffic, road hazards and coins';
     scene.add(this.group);
@@ -32,15 +34,21 @@ export class ObstacleSpawner {
     this.onScooter = onScooter;
     this.onShieldHit = onShieldHit;
     this.onNearMiss = onNearMiss;
+    this.onJuice = onJuice;
     this.nextSpawnIn = 30;
     this.nextScooterIn = 320;
     this.collisionEnabled = true;
     this.district = 'colombo';
+    this.pendingJuice = false;
     this.trafficOrder = [];
   }
 
   setDistrict(themeId) {
-    this.district = themeId || 'colombo';
+    const nextDistrict = themeId || 'colombo';
+    const changed = nextDistrict !== this.district;
+    this.district = nextDistrict;
+    const index = ENVIRONMENT_THEMES.findIndex((theme) => theme.id === nextDistrict);
+    if (changed && index > 0 && index % 2 === 1) this.pendingJuice = true;
   }
 
   clear() {
@@ -56,6 +64,8 @@ export class ObstacleSpawner {
     this.clear();
     this.planner.reset(seed);
     this.collisionEnabled = true;
+    this.district = 'colombo';
+    this.pendingJuice = false;
     this.nextSpawnIn = 30;
     this.nextScooterIn = 320;
     for (let index = 0; index < 5; index += 1) {
@@ -86,6 +96,10 @@ export class ObstacleSpawner {
     }
     for (const coin of pattern.coins) {
       this.spawnCoin(coin.lane, z + coin.z, coin.y, pattern.id);
+    }
+    if (this.pendingJuice && !pattern.requiredAction && Number.isInteger(pattern.freeLane)) {
+      this.spawnJuice(pattern.freeLane, z + 6, pattern.id);
+      this.pendingJuice = false;
     }
     return approachSpeed;
   }
@@ -118,6 +132,18 @@ export class ObstacleSpawner {
       type: 'coin', kind: 'coin', lane, rowId, mesh, baseY: y,
       spec: { width: 0.62, depth: 0.4, minY: -0.32, maxY: 0.32 },
       spin: (rowId + z) * 0.17,
+    };
+    this.entries.push(entry);
+    return entry;
+  }
+
+  spawnJuice(lane, z, rowId = -1) {
+    const mesh = createJuicePacket();
+    mesh.position.set(LANES[lane], 1.05, z);
+    this.group.add(mesh);
+    const entry = {
+      type: 'juice', kind: 'juice', lane, rowId, mesh, baseY: 1.05,
+      spec: { width: 0.78, depth: 0.48, minY: -0.38, maxY: 0.38 }, spin: 0,
     };
     this.entries.push(entry);
     return entry;
@@ -225,6 +251,11 @@ export class ObstacleSpawner {
         entry.spin += delta * 5;
         entry.mesh.rotation.y = entry.spin;
         entry.mesh.position.y = entry.baseY + Math.sin(entry.spin * 1.4) * 0.055;
+      } else if (entry.type === 'juice') {
+        entry.spin += delta * 2.2;
+        entry.mesh.rotation.y = Math.sin(entry.spin) * 0.42;
+        entry.mesh.position.y = entry.baseY + Math.sin(entry.spin * 1.6) * 0.09;
+        entry.mesh.userData.pickupHalo.rotation.z += delta * 0.9;
       } else if (entry.type === 'scooter') {
         entry.spin += delta * 2.4;
         const pulse = 1 + Math.sin(entry.spin * 2) * 0.08;
@@ -246,6 +277,7 @@ export class ObstacleSpawner {
 
       const relativeZ = entry.mesh.position.z - player.group.position.z;
       if (!this.collisionEnabled || relativeZ < -6 || relativeZ > 6 + entryTravel) continue;
+      if (entry.type === 'obstacle' && player.invincibleTimer > 0) continue;
       if (!intersects(playerCollider, this.getCollider(entry, entryTravel))) {
         this.checkNearMiss(entry, previousRelativeZ, relativeZ, playerCollider, player);
         continue;
@@ -254,6 +286,9 @@ export class ObstacleSpawner {
       if (entry.type === 'coin') {
         this.removeEntry(index);
         this.onCoin(entry);
+      } else if (entry.type === 'juice') {
+        if (this.onJuice(entry) === false) continue;
+        this.removeEntry(index);
       } else if (entry.type === 'scooter') {
         this.removeEntry(index);
         this.onScooter(entry);
@@ -277,6 +312,15 @@ export class ObstacleSpawner {
     }
     this.syncCoins();
     return 'running';
+  }
+
+  prepareRespawn() {
+    for (let index = this.entries.length - 1; index >= 0; index -= 1) {
+      const entry = this.entries[index];
+      if (entry.type === 'obstacle' && entry.mesh.position.z > -70) this.removeEntry(index);
+    }
+    this.nextSpawnIn = Math.max(this.nextSpawnIn, 30);
+    this.syncCoins();
   }
 
   getActiveKinds() {

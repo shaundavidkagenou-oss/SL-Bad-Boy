@@ -12,6 +12,8 @@ export function prepareMobilePlatform() {
 export function handleNativeBack(game, exitApp) {
   if (game.state === 'running') game.pause();
   else if (game.state === 'paused') game.resume();
+  else if (game.state === 'shop') game.closeShop();
+  else if (game.state === 'revive') game.finishRun();
   else if (game.state === 'gameover') game.goToMenu();
   else exitApp();
 }
