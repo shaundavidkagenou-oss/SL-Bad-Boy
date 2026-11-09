@@ -15,13 +15,22 @@ const HAIR = 0x171923;
 const SHOE = 0x11141b;
 let shirtGeometry;
 let shirtGeometryKey = '';
-const SHIRT_PROFILE = [
-  [0.208, -0.325], [0.216, -0.29], [0.200, -0.18], [0.190, -0.06],
-  [0.218, 0.06], [0.258, 0.17], [0.283, 0.27], [0.268, 0.345],
-  [0.208, 0.405], [0.132, 0.44], [0.098, 0.44],
+const SHIRT_KEYS = [
+  [0.176, -0.325], [0.190, -0.30], [0.176, -0.18], [0.168, -0.06],
+  [0.192, 0.06], [0.222, 0.17], [0.235, 0.27], [0.232, 0.33],
+  [0.224, 0.375], [0.206, 0.408], [0.176, 0.432], [0.138, 0.448],
+  [0.104, 0.456],
 ];
+/** Smooth lathe profile: a Catmull-Rom through the anatomical key radii. */
+function smoothShirtProfile(samples = 44) {
+  const curve = new THREE.CatmullRomCurve3(
+    SHIRT_KEYS.map(([radius, y]) => new THREE.Vector3(radius, y, 0)), false, 'catmullrom', 0.4,
+  );
+  return curve.getPoints(samples).map((point) => [Math.max(0.02, point.x), point.y]);
+}
+const SHIRT_PROFILE = smoothShirtProfile();
 const SHIRT_BASE_Y = 1.545;
-const SHIRT_DEPTH = 0.74;
+const SHIRT_DEPTH = 0.78;
 /** Z of the shirt surface at an absolute body height, so trim never floats. */
 function shirtFront(yAbs, offset = 0.006) {
   const y = THREE.MathUtils.clamp(yAbs - SHIRT_BASE_Y, -0.4, 0.44);
@@ -67,8 +76,8 @@ function limbGeometry(kind, palette = {}) {
   const sides = 24;
   // Biceps/forearm and quad/calf silhouettes replace the old straight tubes.
   const profile = arm
-    ? [[0, 0.098], [0.14, 0.104], [0.3, 0.094], [0.42, 0.078], [0.55, 0.070], [0.74, 0.062], [0.9, 0.054], [1, 0.043]]
-    : [[0, 0.128], [0.18, 0.122], [0.31, 0.104], [0.42, 0.090], [0.5, 0.081], [0.62, 0.094], [0.76, 0.078], [0.9, 0.058], [1, 0.062]];
+    ? [[0, 0.094], [0.14, 0.096], [0.3, 0.085], [0.42, 0.073], [0.55, 0.066], [0.74, 0.059], [0.9, 0.052], [1, 0.042]]
+    : [[0, 0.104], [0.18, 0.100], [0.31, 0.089], [0.42, 0.079], [0.5, 0.072], [0.62, 0.086], [0.76, 0.070], [0.9, 0.054], [1, 0.058]];
   const radiusAt = (t) => {
     for (let index = 1; index < profile.length; index += 1) {
       if (t <= profile[index][0]) {
@@ -86,7 +95,7 @@ function limbGeometry(kind, palette = {}) {
       const trim = jacket ? (palette.accent ?? 0xe5e2d6) : 0xf0ecdd;
       if (t < sleeveEnd) return new THREE.Color(shirt);
       if (t < sleeveEnd + 0.035) return new THREE.Color(trim);
-      return new THREE.Color(t < 0.84 ? skin : skinLight);
+      return new THREE.Color(skin);
     }
     if (palette.trousers) {
       if (t < 0.955) return new THREE.Color(palette.trousers);
@@ -161,7 +170,7 @@ function continuousLimb(kind, side, palette = {}) {
   const arm = kind === 'arm';
   const root = new THREE.Bone();
   root.name = `${side < 0 ? 'Left' : 'Right'} ${arm ? 'shoulder' : 'hip'}`;
-  root.position.set(side * (arm ? 0.285 : 0.122), arm ? 1.82 : 1.19, 0);
+  root.position.set(side * (arm ? 0.192 : 0.115), arm ? 1.826 : 1.19, 0);
   const middle = new THREE.Bone();
   middle.name = arm ? 'Elbow' : 'Knee';
   middle.position.set(0, arm ? -0.34 : -0.56, 0);
@@ -190,16 +199,23 @@ function makeArm(side, palette) {
   const sleeveEnd = jacket ? 0.78 : 0.34;
   const longSleeve = jacket || palette.sleeve === 'long';
   const sleeveColor = longSleeve ? palette.shirt : skin;
-  const forearmColor = longSleeve ? palette.shirt : skinLight;
+  const forearmColor = longSleeve ? palette.shirt : skin;
   // Deltoid, biceps and forearm definition sit on top of the skinned tube.
-  sphere(shoulder, 0.076, [0, -0.075, 0], palette.shirt, {
-    scale: [1.02, 0.92, 0.94], widthSegments: 16, heightSegments: 10, roughness: 0.9,
+  // The sleeve is the skinned arm tube itself; it tucks under the torso edge so
+  // there is no ball-and-socket seam at the shoulder.
+  sphere(shoulder, 0.058, [side * 0.004, -0.162, -0.006], palette.shirt, {
+    scale: [0.96, 1.3, 0.94], widthSegments: 14, heightSegments: 9, roughness: 0.9,
   });
-  sphere(shoulder, 0.06, [side * 0.006, -0.16, -0.01], palette.shirt, {
-    scale: [0.92, 1.15, 0.88], widthSegments: 12, heightSegments: 8, roughness: 0.9,
+  // Closed sleeve top: a low dome that stays inside the shirt's shoulder line.
+  sphere(shoulder, 0.088, [side * 0.012, 0.006, 0], palette.shirt, {
+    scale: [0.94, 0.62, 0.96], widthSegments: 20, heightSegments: 12, roughness: 0.9,
   });
-  cylinder(shoulder, [0.083], 0.032, [0, -0.215, 0], longSleeve ? palette.shirt : 0xf3efe0, {
-    segments: 14, scale: [1, 1, 0.9], roughness: 0.9,
+  // Stitched sleeve hem, then the bare arm below it.
+  cylinder(shoulder, [0.082], 0.03, [0, -0.236, 0], longSleeve ? palette.shirt : 0xece7d7, {
+    segments: 16, scale: [1, 1, 0.92], roughness: 0.92,
+  });
+  cylinder(shoulder, [0.079], 0.012, [0, -0.252, 0], longSleeve ? palette.shirt : 0xd9d2c0, {
+    segments: 16, scale: [1, 1, 0.92], roughness: 0.92,
   });
   if (jacket) {
     capsule(shoulder, 0.012, 0.28, [0, -0.2, -0.115], palette.accent, {
@@ -229,11 +245,9 @@ function makeArm(side, palette) {
     cylinder(wrist, [0.09], 0.012, [0, -0.004, 0], 0xc9ccd0, {
       segments: 12, metalness: 0.5, roughness: 0.35,
     });
-  } else {
-    cylinder(wrist, [0.082], 0.035, [0, -0.018, 0], 0xb98c66, { segments: 12, roughness: 0.8 });
   }
   detailedHand(wrist, side, {
-    y: -0.05, z: -0.012, scale: 0.8, skin, skinLight: palette.skinLight ?? SKIN_LIGHT,
+    y: -0.052, z: -0.01, scale: 0.92, skin, skinLight: palette.skinLight ?? SKIN_LIGHT,
     curl: 0.95,
   });
   if (palette.accessories?.includes('wristbands')) {
@@ -252,7 +266,7 @@ function makeLeg(side, palette) {
   const shoe = palette.shoe ?? SHOE;
   const trousers = palette.trousers;
   const hipColor = trousers ?? palette.shorts;
-  const kneeColor = trousers ?? skinLight;
+  const kneeColor = trousers ?? skin;
   const calfColor = trousers ?? skin;
   if (trousers) {
     // Pressed trousers over a short black boot.
@@ -282,57 +296,46 @@ function makeLeg(side, palette) {
     }
     return { hip, knee, ankle, mesh: limb.mesh, bones: limb.bones };
   }
-  // Shorts hem, kneecap, calf and a detailed lace-up shoe.
-  cylinder(hip, [0.196], 0.075, [0, -0.075, 0], hipColor, {
-    segments: 14, scale: [1, 1, 0.95], roughness: 0.9,
+  // Shorts hem: a turned cuff exactly at the fabric colour break.
+  cylinder(hip, [0.1], 0.018, [0, -0.238, 0], 0x0f1c3c, {
+    segments: 16, scale: [1, 1, 0.96], roughness: 0.92,
   });
-  sphere(knee, 0.072, [0, -0.012, -0.038], kneeColor, {
-    scale: [0.9, 0.84, 0.62], widthSegments: 12, heightSegments: 8, roughness: 0.72,
+  // Socks: snug at the calf with two school stripes at the cuff.
+  cylinder(ankle, [0.072, 0.063], 0.155, [0, 0.078, 0], 0xf2eee1, {
+    segments: 14, roughness: 0.92,
   });
-  sphere(knee, 0.1, [0, -0.24, 0.012], calfColor, {
-    scale: [0.86, 1.6, 0.98], widthSegments: 12, heightSegments: 8, roughness: 0.72,
-  });
-  // Socks with two school-uniform stripes.
-  cylinder(ankle, [0.098, 0.086], 0.17, [0, 0.055, 0], 0xf2eee1, {
-    segments: 12, roughness: 0.9,
-  });
-  for (const [offset, color] of [[0.09, palette.accent ?? 0x28406e], [0.048, 0xf2eee1], [0.012, palette.accent ?? 0x28406e]]) {
-    cylinder(ankle, [0.099], 0.018, [0, offset, 0], color, { segments: 12, roughness: 0.9 });
-  }
-  sphere(ankle, 1, [0, -0.078, -0.105], shoe, {
-    scale: [0.152, 0.106, 0.255], widthSegments: 20, heightSegments: 14, roughness: 0.55,
-  });
-  sphere(ankle, 1, [0, -0.036, -0.195], shoe, {
-    scale: [0.132, 0.072, 0.145], widthSegments: 16, heightSegments: 10, roughness: 0.5,
-  });
-  sphere(ankle, 1, [0, -0.152, -0.105], 0x080a0e, {
-    scale: [0.158, 0.034, 0.262], widthSegments: 18, heightSegments: 10, roughness: 0.6,
-  });
-  sphere(ankle, 1, [0, -0.162, -0.105], 0x1c2026, {
-    scale: [0.162, 0.016, 0.268], widthSegments: 16, heightSegments: 8, roughness: 0.7,
-  });
-  sphere(ankle, 1, [0, -0.028, -0.246], 0x343c47, {
-    scale: [0.121, 0.046, 0.088], widthSegments: 16, heightSegments: 10, roughness: 0.5,
-  });
-  sphere(ankle, 1, [0, -0.062, -0.17], 0xe8e4d6, {
-    scale: [0.118, 0.045, 0.075], widthSegments: 14, heightSegments: 8, roughness: 0.6,
-  });
-  for (const z of [-0.11, -0.17, -0.23]) {
-    cylinder(ankle, [0.009], 0.17, [0, -0.012, z], 0xd8d9d2, {
-      segments: 8, rotation: [0, 0, Math.PI / 2 + z * 0.3],
+  for (const offset of [0.148, 0.126]) {
+    cylinder(ankle, [0.074], 0.014, [0, offset, 0], palette.accent ?? 0x28406e, {
+      segments: 14, roughness: 0.9,
     });
   }
-  for (const x of [-0.04, 0.04]) {
-    cylinder(ankle, [0.008], 0.032, [x, -0.005, -0.28], 0xbfc5c7, {
-      segments: 6, rotation: [Math.PI / 2, 0, 0],
+  // Black school shoe: sole, upper, toe cap, heel counter, collar and laces.
+  roundedBox(ankle, [0.098, 0.026, 0.275], [0, -0.087, -0.075], 0x0a0b0e, {
+    radius: 0.012, segments: 2, roughness: 0.6,
+  });
+  roundedBox(ankle, [0.104, 0.012, 0.283], [0, -0.098, -0.075], 0x1a1d22, {
+    radius: 0.005, segments: 2, roughness: 0.75,
+  });
+  sphere(ankle, 1, [0, -0.036, -0.07], shoe, {
+    scale: [0.086, 0.062, 0.118], widthSegments: 18, heightSegments: 12, roughness: 0.5,
+  });
+  sphere(ankle, 1, [0, -0.05, -0.168], shoe, {
+    scale: [0.076, 0.042, 0.055], widthSegments: 14, heightSegments: 10, roughness: 0.45,
+  });
+  sphere(ankle, 1, [0, -0.05, 0.022], shoe, {
+    scale: [0.082, 0.05, 0.048], widthSegments: 14, heightSegments: 8, roughness: 0.55,
+  });
+  cylinder(ankle, [0.062, 0.07], 0.05, [0, 0.012, 0.006], 0x15181d, {
+    segments: 14, roughness: 0.6,
+  });
+  roundedBox(ankle, [0.05, 0.012, 0.09], [0, 0.008, -0.088], 0x22262c, {
+    radius: 0.006, segments: 1, roughness: 0.9,
+  });
+  for (const z of [-0.072, -0.112, -0.152]) {
+    cylinder(ankle, [0.006], 0.052, [0, 0.004, z], 0xd8d9d2, {
+      segments: 6, rotation: [0, 0, Math.PI / 2], roughness: 0.7,
     });
   }
-  capsule(ankle, 0.012, 0.1, [0, -0.045, 0.14], 0x2a2f36, {
-    rotation: [0, 0, Math.PI / 2], radialSegments: 6, capSegments: 2, roughness: 0.8,
-  });
-  sphere(ankle, 1, [0, -0.02, 0.055], shoe, {
-    scale: [0.132, 0.11, 0.09], widthSegments: 14, heightSegments: 8, roughness: 0.55,
-  });
   return { hip, knee, ankle, mesh: limb.mesh, bones: limb.bones };
 }
 
@@ -379,11 +382,14 @@ function buildHead(head, palette) {
     widthSegments: 18, heightSegments: 12, scale: [0.175, 0.10, 0.165], rotation: [0.24, 0, 0], roughness: 0.72,
   });
   for (const side of [-1, 1]) {
-    sphere(head, 1, [side * 0.16, 0.2, -0.175], skinLight, {
-      widthSegments: 12, heightSegments: 9, scale: [0.105, 0.075, 0.085], roughness: 0.7,
+    // Ear-side fill and a soft brow ridge; both sit mostly inside the skull so
+    // they shape the silhouette without reading as separate bumps.
+    sphere(head, 1, [side * 0.262, 0.245, -0.03], skin, {
+      widthSegments: 12, heightSegments: 9, scale: [0.075, 0.115, 0.10], roughness: 0.72,
     });
-    sphere(head, 1, [side * 0.29, 0.25, -0.02], skin, {
-      widthSegments: 10, heightSegments: 8, scale: [0.07, 0.1, 0.09], roughness: 0.72,
+    capsule(head, 0.024, 0.115, [side * 0.103, 0.3, -0.255], skinLight, {
+      rotation: [0, 0, Math.PI / 2 + side * 0.14], radialSegments: 8, capSegments: 3,
+      roughness: 0.7,
     });
   }
   sphere(head, 0.05, [0, 0.115, -0.075], skin, {
@@ -398,50 +404,59 @@ function buildHead(head, palette) {
       iris: palette.eyeColor ?? 0x4a2f1d,
     });
     detailedBrow(head, side, {
-      y: 0.331, z: faceZ(0.1, 0.331) - 0.004, color: palette.hair ?? HAIR, angle: 0.06,
+      y: 0.322, z: faceZ(0.1, 0.322) - 0.006, color: palette.hair ?? HAIR, angle: 0.05,
     });
     detailedEar(head, side, { y: 0.225, z: -0.012, skin, inner: 0xa8694a, scale: 0.86 });
   }
-  detailedNose(head, { y: 0.185, z: faceZ(0, 0.185) - 0.004, skin, skinLight, shadow });
+  detailedNose(head, { y: 0.19, z: faceZ(0, 0.19) - 0.004, skin, skinLight, shadow, scale: 0.86 });
   detailedMouth(head, {
-    y: 0.072, z: faceZ(0, 0.072) - 0.002, scale: 0.92,
-    lip: palette.lip ?? 0xa35a49, lipDark: 0x713a30,
+    y: 0.078, z: faceZ(0, 0.078) - 0.002, scale: 0.84,
+    lip: palette.lip ?? 0xb06a56, lipDark: 0x82463a,
   });
 
-  // Hair: dense cap, faded temples, swept fringe strands and sideburns.
+  // Hair: a shaped crown with a real hairline, a side-swept fringe built from
+  // tapered strands and a soft sheen band, rather than a smooth helmet.
   const hair = palette.hair ?? HAIR;
+  const hairSheen = new THREE.Color(hair).lerp(new THREE.Color(0xf0e6d8), 0.16).getHex();
   const style = palette.hairStyle || 'crop';
-  sphere(head, 1, [0, 0.438, 0.055], hair, {
-    widthSegments: 24, heightSegments: 16,
-    scale: [0.345, style === 'fade' ? 0.115 : 0.20, 0.325], roughness: 0.92,
-  });
-  sphere(head, 1, [0, 0.352, 0.128], hair, {
-    widthSegments: 20, heightSegments: 14, scale: [0.312, 0.212, 0.232], roughness: 0.92,
-  });
-  const fringeCount = palette.capStyle === 'peaked' ? 0 : style === 'curly' ? 11 : style === 'fade' ? 5 : 8;
-  for (let index = 0; index < fringeCount; index += 1) {
-    const centered = index - (fringeCount - 1) / 2;
-    const x = centered * (style === 'curly' ? 0.062 : 0.074);
-    const curl = style === 'curly' ? 0.03 : 0;
-    sphere(head, 1, [x, 0.445 + (index % 3) * 0.014 + curl, -0.176 - (index % 2) * 0.018], hair, {
-      scale: [0.082 + curl, 0.112 + (index % 2) * 0.02 + curl, 0.085 + curl],
-      rotation: [0.32, 0, (style === 'side' ? -0.7 : -0.3) + index * 0.14],
-      widthSegments: 10, heightSegments: 7, roughness: 0.92,
+  if (palette.capStyle !== 'peaked') {
+    sphere(head, 1, [0, 0.445, 0.028], hair, {
+      widthSegments: 26, heightSegments: 18,
+      scale: [0.352, style === 'fade' ? 0.155 : 0.205, 0.338], roughness: 0.94,
     });
-  }
-  for (const side of [-1, 1]) {
-    if (palette.capStyle === 'peaked') break;
-    capsule(head, 0.045, 0.13, [side * 0.295, 0.32, -0.115], hair, {
-      rotation: [0.26, 0, side * 0.16], radialSegments: 8, capSegments: 3, roughness: 0.92,
+    sphere(head, 1, [0, 0.335, 0.155], hair, {
+      widthSegments: 20, heightSegments: 14, scale: [0.315, 0.215, 0.225], roughness: 0.94,
     });
-    capsule(head, 0.03, 0.10, [side * 0.323, 0.205, -0.055], hair, {
-      rotation: [0.05, 0, side * 0.1], radialSegments: 7, capSegments: 2, roughness: 0.92,
+    // Sheen: a thin lighter shell across the crown reads as hair volume.
+    sphere(head, 1, [0, 0.515, 0.015], hairSheen, {
+      widthSegments: 22, heightSegments: 10, scale: [0.30, 0.055, 0.295], roughness: 0.62,
     });
-  }
-  if (style === 'long') {
-    sphere(head, 1, [0, 0.19, 0.185], hair, {
-      scale: [0.30, 0.37, 0.16], widthSegments: 18, heightSegments: 12, roughness: 0.92,
-    });
+    // Side-swept fringe: staggered tapered strands, longest over the part.
+    const strandCount = style === 'curly' ? 11 : 8;
+    for (let index = 0; index < strandCount; index += 1) {
+      const t = strandCount === 1 ? 0.5 : index / (strandCount - 1);
+      const x = -0.235 + t * 0.46;
+      const sweep = style === 'side' ? 0.55 : 0.34;
+      const taper = Math.sin(Math.PI * Math.min(1, Math.max(0, t))) * 0.055;
+      capsule(head, 0.019 + taper * 0.22, 0.085 + taper, [x, 0.397 - Math.cos(t * Math.PI) * 0.014, -0.198],
+        index % 3 === 0 ? hairSheen : hair, {
+          rotation: [0.5, 0, sweep * 0.6 - t * 0.5], radialSegments: 7, capSegments: 3, roughness: 0.94,
+        });
+    }
+    // Temple fade and sideburns.
+    for (const side of [-1, 1]) {
+      capsule(head, 0.042, 0.115, [side * 0.292, 0.315, -0.115], hair, {
+        rotation: [0.24, 0, side * 0.18], radialSegments: 9, capSegments: 3, roughness: 0.94,
+      });
+      capsule(head, 0.026, 0.085, [side * 0.318, 0.205, -0.06], hair, {
+        rotation: [0.04, 0, side * 0.1], radialSegments: 7, capSegments: 3, roughness: 0.94,
+      });
+    }
+    if (style === 'long') {
+      sphere(head, 1, [0, 0.2, 0.19], hair, {
+        scale: [0.30, 0.37, 0.16], widthSegments: 18, heightSegments: 12, roughness: 0.94,
+      });
+    }
   }
   if (palette.capStyle === 'peaked') {
     // Sri Lanka Police peaked cap: stiff black crown, black band, lacquered peak and badge.
@@ -646,20 +661,18 @@ export function createSchoolboy(options = {}) {
   body.add(shirt);
 
   // Shoulder yoke bridges the torso into the deltoids so the sleeves read as one body.
-  sphere(body, 1, [0, 1.885, 0.005], palette.shirt, {
-    scale: [0.305, 0.085, 0.145], widthSegments: 20, heightSegments: 12, roughness: 0.88,
-  });
+
   // Chest, lat and abdominal shaping under the fabric. These volumes stop the
   // runner reading as a single extruded block without turning him into a blob.
   for (const side of [-1, 1]) {
-    sphere(body, 1, [side * 0.24, 1.66, -0.025], palette.shirt, {
-      scale: [0.05, 0.16, 0.05], widthSegments: 14, heightSegments: 10, roughness: 0.8,
+    sphere(body, 1, [side * 0.198, 1.68, -0.02], palette.shirt, {
+      scale: [0.052, 0.15, 0.055], widthSegments: 14, heightSegments: 10, roughness: 0.8,
     });
   }
 
   // School shirt construction: collar, placket, buttons, pocket, badge and tie.
   collar(body, {
-    y: 1.9, z: shirtFront(1.9, 0.004), width: 0.15, color: palette.shirt, trim: 0xe6e0cf,
+    y: 1.895, z: shirtFront(1.85, 0.012), width: 0.15, color: palette.shirt, trim: 0xe6e0cf,
   });
   seam(body, [0.03, 0.4, 0.014], [0, 1.66, shirtFront(1.66, 0.004)], 0xf4f1e4);
   buttonRow(body, { count: 5, top: 1.80, bottom: 1.42, z: shirtFront(1.6, 0.012), radius: 0.01, color: 0x3d4654 });
@@ -709,20 +722,21 @@ export function createSchoolboy(options = {}) {
   }
   if (palette.outfit === 'uniform' && palette.style !== 'police') {
     // Knotted tie: small knot, tapered blade, two woven school stripes.
-    roundedBox(body, [0.05, 0.05, 0.022], [0, 1.845, shirtFront(1.845, 0.008)], palette.accent, {
+    roundedBox(body, [0.056, 0.052, 0.03], [0, 1.828, shirtFront(1.828, 0.012)], palette.accent, {
       radius: 0.016, roughness: 0.6,
     });
-    const blade = roundedBox(body, [0.042, 0.15, 0.014], [0, 1.745, shirtFront(1.745, 0.006)], palette.accent, {
+    const blade = roundedBox(body, [0.046, 0.16, 0.014], [0, 1.735, shirtFront(1.735, 0.008)], palette.accent, {
       radius: 0.01, roughness: 0.6,
     });
     blade.scale.x = 1.1;
     for (let index = 0; index < 2; index += 1) {
       seam(body, [0.036, 0.009, 0.005], [0, 1.79 - index * 0.04, shirtFront(1.79 - index * 0.04, 0.014)], 0xe8e2cf);
     }
+    // Shoulder yoke seams: soft tabs on top of the shoulders, not chest plates.
     for (const side of [-1, 1]) {
-      sphere(body, 1, [side * 0.1, 1.87, shirtFront(1.87, 0.004)], palette.shirt, {
-        scale: [0.1, 0.038, 0.02], rotation: [0.12, 0, side * 0.36],
-        widthSegments: 10, heightSegments: 6, roughness: 0.85,
+      sphere(body, 1, [side * 0.148, 1.9, -0.012], palette.shirt, {
+        scale: [0.072, 0.02, 0.088], rotation: [0, 0, side * 0.14],
+        widthSegments: 12, heightSegments: 6, roughness: 0.85,
       });
     }
   } else if (palette.outfit === 'jacket') {
@@ -741,24 +755,28 @@ export function createSchoolboy(options = {}) {
   }
 
   // Shorts, belt and pockets.
-  sphere(body, 1, [0, 1.115, 0], palette.shorts, {
-    scale: [0.225, 0.15, 0.168], widthSegments: 18, heightSegments: 12, roughness: 0.9,
+  // Waistband: closes the gap between the shirt hem and the leg tops.
+  cylinder(body, [0.169], 0.11, [0, 1.188, 0], palette.shorts, {
+    segments: 22, scale: [1, 1, 0.76], roughness: 0.92,
+  });
+  sphere(body, 1, [0, 1.086, 0], palette.shorts, {
+    scale: [0.168, 0.126, 0.135], widthSegments: 20, heightSegments: 12, roughness: 0.9,
   });
   for (const side of [-1, 1]) {
-    sphere(body, 1, [side * 0.112, 1.06, -0.012], palette.shorts, {
-      scale: [0.115, 0.135, 0.15], widthSegments: 14, heightSegments: 10, roughness: 0.9,
+    sphere(body, 1, [side * 0.096, 1.05, -0.01], palette.shorts, {
+      scale: [0.101, 0.13, 0.132], widthSegments: 14, heightSegments: 10, roughness: 0.9,
     });
-    seam(body, [0.008, 0.15, 0.014], [side * 0.203, 1.09, -0.125], 0x2a3f6b);
-    roundedBox(body, [0.085, 0.05, 0.012], [side * 0.13, 1.128, -0.172], palette.shorts, {
-      radius: 0.01, roughness: 0.9,
+    seam(body, [0.008, 0.15, 0.014], [side * 0.171, 1.08, -0.112], 0x2a3f6b);
+    roundedBox(body, [0.062, 0.012, 0.052], [side * 0.099, 1.128, -0.104], 0x101d40, {
+      radius: 0.005, segments: 1, roughness: 0.94,
     });
   }
-  const belt = cylinder(body, [0.228], 0.042, [0, 1.235, 0], 0x23304c, { segments: 20 });
-  belt.scale.z = 0.76;
-  roundedBox(body, [0.07, 0.055, 0.028], [0, 1.235, -0.168], 0xc9ccd0, {
+  const belt = cylinder(body, [0.19], 0.062, [0, 1.218, 0], 0x23304c, { segments: 22 });
+  belt.scale.z = 0.8;
+  roundedBox(body, [0.062, 0.05, 0.026], [0, 1.222, -0.152], 0xc9ccd0, {
     radius: 0.012, metalness: 0.5, roughness: 0.35,
   });
-  roundedBox(body, [0.044, 0.03, 0.014], [0, 1.235, -0.182], 0x1c242c, { radius: 0.007 });
+  roundedBox(body, [0.038, 0.026, 0.014], [0, 1.222, -0.164], 0x1c242c, { radius: 0.007 });
 
   // Neck (kept on the body so the smaller head can rotate naturally).
   cylinder(body, [0.086, 0.078], 0.19, [0, 1.945, 0.004], palette.skin, {
@@ -767,14 +785,14 @@ export function createSchoolboy(options = {}) {
   sphere(body, 0.105, [0, 1.955, 0], palette.skin, {
     scale: [1, 0.55, 1], widthSegments: 16, heightSegments: 10, roughness: 0.78,
   });
-  cylinder(body, [0.104, 0.118], 0.05, [0, 1.952, 0], palette.shirt, {
+  cylinder(body, [0.096, 0.11], 0.052, [0, 1.954, 0], palette.shirt, {
     segments: 18, roughness: 0.9,
   });
 
   const head = new THREE.Group();
   head.name = 'Sculpted head';
-  head.position.set(0, 2.02, 0);
-  head.scale.setScalar(0.5);
+  head.position.set(0, 2.055, 0);
+  head.scale.setScalar(0.46);
   body.add(head);
   buildHead(head, palette);
 

@@ -66,7 +66,7 @@ export function detailedBrow(parent, side, {
     const t = index / 3;
     const x = side * (0.058 + t * 0.105) * s;
     const lift = (1 - t) * 0.012 * s;
-    capsule(parent, 0.0115 * s - t * 0.0035 * s, 0.052 * s,
+    capsule(parent, 0.0082 * s - t * 0.0028 * s, 0.048 * s,
       [x, y + lift, z - t * 0.008 * s], color, {
         rotation: [0, 0, Math.PI / 2 + side * (angle + t * 0.1)],
         radialSegments: 6, capSegments: 2, roughness: 0.85,
@@ -103,8 +103,8 @@ export function detailedNose(parent, {
     scale: [1.02, 0.86, 0.92], widthSegments: 12, heightSegments: 9, roughness: 0.7,
   });
   for (const side of [-1, 1]) {
-    sphere(parent, 0.024 * s, [side * 0.032 * s, y - 0.012 * s, z - 0.018 * s], shadow, {
-      scale: [0.85, 0.62, 0.7], widthSegments: 8, heightSegments: 6, roughness: 0.8,
+    sphere(parent, 0.017 * s, [side * 0.03 * s, y - 0.014 * s, z - 0.02 * s], shadow, {
+      scale: [0.9, 0.6, 0.7], widthSegments: 8, heightSegments: 6, roughness: 0.8,
     });
     sphere(parent, 0.008 * s, [side * 0.014 * s, y - 0.02 * s, z - 0.036 * s], 0x6b4030, {
       scale: [1.1, 0.6, 0.5], widthSegments: 6, heightSegments: 4, roughness: 0.9,
@@ -141,7 +141,7 @@ export function detailedMouth(parent, {
 /** A hand with a shaped palm, knuckle row, four fingers and an opposed thumb. */
 export function detailedHand(parent, side, {
   y = -0.07, z = -0.012, scale = 1, skin = 0xb97850, skinLight = 0xcb8b61,
-  nail = 0xe3bda5, rotation = [0, 0, 0], curl = 0.24,
+  nail = 0xd8ae96, rotation = [0, 0, 0], curl = 0.9,
 } = {}) {
   const s = scale;
   const hand = new THREE.Group();
@@ -149,33 +149,41 @@ export function detailedHand(parent, side, {
   parent.add(hand);
   hand.position.set(side * 0.004 * s, y, z);
   hand.rotation.set(...rotation);
-  sphere(hand, 0.082 * s, [0, 0, -0.004 * s], skinLight, {
-    scale: [0.92, 1.1, 0.55], widthSegments: 16, heightSegments: 10, roughness: 0.7,
+
+  // Loose running fist: continuous palm mass, knuckle line, three phalanx
+  // segments per finger that overlap so no gaps show, and a thumb wrapped
+  // across the front of the index finger.
+  sphere(hand, 0.034 * s, [0, 0.018 * s, 0], skin, {
+    scale: [1, 1.18, 0.88], widthSegments: 14, heightSegments: 9, roughness: 0.68,
   });
-  roundedBox(hand, [0.118 * s, 0.11 * s, 0.062 * s], [0, -0.062 * s, -0.006 * s], skinLight, {
-    radius: 0.024 * s, segments: 2, roughness: 0.7,
+  roundedBox(hand, [0.08 * s, 0.09 * s, 0.052 * s], [0, -0.036 * s, -0.006 * s], skinLight, {
+    radius: 0.022 * s, segments: 2, roughness: 0.68,
+  });
+  // Knuckle shelf: one continuous ridge instead of four separate bumps.
+  roundedBox(hand, [0.083 * s, 0.034 * s, 0.056 * s], [0, -0.088 * s, -0.012 * s], skin, {
+    radius: 0.014 * s, segments: 2, roughness: 0.68,
   });
   for (let finger = 0; finger < 4; finger += 1) {
-    const x = (-0.04 + finger * 0.0265) * s;
-    const length = (0.05 - Math.abs(finger - 1.5) * 0.008) * s;
-    capsule(hand, 0.0135 * s, length, [x, -0.135 * s, -0.014 * s], skin, {
-      rotation: [curl, 0, 0], radialSegments: 7, capSegments: 2, roughness: 0.7,
+    const x = (-0.027 + finger * 0.018) * s;
+    capsule(hand, 0.0118 * s, 0.032 * s, [x, -0.106 * s, -0.032 * s], skin, {
+      rotation: [0.34 + curl * 0.16, 0, 0], radialSegments: 7, capSegments: 3, roughness: 0.68,
     });
-    capsule(hand, 0.0115 * s, length * 0.72, [x, -0.135 * s - length * 0.86, -0.03 * s], skin, {
-      rotation: [curl * 2.1, 0, 0], radialSegments: 7, capSegments: 2, roughness: 0.7,
+    capsule(hand, 0.011 * s, 0.026 * s, [x, -0.118 * s, -0.052 * s], skin, {
+      rotation: [1.22 * curl, 0, 0], radialSegments: 7, capSegments: 3, roughness: 0.68,
     });
-    sphere(hand, 0.0062 * s, [x, -0.135 * s - length * 1.42, -0.048 * s], nail, {
-      scale: [1, 1, 0.6], widthSegments: 6, heightSegments: 4, roughness: 0.5,
-    });
-    sphere(hand, 0.017 * s, [x, -0.06 * s, -0.03 * s], skinLight, {
-      scale: [0.9, 0.65, 0.7], widthSegments: 6, heightSegments: 4, roughness: 0.7,
+    capsule(hand, 0.0102 * s, 0.017 * s, [x, -0.109 * s, -0.066 * s], skin, {
+      rotation: [2.1 * curl, 0, 0], radialSegments: 7, capSegments: 3, roughness: 0.68,
     });
   }
-  capsule(hand, 0.017 * s, 0.055 * s, [side * 0.058 * s, -0.055 * s, -0.02 * s], skin, {
-    rotation: [0.35, 0, side * 0.95], radialSegments: 8, capSegments: 2, roughness: 0.7,
+  // Thenar mound, then the thumb laid diagonally across the curled fingers.
+  sphere(hand, 0.0195 * s, [side * 0.031 * s, -0.03 * s, -0.024 * s], skinLight, {
+    scale: [1, 1.25, 0.92], widthSegments: 9, heightSegments: 7, roughness: 0.68,
   });
-  capsule(hand, 0.014 * s, 0.042 * s, [side * 0.082 * s, -0.092 * s, -0.036 * s], skin, {
-    rotation: [0.55, 0, side * 1.2], radialSegments: 7, capSegments: 2, roughness: 0.7,
+  capsule(hand, 0.0136 * s, 0.042 * s, [side * 0.02 * s, -0.056 * s, -0.06 * s], skin, {
+    rotation: [0.22, 0, side * 0.55], radialSegments: 9, capSegments: 3, roughness: 0.68,
+  });
+  sphere(hand, 0.0132 * s, [side * 0.004 * s, -0.08 * s, -0.064 * s], skin, {
+    scale: [1.05, 1, 0.95], widthSegments: 8, heightSegments: 6, roughness: 0.68,
   });
   return hand;
 }
@@ -198,15 +206,17 @@ export function seam(parent, size, position, color, rotation) {
 export function collar(parent, {
   y = 0.4, z = -0.16, width = 0.3, color = 0xf3efe0, trim = 0xe2dcc8,
 } = {}) {
+  // A low stand around the neck, then two pointed lapels that follow the
+  // chest slope from the collar down to the placket.
+  cylinder(parent, [width * 0.44, width * 0.5], 0.05, [0, y + 0.02, 0.01], color, {
+    segments: 18, scale: [1, 1, 0.9], roughness: 0.9,
+  });
   for (const side of [-1, 1]) {
-    box(parent, [width, 0.1, 0.012], [side * width * 0.42, y, z], color, {
-      rotation: [0.12, side * -0.5, side * 0.22], roughness: 0.9,
+    box(parent, [width * 0.44, 0.082, 0.007], [side * width * 0.2, y - 0.052, z], color, {
+      rotation: [0.5, side * -0.2, side * 0.52], roughness: 0.9,
     });
-    box(parent, [width * 0.92, 0.014, 0.014], [side * width * 0.42, y - 0.045, z - 0.008], trim, {
-      rotation: [0.12, side * -0.5, side * 0.22],
+    box(parent, [width * 0.38, 0.008, 0.009], [side * width * 0.235, y - 0.055, z - 0.004], trim, {
+      rotation: [0.5, side * -0.2, side * 0.52], roughness: 0.92,
     });
   }
-  cylinder(parent, [0.16, 0.175], 0.09, [0, y + 0.04, 0.02], color, {
-    segments: 14, scale: [1, 1, 0.82], roughness: 0.9,
-  });
 }
