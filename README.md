@@ -6,7 +6,7 @@ An original 3D Sri Lankan endless runner for **web and Android**, built with **T
 
 **Package:** `lk.shaun.slbadboy` · **App name:** `SL BAD BOY` · **Minimum:** Android 7.0 (API 24) · **Target:** API 36.
 
-**Current APK:** 2.10.0 (versionCode 16) · see [artifacts/SL-BAD-BOY.apk.sha256](artifacts/SL-BAD-BOY.apk.sha256) for the exact size and SHA-256 of the CI-built package.
+**Current APK:** 2.10.0 (versionCode 16) · 11,226,845 bytes · SHA-256 `28ab6308a4a4ef8a095bf0ff050519f16b1db4f953d2dceef95309ec4ed2c8f2`.
 
 - Direct branch download: **[artifacts/SL-BAD-BOY.apk](artifacts/SL-BAD-BOY.apk)** (produced and validated by the Android workflow).
 - GitHub Actions also publishes the same package as the **SL-BAD-BOY-APK** workflow artifact with a SHA-256 checksum.
