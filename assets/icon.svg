@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#111a35"/><stop offset="1" stop-color="#17545a"/></linearGradient>
+    <linearGradient id="road" x2="0" y2="1"><stop stop-color="#3b4850"/><stop offset="1" stop-color="#111722"/></linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="27" fill="url(#sky)"/>
+  <circle cx="98" cy="27" r="13" fill="#f4b942"/>
+  <path d="M0 78 31 42l18 23 18-29 36 43 25-21v42H0Z" fill="#1d8065"/>
+  <path d="M41 128 55 65h20l17 63Z" fill="url(#road)"/>
+  <path d="M63 74h4v13h-4zm-3 24h8v19h-8z" fill="#f4b942"/>
+  <text x="64" y="43" text-anchor="middle" fill="#fff8e7" font-family="Arial Black,Arial,sans-serif" font-size="31" font-weight="900" letter-spacing="1">SL</text>
+  <g transform="translate(40 49)">
+    <circle cx="24" cy="15" r="11" fill="#bd7952"/>
+    <path d="M13 13C12-2 36-2 35 13v5H13Z" fill="#151923"/>
+    <path d="m13 28 22-2 5 28-25 2Z" fill="#fff8e7"/>
+    <path d="m18 31 15-1 2 18-16 1Z" fill="#8b3048"/>
+    <path d="m15 52 23-1 3 12-25 2Z" fill="#243b76"/>
+    <path d="m17 63 8 1-3 18H12Zm15-1 8-1 7 17-9 2Z" fill="#172037"/>
+    <path d="M14 31 1 48m33-20 14 12" stroke="#fff8e7" stroke-width="8" stroke-linecap="round"/>
+  </g>
+  <path d="M12 113h104v15H12Z" fill="#f4b942"/>
+  <text x="64" y="124" text-anchor="middle" fill="#151d3a" font-family="Arial Black,Arial,sans-serif" font-size="12" font-weight="900" letter-spacing="2">BAD BOY</text>
+</svg>

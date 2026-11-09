@@ -1,0 +1,223 @@
+/* Premium run feedback and functional progression/audio controls. */
+.game-feedback {
+  position: absolute;
+  z-index: 8;
+  top: max(88px, calc(env(safe-area-inset-top) + 76px));
+  left: 50%;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 15px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%);
+  color: var(--cream);
+  background: linear-gradient(110deg, rgba(18, 34, 55, .94), rgba(23, 103, 94, .92));
+  border: 1px solid rgba(255, 222, 127, .42);
+  border-radius: 5px 15px 5px 15px;
+  box-shadow: 0 8px 24px rgba(8, 22, 31, .24);
+  white-space: nowrap;
+}
+.game-feedback strong { font-size: 11px; letter-spacing: 1.5px; }
+.game-feedback span { color: #ffe078; font-size: 9px; font-weight: 900; letter-spacing: 1px; }
+
+.mission-panel {
+  margin-top: 15px;
+  padding: 11px 12px 12px;
+  background: linear-gradient(120deg, rgba(255, 255, 255, .055), rgba(31, 138, 112, .07));
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 5px 14px 5px 14px;
+}
+.mission-header, .rank-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.mission-header > span { color: #d9e6df; font-size: 8px; font-weight: 900; letter-spacing: 1.5px; }
+.mission-header > strong { color: var(--gold); font-size: 13px; }
+.mission-header b { font-weight: 900; }
+.rank-line { margin-top: 6px; }
+.rank-line > span { color: #93aaa9; font-size: 7px; font-weight: 800; letter-spacing: 1px; }
+.rank-track { width: 72px; height: 3px; overflow: hidden; background: rgba(255, 255, 255, .1); border-radius: 4px; }
+.rank-track i, .mission-track i { display: block; width: 100%; height: 100%; transform: scaleX(0); transform-origin: left; background: linear-gradient(90deg, var(--teal), #71d6ae, var(--gold)); }
+.mission-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; margin-top: 10px; }
+.mission-row { min-width: 0; }
+.mission-row span, .mission-row strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mission-row span { color: #aebfbd; font-size: 7px; font-weight: 800; letter-spacing: .7px; }
+.mission-row strong { margin-top: 3px; color: #f3f2df; font-size: 8px; font-variant-numeric: tabular-nums; }
+.mission-track { height: 3px; margin-top: 6px; overflow: hidden; background: rgba(255, 255, 255, .1); border-radius: 3px; }
+.mission-row.is-complete span, .mission-row.is-complete strong { color: #8ee2b9; }
+.mission-row.is-complete .mission-track i { background: #66d69c; }
+
+.run-rewards {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: -10px 0 19px;
+  padding: 8px 10px;
+  color: #b9cac6;
+  background: rgba(255, 255, 255, .045);
+  border-radius: 4px 10px 4px 10px;
+}
+.run-rewards strong { color: var(--gold); font-size: 14px; white-space: nowrap; }
+.run-rewards span { font-size: 7px; font-weight: 800; letter-spacing: .7px; }
+.run-rewards.has-reward { background: rgba(244, 185, 66, .1); }
+
+.audio-settings { display: grid; gap: 11px; margin-top: 19px; padding-top: 15px; border-top: 1px solid rgba(255, 255, 255, .1); }
+.audio-settings label { display: grid; grid-template-columns: 68px 1fr; align-items: center; gap: 12px; color: #aebfbd; font-size: 8px; font-weight: 800; letter-spacing: 1px; text-align: left; }
+.audio-settings input { width: 100%; height: 18px; margin: 0; accent-color: var(--gold); cursor: pointer; }
+.secondary-button:active, .text-button:active { transform: translateY(1px); filter: brightness(1.2); }
+
+@media (max-width: 600px) {
+  .game-feedback { top: max(72px, calc(env(safe-area-inset-top) + 64px)); }
+  .mission-panel { margin-top: 12px; padding: 10px; }
+  .mission-list { gap: 7px; }
+  .dialog-panel { max-height: calc(100dvh - 24px); overflow-y: auto; }
+}
+@media (max-height: 690px) {
+  .mission-panel { margin-top: 10px; padding-top: 8px; padding-bottom: 9px; }
+  .mission-list { margin-top: 7px; }
+  .audio-settings { margin-top: 14px; padding-top: 11px; }
+}
+
+/* 3.0 field kit: magnet timer, near-miss combo and island stamp book. */
+.combo-badge {
+  position: absolute; z-index: 8; right: max(20px, env(safe-area-inset-right));
+  top: 50%; display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
+  padding: 8px 14px 9px; color: #fff4d2; pointer-events: none; opacity: 0;
+  transform: translate(10px, -50%); transition: opacity .18s, transform .18s;
+  background: linear-gradient(120deg, rgba(122,45,26,.92), rgba(58,22,42,.92));
+  border: 1px solid rgba(244,185,66,.6); border-radius: 14px 4px 14px 4px;
+}
+.combo-badge.is-visible { opacity: 1; transform: translate(0, -50%); }
+.combo-badge strong { font-size: 24px; line-height: 1; letter-spacing: .5px; color: #ffcf6a; }
+.combo-badge span { font-size: 7px; font-weight: 800; letter-spacing: 1.5px; color: #f3dcb6; }
+.combo-badge.is-hot { box-shadow: 0 0 26px rgba(255,150,60,.45); }
+
+.power-hud {
+  position: absolute; z-index: 8; left: 50%; bottom: 24px; width: min(300px, calc(100% - 28px));
+  padding: 9px 14px 8px; color: #e8fbff; pointer-events: none; opacity: 0;
+  transform: translate(-50%, 12px); transition: opacity .2s, transform .2s;
+  background: linear-gradient(110deg, rgba(8,34,52,.94), rgba(16,82,96,.94));
+  border: 1px solid rgba(127,232,255,.55); border-radius: 8px 18px 8px 18px;
+}
+.power-hud.is-visible { opacity: 1; transform: translate(-50%, 0); }
+.power-row { display: flex; align-items: baseline; justify-content: space-between; font-size: 8px; font-weight: 800; letter-spacing: 1.5px; }
+.power-row b { color: #9ff3ff; font-size: 13px; font-variant-numeric: tabular-nums; }
+.power-track { height: 4px; margin-top: 6px; overflow: hidden; background: rgba(0,0,0,.3); border-radius: 4px; }
+.power-track span { display: block; width: 100%; height: 100%; transform-origin: left; background: linear-gradient(90deg, #2f9fc4, #8ff2ff); }
+body.magnet-active .boost-hud { bottom: 96px; }
+body.magnet-active .power-hud { bottom: 24px; }
+
+.island-streak { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0 8px; }
+.island-streak div { padding: 7px 9px; background: rgba(255,255,255,.05); border-left: 2px solid var(--gold); }
+.island-streak span { display: block; font-size: 7px; font-weight: 800; letter-spacing: 1.3px; color: #b9c8c6; }
+.island-streak strong { display: block; margin-top: 3px; font-size: 12px; color: var(--cream); }
+.stamp-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 8px; }
+.stamp-row i {
+  display: flex; align-items: center; justify-content: center; height: 22px;
+  font-size: 7px; font-style: normal; font-weight: 800; letter-spacing: .4px;
+  color: rgba(255,255,255,.32); background: rgba(255,255,255,.05);
+  border: 1px dashed rgba(255,255,255,.16); border-radius: 4px;
+}
+.stamp-row i.is-earned {
+  color: #20180c; background: linear-gradient(140deg, #f4c766, #d29a2f);
+  border: 1px solid #ffe3a3; box-shadow: 0 0 10px rgba(244,185,66,.22);
+}
+
+.run-summary {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px 12px;
+  margin-bottom: 18px; padding: 12px 0 0; border-top: 1px solid rgba(255,255,255,.12);
+}
+.run-summary span { display: block; font-size: 7px; font-weight: 700; letter-spacing: 1.3px; color: #aebfc1; }
+.run-summary strong { display: block; margin-top: 4px; font-size: 13px; color: var(--cream); }
+.streak-note { margin: -6px 0 14px; font-size: 8px; font-weight: 800; letter-spacing: 1.2px; color: var(--gold); text-align: center; }
+
+@media (max-width: 720px) {
+  .power-hud { bottom: max(92px, calc(env(safe-area-inset-bottom) + 84px)); width: min(260px, calc(100% - 40px)); }
+  body.magnet-active .power-hud { bottom: max(92px, calc(env(safe-area-inset-bottom) + 84px)); }
+  body.magnet-active .boost-hud { bottom: max(150px, calc(env(safe-area-inset-bottom) + 142px)); }
+  .combo-badge { top: 42%; right: max(10px, env(safe-area-inset-right)); padding: 6px 10px; }
+  .combo-badge strong { font-size: 18px; }
+  .combo-badge span { font-size: 6px; }
+  .run-summary { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ---------------------------------------------------------------------------
+   COLOMBO AFTER HOURS — graphics tier selector and premium panel polish
+   --------------------------------------------------------------------------- */
+.graphics-settings { display: grid; gap: 9px; margin-top: 15px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, .1); }
+.graphics-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.graphics-heading span { color: #aebfbd; font-size: 8px; font-weight: 800; letter-spacing: 1.4px; }
+.graphics-heading small { color: #f4b942; font-size: 7px; font-weight: 800; letter-spacing: 1.1px; text-align: right; }
+.graphics-options { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.graphics-option {
+  position: relative; padding: 9px 4px; border-radius: 6px; cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, .16); background: rgba(255, 255, 255, .05);
+  color: #c8d8d4; font-size: 8px; font-weight: 800; letter-spacing: .9px;
+  transition: background .18s ease, color .18s ease, border-color .18s ease, transform .12s ease;
+}
+.graphics-option:hover { background: rgba(255, 255, 255, .11); }
+.graphics-option:active { transform: scale(.97); }
+.graphics-option.is-active {
+  color: #14202c; border-color: #f4d27a;
+  background: linear-gradient(160deg, #ffe6a2, #f4b942 62%, #e79a2c);
+  box-shadow: 0 6px 18px rgba(244, 185, 66, .28), inset 0 1px rgba(255, 255, 255, .6);
+}
+.graphics-option.is-active::after {
+  content: ""; position: absolute; inset: auto 9px 4px; height: 2px;
+  background: rgba(20, 32, 44, .35); border-radius: 2px;
+}
+
+/* Deeper, warmer glass for the evening identity without hurting readability. */
+.panel { border-radius: 10px; box-shadow: 0 30px 90px rgba(4, 10, 22, .55), inset 0 1px rgba(255, 255, 255, .1); }
+.panel::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+  background: radial-gradient(120% 80% at 12% -10%, rgba(244, 185, 66, .1), transparent 58%);
+}
+.dialog-panel { position: relative; overflow: hidden; }
+.primary-button { box-shadow: 0 12px 30px rgba(244, 185, 66, .28), inset 0 1px rgba(255, 255, 255, .45); }
+.primary-button::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, .38) 48%, transparent 62%);
+  transform: translateX(-120%); animation: ui-sheen 5.5s ease-in-out infinite;
+}
+@keyframes ui-sheen {
+  0%, 62% { transform: translateX(-120%); }
+  82%, 100% { transform: translateX(120%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .primary-button::after { animation: none; opacity: .25; }
+}
+@media (max-width: 520px) {
+  .graphics-options { gap: 4px; }
+  .graphics-option { padding: 8px 2px; font-size: 7px; letter-spacing: .5px; }
+  .graphics-heading small { font-size: 6px; }
+}
+
+/* After-hours presentation: the CSS sun bloom fades out once night lighting wins. */
+.sun-glow { transition: opacity .8s ease-out; }
+body.is-night .sun-glow { opacity: .18; }
+body.is-night .vignette { box-shadow: inset 0 0 165px rgba(4, 8, 18, .55); }
+
+/* Premium glass dock: wider footprint, softer edge, brighter primary action.
+   Kept compact so it still fits a 360px-wide handset without scrolling. */
+.menu-dock {
+  width: min(460px, calc(100% - 28px));
+  gap: 10px;
+  padding: 14px 16px 15px;
+  border-radius: 8px 26px 8px 26px;
+  border-color: rgba(255, 214, 150, .26);
+  background: linear-gradient(150deg, rgba(12, 21, 40, .95), rgba(31, 45, 63, .92));
+  box-shadow: 0 22px 60px rgba(3, 8, 18, .48), inset 0 1px rgba(255, 255, 255, .1);
+  backdrop-filter: blur(14px) saturate(1.15);
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
+}
+.menu-dock::before {
+  content: ""; position: absolute; inset: 0 34% auto; height: 2px; border-radius: 2px;
+  background: linear-gradient(90deg, transparent, rgba(244, 185, 66, .85), transparent);
+}
+.menu-dock .primary-button { min-height: 62px; letter-spacing: .1em; }
+.menu-dock .shop-button { min-height: 62px; }
+.menu-dock .mission-header { letter-spacing: .12em; }
+@media (max-width: 380px) {
+  .menu-dock { width: calc(100% - 20px); padding: 12px 13px 13px; gap: 8px; }
+  .menu-dock .primary-button, .menu-dock .shop-button { min-height: 56px; }
+}
