@@ -85,8 +85,8 @@ jobs:
           "$AAPT" dump --include-meta-data badging "$APK" | tee apk-badging.txt
           grep -F "package: name='lk.shaun.slbadboy'" apk-badging.txt
           grep -F "application-label:'SL BAD BOY'" apk-badging.txt
-          grep -F "versionCode='19'" apk-badging.txt
-          grep -F "versionName='2.13.0'" apk-badging.txt
+          grep -F "versionCode='20'" apk-badging.txt
+          grep -F "versionName='2.14.0'" apk-badging.txt
           grep -F "sdkVersion:'24'" apk-badging.txt
           grep -F 'com.google.android.gms.ads.APPLICATION_ID' apk-badging.txt
           grep -F 'ca-app-pub-7175777292239029~3414423328' apk-badging.txt

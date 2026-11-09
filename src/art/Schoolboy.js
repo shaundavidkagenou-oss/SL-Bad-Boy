@@ -5,6 +5,7 @@ import {
   detailedMouth, detailedNose, seam,
 } from './DetailKit.js';
 import { batchArticulatedModel } from './StaticBatcher.js';
+import { sculptedHead } from './HeadSculpt.js';
 
 const SKIN = 0xb97850;
 const PAL_POLICE_TAB = () => 0x6f6244;
@@ -16,7 +17,7 @@ const SHOE = 0x11141b;
 let shirtGeometry;
 let shirtGeometryKey = '';
 const SHIRT_KEYS = [
-  [0.176, -0.325], [0.190, -0.30], [0.176, -0.18], [0.168, -0.06],
+  [0.178, -0.3], [0.19, -0.286], [0.176, -0.18], [0.168, -0.06],
   [0.192, 0.06], [0.222, 0.17], [0.235, 0.27], [0.232, 0.33],
   [0.224, 0.375], [0.206, 0.408], [0.176, 0.432], [0.138, 0.448],
   [0.104, 0.456],
@@ -350,57 +351,18 @@ function buildHead(head, palette) {
   const skinLight = palette.skinLight ?? SKIN_LIGHT;
   const shadow = palette.skinShadow ?? 0x8f5a3e;
 
-  // Face parts sit on the sculpted mask surface rather than floating in front of it.
-  // Face features follow the real skull ellipsoid below, so nothing floats in
-  // front of the head or sinks inside it.
-  const surface = (x, y, cx, cy, cz, rx, ry, rz) => {
-    const nx = (x - cx) / rx;
-    const ny = (y - cy) / ry;
-    const k = 1 - nx * nx - ny * ny;
-    return k <= 0 ? null : cz - rz * Math.sqrt(k);
-  };
-  const faceZ = (x, y) => {
-    const values = [
-      surface(x, y, 0, 0.245, 0.005, 0.335, 0.372, 0.325),
-      surface(x, y, 0, 0.155, -0.03, 0.30, 0.255, 0.30),
-      surface(x, y, 0, 0.085, -0.05, 0.215, 0.16, 0.265),
-      surface(x, y, 0, 0.028, -0.13, 0.175, 0.10, 0.165),
-    ].filter((value) => value !== null);
-    return values.length ? Math.min(...values) : -0.30;
-  };
-  // Skull, brow, cheek and jaw volumes blend into one readable silhouette.
-  sphere(head, 1, [0, 0.245, 0.005], skinLight, {
-    widthSegments: 26, heightSegments: 18, scale: [0.335, 0.372, 0.325], roughness: 0.7,
-  });
-  sphere(head, 1, [0, 0.155, -0.03], skinLight, {
-    widthSegments: 22, heightSegments: 14, scale: [0.30, 0.255, 0.30], roughness: 0.7,
-  });
-  sphere(head, 1, [0, 0.085, -0.05], skin, {
-    widthSegments: 20, heightSegments: 14, scale: [0.215, 0.16, 0.265], roughness: 0.72,
-  });
-  sphere(head, 1, [0, 0.028, -0.13], skin, {
-    widthSegments: 18, heightSegments: 12, scale: [0.175, 0.10, 0.165], rotation: [0.24, 0, 0], roughness: 0.72,
-  });
+  // One continuous sculpted head: skull, jaw, chin, cheekbones, brow ridge and
+  // sockets are a single displaced surface, so there are no sphere-on-sphere
+  // seams and every feature sits on the real skin.
+  const sculpt = sculptedHead();
+  const faceZ = sculpt.faceZ;
+  const hair = palette.hair ?? HAIR;
+  const skinMesh = new THREE.Mesh(sculpt.skin, material(skinLight, { roughness: 0.7 }));
+  skinMesh.name = 'Sculpted head';
+  head.add(skinMesh);
   for (const side of [-1, 1]) {
-    // Ear-side fill and a soft brow ridge; both sit mostly inside the skull so
-    // they shape the silhouette without reading as separate bumps.
-    sphere(head, 1, [side * 0.262, 0.245, -0.03], skin, {
-      widthSegments: 12, heightSegments: 9, scale: [0.075, 0.115, 0.10], roughness: 0.72,
-    });
-    capsule(head, 0.024, 0.115, [side * 0.103, 0.3, -0.255], skinLight, {
-      rotation: [0, 0, Math.PI / 2 + side * 0.14], radialSegments: 8, capSegments: 3,
-      roughness: 0.7,
-    });
-  }
-  sphere(head, 0.05, [0, 0.115, -0.075], skin, {
-    scale: [1.2, 0.9, 0.8], widthSegments: 10, heightSegments: 7, roughness: 0.8,
-  });
-  for (const side of [-1, 1]) {
-    capsule(head, 0.022, 0.105, [side * 0.068, -0.03, -0.075], skin, {
-      rotation: [0.22, 0, side * 0.42], radialSegments: 7, capSegments: 2, roughness: 0.75,
-    });
     detailedEye(head, side, {
-      y: 0.252, z: faceZ(0.108, 0.252) + 0.012, scale: 0.86, skin, shadow, lidCover: 0.5,
+      y: 0.252, z: faceZ(0.108, 0.252) + 0.012, scale: 0.8, skin, shadow, lidCover: 0.62,
       iris: palette.eyeColor ?? 0x4a2f1d,
     });
     detailedBrow(head, side, {
@@ -408,54 +370,23 @@ function buildHead(head, palette) {
     });
     detailedEar(head, side, { y: 0.225, z: -0.012, skin, inner: 0xa8694a, scale: 0.86 });
   }
-  detailedNose(head, { y: 0.19, z: faceZ(0, 0.19) - 0.004, skin, skinLight, shadow, scale: 0.86 });
+  detailedNose(head, { y: 0.186, z: faceZ(0, 0.186) - 0.004, skin, skinLight, shadow, scale: 0.95 });
   detailedMouth(head, {
     y: 0.078, z: faceZ(0, 0.078) - 0.002, scale: 0.84,
     lip: palette.lip ?? 0xb06a56, lipDark: 0x82463a,
   });
 
-  // Hair: a shaped crown with a real hairline, a side-swept fringe built from
-  // tapered strands and a soft sheen band, rather than a smooth helmet.
-  const hair = palette.hair ?? HAIR;
-  const hairSheen = new THREE.Color(hair).lerp(new THREE.Color(0xf0e6d8), 0.16).getHex();
-  const style = palette.hairStyle || 'crop';
+  // Hair is a second layer of the same sculpted surface, offset outward and
+  // clipped by a hairline curve, so it wraps the skull exactly.
   if (palette.capStyle !== 'peaked') {
-    sphere(head, 1, [0, 0.445, 0.028], hair, {
-      widthSegments: 26, heightSegments: 18,
-      scale: [0.352, style === 'fade' ? 0.155 : 0.205, 0.338], roughness: 0.94,
-    });
-    sphere(head, 1, [0, 0.335, 0.155], hair, {
-      widthSegments: 20, heightSegments: 14, scale: [0.315, 0.215, 0.225], roughness: 0.94,
-    });
-    // Sheen: a thin lighter shell across the crown reads as hair volume.
-    sphere(head, 1, [0, 0.515, 0.015], hairSheen, {
-      widthSegments: 22, heightSegments: 10, scale: [0.30, 0.055, 0.295], roughness: 0.62,
-    });
-    // Soft irregular hairline: a bead row along the forehead edge hides the
-    // hard cut where the cap meets skin.
-    for (let i = 0; i < 15; i += 1) {
-      const t = i / 14;
-      const x = -0.262 + t * 0.524;
-      const arc = Math.sqrt(Math.max(0.02, 1 - (x / 0.352) ** 2));
-      const z = -arc * 0.31 + 0.03;
-      const y = 0.404 + Math.sin(t * Math.PI * 3.1) * 0.011 + (i % 2) * 0.006;
-      sphere(head, 1, [x, y, z + 0.006], hair, {
-        scale: [0.024, 0.028, 0.022], rotation: [0, 0, (t - 0.5) * 0.5],
-        widthSegments: 8, heightSegments: 6, roughness: 0.94,
-      });
-    }
-    // Temple fade and sideburns.
-    for (const side of [-1, 1]) {
-      capsule(head, 0.042, 0.115, [side * 0.292, 0.315, -0.115], hair, {
-        rotation: [0.24, 0, side * 0.18], radialSegments: 9, capSegments: 3, roughness: 0.94,
-      });
-      capsule(head, 0.026, 0.085, [side * 0.318, 0.205, -0.06], hair, {
-        rotation: [0.04, 0, side * 0.1], radialSegments: 7, capSegments: 3, roughness: 0.94,
-      });
-    }
-    if (style === 'long') {
-      sphere(head, 1, [0, 0.2, 0.19], hair, {
-        scale: [0.30, 0.37, 0.16], widthSegments: 18, heightSegments: 12, roughness: 0.94,
+    const hairMesh = new THREE.Mesh(sculpt.hair, material(hair, {
+      roughness: 0.95, side: THREE.DoubleSide,
+    }));
+    hairMesh.name = 'Sculpted hair';
+    head.add(hairMesh);
+    if ((palette.hairStyle || 'crop') === 'long') {
+      sphere(head, 1, [0, 0.2, 0.2], hair, {
+        scale: [0.3, 0.36, 0.15], widthSegments: 18, heightSegments: 12, roughness: 0.95,
       });
     }
   }
@@ -463,33 +394,33 @@ function buildHead(head, palette) {
     // Sri Lanka Police peaked cap: stiff black crown, black band, lacquered peak and badge.
     const capBlack = palette.cap ?? 0x141518;
     const band = 0x0a0b0d;
-    cylinder(head, [0.342, 0.348], 0.085, [0, 0.405, 0.01], band, { segments: 28, roughness: 0.5 });
-    cylinder(head, [0.348, 0.40], 0.155, [0, 0.525, 0.01], capBlack, {
-      segments: 28, roughness: 0.45, scale: [1, 1, 1.03],
+    cylinder(head, [0.255, 0.26], 0.07, [0, 0.352, 0.008], band, { segments: 30, roughness: 0.5 });
+    cylinder(head, [0.26, 0.3], 0.125, [0, 0.448, 0.008], capBlack, {
+      segments: 30, roughness: 0.45, scale: [1, 1, 1.03],
     });
-    sphere(head, 1, [0, 0.60, 0.01], capBlack, {
-      scale: [0.402, 0.045, 0.414], widthSegments: 28, heightSegments: 10, roughness: 0.42,
+    sphere(head, 1, [0, 0.508, 0.008], capBlack, {
+      scale: [0.302, 0.036, 0.312], widthSegments: 30, heightSegments: 10, roughness: 0.42,
     });
     // Black lacquered peak, raked forward and slightly wider than the band.
-    const peak = cylinder(head, [0.315], 0.03, [0, 0.352, -0.2], 0x08090b, {
-      segments: 26, scale: [1.16, 1, 1.06], roughness: 0.22, metalness: 0.2,
+    const peak = cylinder(head, [0.236], 0.024, [0, 0.31, -0.155], 0x08090b, {
+      segments: 28, scale: [1.16, 1, 1.06], roughness: 0.22, metalness: 0.2,
     });
     peak.rotation.x = 0.2;
-    roundedBox(head, [0.13, 0.09, 0.022], [0, 0.415, -0.335], 0xb9bcc0, {
-      radius: 0.03, metalness: 0.55, roughness: 0.3,
+    roundedBox(head, [0.1, 0.072, 0.018], [0, 0.358, -0.258], 0xb9bcc0, {
+      radius: 0.024, metalness: 0.55, roughness: 0.3,
     });
-    sphere(head, 0.032, [0, 0.415, -0.352], 0x8f2f2a, { scale: [1, 1.15, 0.35], roughness: 0.4 });
+    sphere(head, 0.026, [0, 0.358, -0.272], 0x8f2f2a, { scale: [1, 1.15, 0.35], roughness: 0.4 });
     for (const side of [-1, 1]) {
-      box(head, [0.026, 0.05, 0.026], [side * 0.348, 0.44, 0.0], 0xb9bcc0, {
+      box(head, [0.02, 0.04, 0.02], [side * 0.262, 0.378, 0.0], 0xb9bcc0, {
         metalness: 0.5, roughness: 0.35,
       });
     }
     // Short regulation haircut under the cap and a clipped moustache.
-    sphere(head, 1, [0, 0.365, 0.012], palette.hair ?? HAIR, {
-      scale: [0.342, 0.155, 0.336], widthSegments: 22, heightSegments: 14, roughness: 0.95,
+    sphere(head, 1, [0, 0.33, 0.012], palette.hair ?? HAIR, {
+      scale: [0.29, 0.14, 0.288], widthSegments: 22, heightSegments: 14, roughness: 0.95,
     });
     for (const side of [-1, 1]) {
-      capsule(head, 0.026, 0.075, [side * 0.30, 0.21, -0.05], palette.hair ?? HAIR, {
+      capsule(head, 0.023, 0.07, [side * 0.262, 0.205, -0.05], palette.hair ?? HAIR, {
         rotation: [0, 0, side * 0.1], radialSegments: 6, capSegments: 2, roughness: 0.95,
       });
       capsule(head, 0.017, 0.062, [side * 0.03, 0.026, faceZ(0.03, 0.03) - 0.004], palette.hair ?? HAIR, {
@@ -757,27 +688,27 @@ export function createSchoolboy(options = {}) {
 
   // Shorts, belt and pockets.
   // Waistband: closes the gap between the shirt hem and the leg tops.
-  cylinder(body, [0.169], 0.11, [0, 1.188, 0], palette.shorts, {
-    segments: 22, scale: [1, 1, 0.76], roughness: 0.92,
+  cylinder(body, [0.171], 0.11, [0, 1.188, 0], palette.shorts, {
+    segments: 22, scale: [1, 1, 0.765], roughness: 0.92,
   });
   sphere(body, 1, [0, 1.086, 0], palette.shorts, {
-    scale: [0.168, 0.126, 0.135], widthSegments: 20, heightSegments: 12, roughness: 0.9,
+    scale: [0.152, 0.12, 0.122], widthSegments: 20, heightSegments: 12, roughness: 0.9,
   });
   for (const side of [-1, 1]) {
-    sphere(body, 1, [side * 0.096, 1.05, -0.01], palette.shorts, {
-      scale: [0.101, 0.13, 0.132], widthSegments: 14, heightSegments: 10, roughness: 0.9,
+    sphere(body, 1, [side * 0.094, 1.05, -0.01], palette.shorts, {
+      scale: [0.096, 0.128, 0.126], widthSegments: 14, heightSegments: 10, roughness: 0.9,
     });
     seam(body, [0.008, 0.15, 0.014], [side * 0.171, 1.08, -0.112], 0x2a3f6b);
     roundedBox(body, [0.062, 0.012, 0.052], [side * 0.099, 1.128, -0.104], 0x101d40, {
       radius: 0.005, segments: 1, roughness: 0.94,
     });
   }
-  const belt = cylinder(body, [0.19], 0.062, [0, 1.218, 0], 0x23304c, { segments: 22 });
+  const belt = cylinder(body, [0.193], 0.06, [0, 1.213, 0], 0x1d2a44, { segments: 24 });
   belt.scale.z = 0.8;
-  roundedBox(body, [0.062, 0.05, 0.026], [0, 1.222, -0.152], 0xc9ccd0, {
+  roundedBox(body, [0.062, 0.05, 0.026], [0, 1.213, -0.156], 0xc9ccd0, {
     radius: 0.012, metalness: 0.5, roughness: 0.35,
   });
-  roundedBox(body, [0.038, 0.026, 0.014], [0, 1.222, -0.164], 0x1c242c, { radius: 0.007 });
+  roundedBox(body, [0.038, 0.026, 0.014], [0, 1.213, -0.168], 0x1c242c, { radius: 0.007 });
 
   // Neck (kept on the body so the smaller head can rotate naturally).
   cylinder(body, [0.086, 0.078], 0.19, [0, 1.945, 0.004], palette.skin, {

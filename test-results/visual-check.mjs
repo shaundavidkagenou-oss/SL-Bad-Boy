@@ -54,8 +54,8 @@ const SHOT_SETUPS = `({
     game.police.group.visible = false;
     game.player.visual.position.set(0, 0, -4);
     game.player.visual.rotation.set(0, 0, 0);
-    game.camera.position.set(0.1, 1.18, -4.3);
-    game.camera.lookAt(0, 1.13, 0);
+    game.camera.position.set(0.1, 1.22, -4.55);
+    game.camera.lookAt(0, 1.18, 0);
     game.camera.fov = 30;
     game.camera.updateProjectionMatrix();
   },
@@ -107,8 +107,8 @@ const SHOT_SETUPS = `({
     game.police.group.visible = true;
     game.police.visual.rotation.y = 0;
     game.police.group.position.set(-1.9, 0, -2.2);
-    game.camera.position.set(-3.9, 1.8, -4.9);
-    game.camera.lookAt(-1.9, 1.32, -2.2);
+    game.camera.position.set(-4.6, 1.72, -4.5);
+    game.camera.lookAt(-1.9, 1.3, -2.2);
     game.camera.fov = 34;
     game.camera.updateProjectionMatrix();
   },

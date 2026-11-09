@@ -29,6 +29,10 @@ export function segmentsFor(value, floor = 5) {
   return Math.max(floor, Math.min(value, Math.round(value * scale)));
 }
 
+export function tessellationScale() {
+  return surfaceQuality.tessellation ?? 1;
+}
+
 export function material(color, options = {}) {
   if (options.surface && typeof document !== 'undefined') return surfaceMaterial(options.surface, color, options);
   const key = JSON.stringify([color, options.roughness ?? 0.82, options.metalness ?? 0,
