@@ -6,12 +6,12 @@ An original 3D Sri Lankan endless runner for **web and Android**, built with **T
 
 **Package:** `lk.shaun.slbadboy` · **App name:** `SL BAD BOY` · **Minimum:** Android 7.0 (API 24) · **Target:** API 36.
 
-**Current APK:** 2.11.0 (versionCode 17) · 11,233,381 bytes · SHA-256 `0fe1b3954b9acdf4cd1c9e8d425962ff0dea53455ebc990c70193bf2c9388f19`.
+**Current APK:** 2.12.0 (versionCode 18) — built by CI from this commit; the checksum is published next to the file in `artifacts/SL-BAD-BOY.apk.sha256`.
 
 - Direct branch download: **[artifacts/SL-BAD-BOY.apk](artifacts/SL-BAD-BOY.apk)** (produced and validated by the Android workflow).
 - GitHub Actions also publishes the same package as the **SL-BAD-BOY-APK** workflow artifact with a SHA-256 checksum.
 - The supplied APK is **debug-signed for direct installation/testing**, not signed for Play Store release. Android may ask you to allow installation from your browser/file manager.
-- CI debug certificates can differ between builds. **Uninstall an older test APK before installing 2.11.0 if Android reports a signature conflict**; Android clears that app's local scores, shop ownership and juice inventory on uninstall.
+- CI debug certificates can differ between builds. **Uninstall an older test APK before installing 2.12.0 if Android reports a signature conflict**; Android clears that app's local scores, shop ownership and juice inventory on uninstall.
 - The complete game, fonts and procedural artwork are bundled inside the APK. Gameplay does not require a server or network connection; only the optional rewarded ad needs network access and available AdMob inventory.
 
 ### One-click Windows APK build
@@ -77,6 +77,18 @@ The static production site is generated in `dist/`. Serve it over HTTP rather th
 Menus and the HUD pause button are clickable. The sound button toggles mute and remembers the preference; the pause screen also has independent music and sound-effects volume sliders. Audio is initialized only after user interaction to comply with browser autoplay rules. Android app backgrounding pauses an active run. The HUD, menus, loader and controls account for portrait/landscape layouts and display safe areas.
 
 ## Game features
+
+### New in 2.12.0
+
+Performance, the runner and the animation were rebuilt around the Motorola G6 report.
+
+1. **Sharp where it was blurry** — the old LOW profile rendered at 0.85× CSS pixels (0.7× after adaptive scaling), which is why phones looked soft. Pixel-ratio caps are now 1.35 / 1.6 / 2.0 / 2.0 with floors of 1.0 / 1.2 / 1.25 / 1.5, so no tier can render below CSS-pixel sharpness; the FPS is won back by drawing less, not by blurring.
+2. **GPU-aware tier detection** — tier selection reads the WebGL renderer string as well as cores and memory. An eight-core 2017 phone with an Adreno 506 now starts on LOW instead of HIGH (`adreno 4/5`, `mali-g5x`, `powervr` → LOW; `adreno 6[0-3]` → MEDIUM).
+3. **Draw-call and triangle cuts** — scenery culling distance is now 80/112/160/200 m per tier with fog closing just behind it, individually textured sign faces are hidden past 54/80/124/156 m (they were one draw call each), and LOW/MEDIUM scale every primitive's tessellation (0.6/0.8) for roughly a third fewer vertices. At 1280×860 the LOW tier now measures **275 draw calls / 137,054 triangles** against **374 / 243,630** before — 26% fewer draws and 44% fewer triangles while rendering at 1.35× the previous pixel density.
+4. **Eyes rebuilt symmetrically** — `detailedEye` is now constructed entirely through a mirrored `side` offset: socket, sclera, iris, pupil, catch lights, lid and lash are exact reflections, so neither eye can drift or highlight differently. Eyes are smaller and almond-shaped, and every face feature is placed on the real skull/jaw ellipsoid instead of a looser approximation (the mouth previously sank inside the jaw).
+5. **Backpack no longer clips the uniform** — the bag was centred at z 0.255 while the shirt lathe reaches z 0.21, so it sat inside the shirt. It is now a slimmer 0.19 × 0.245 × 0.105 shell seated behind the back, with harness straps that hug the chest and shoulder, a strap adjuster, and the bottle, charm and flap joints moved with it.
+6. **Proportions and uniform** — narrower waist with a broader chest, longer and slimmer limbs with a calf, larger hands, shoes with a sole, shorter sleeves with cuffs, a closed collar, and a shirt that ends at the waistband instead of hanging below the belt.
+7. **Real run cycle** — the runner now has a sprint gait: hip swing scaled by speed, knee fold timed to swing-through, ankle plantar-flexion at toe-off, arms driving the opposite leg at ~90° bend, counter-rotating hips and shoulders, a vertical bob at twice the cadence, a stabilised head and a lagging backpack. The cycle is allocation-free (no per-frame closures), and slide/jump/landing poses damp back into it.
 
 ### New in 2.11.0
 

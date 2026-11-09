@@ -353,41 +353,89 @@ export class Player {
         this.joints[`${side}Arm`].rotation.x = damp(this.joints[`${side}Arm`].rotation.x, -0.28, 18, delta);
       }
     } else {
-      this.joints.leftLeg.rotation.x = stride * 0.8;
-      this.joints.rightLeg.rotation.x = -stride * 0.8;
-      this.joints.leftKnee.rotation.x = 0.08 + Math.max(0, -stride) * 0.95;
-      this.joints.rightKnee.rotation.x = 0.08 + Math.max(0, stride) * 0.95;
-      this.joints.leftArm.rotation.x = -stride * 0.7;
-      this.joints.rightArm.rotation.x = stride * 0.7;
-      this.joints.leftElbow.rotation.x = -0.35 - Math.max(0, stride) * 0.32;
-      this.joints.rightElbow.rotation.x = -0.35 - Math.max(0, -stride) * 0.32;
+      // A real sprint cycle rather than a swinging pendulum: heel strike, load,
+      // toe-off, knee-fold swing-through and a stabilised head. Cadence rises
+      // with speed so the feet keep matching the road.
+      // Allocation-free: this runs on every frame including low-end phones.
+      const speedFactor = THREE.MathUtils.clamp((speed - 14) / 22, 0, 1);
+      const amplitude = 0.72 + speedFactor * 0.28;
+      const kneeGain = 1.05 + speedFactor * 0.25;
+      const sinL = Math.sin(this.runPhase);
+      const cosL = Math.cos(this.runPhase);
+      const sinR = -sinL;
+      const cosR = -cosL;
+      const foldL = cosL > 0 ? cosL : 0;
+      const foldR = cosR > 0 ? cosR : 0;
+      const foldL2 = foldL * Math.sqrt(foldL);
+      const foldR2 = foldR * Math.sqrt(foldR);
+      this.joints.leftLeg.rotation.x = sinL * amplitude;
+      this.joints.rightLeg.rotation.x = sinR * amplitude;
+      this.joints.leftKnee.rotation.x = 0.12 + foldL2 * kneeGain + (sinL < 0 ? -sinL * 0.12 : 0);
+      this.joints.rightKnee.rotation.x = 0.12 + foldR2 * kneeGain + (sinL > 0 ? sinL * 0.12 : 0);
+      this.joints.leftAnkle.rotation.x = -sinL * amplitude * 0.22 - foldL * 0.3
+        + (sinL > 0 ? sinL * 0.12 : 0);
+      this.joints.rightAnkle.rotation.x = -sinR * amplitude * 0.22 - foldR * 0.3
+        + (sinR > 0 ? sinR * 0.12 : 0);
+      // Arms drive the opposite leg and stay bent at roughly 90 degrees.
+      const armSwing = 0.55 + speedFactor * 0.18;
+      this.joints.leftArm.rotation.x = -sinL * armSwing;
+      this.joints.rightArm.rotation.x = -sinR * armSwing;
+      this.joints.leftElbow.rotation.x = -1.02 - (sinL > 0 ? sinL * 0.35 : 0);
+      this.joints.rightElbow.rotation.x = -1.02 - (sinR > 0 ? sinR * 0.35 : 0);
+      // Hips and shoulders counter-rotate; the head stays level.
+      const twist = sinL * 0.11;
+      this.joints.body.rotation.y = -twist;
+      this.joints.body.rotation.x = 0.14 + speedFactor * 0.06;
+      const bob = Math.abs(cosL);
+      this.joints.body.position.y = 0.012 - bob * Math.sqrt(bob) * 0.045;
+      this.joints.head.rotation.y = twist * 0.8;
+      this.joints.head.rotation.x = -0.1 - speedFactor * 0.04;
     }
 
     this.joints.leftArm.rotation.z = damp(this.joints.leftArm.rotation.z, 0, 14, delta);
     this.joints.rightArm.rotation.z = damp(this.joints.rightArm.rotation.z, 0, 18, delta);
     this.joints.rightWrist.rotation.z = damp(this.joints.rightWrist.rotation.z, 0, 14, delta);
     this.joints.leftWrist.rotation.z = damp(this.joints.leftWrist.rotation.z, 0, 14, delta);
-    this.joints.leftWrist.rotation.x = this.sliding ? 0.12 : stride * 0.13;
-    this.joints.rightWrist.rotation.x = this.sliding ? 0.12 : -stride * 0.13;
-    this.joints.leftAnkle.rotation.x = damp(this.joints.leftAnkle.rotation.x,
-      this.sliding ? 0 : -this.joints.leftLeg.rotation.x * 0.25 + (airborne ? -0.12 : 0), 18, delta);
-    this.joints.rightAnkle.rotation.x = damp(this.joints.rightAnkle.rotation.x,
-      this.sliding ? 0 : -this.joints.rightLeg.rotation.x * 0.25 + (airborne ? -0.12 : 0), 18, delta);
+    this.joints.leftWrist.rotation.x = damp(this.joints.leftWrist.rotation.x,
+      this.sliding ? 0.12 : stride * 0.13, 16, delta);
+    this.joints.rightWrist.rotation.x = damp(this.joints.rightWrist.rotation.x,
+      this.sliding ? 0.12 : -stride * 0.13, 16, delta);
+    if (this.sliding) {
+      this.joints.leftAnkle.rotation.x = damp(this.joints.leftAnkle.rotation.x, 0, 18, delta);
+      this.joints.rightAnkle.rotation.x = damp(this.joints.rightAnkle.rotation.x, 0, 18, delta);
+    } else if (!airborne && this.landingTimer <= 0) {
+      // Ankles were set by the run cycle above and must not be fought here.
+      this.joints.leftAnkle.rotation.x = damp(this.joints.leftAnkle.rotation.x,
+        this.joints.leftAnkle.rotation.x, 1, delta);
+    } else {
+      this.joints.leftAnkle.rotation.x = damp(this.joints.leftAnkle.rotation.x, -0.12, 18, delta);
+      this.joints.rightAnkle.rotation.x = damp(this.joints.rightAnkle.rotation.x, -0.12, 18, delta);
+    }
 
     const laneOffset = LANES[this.lane] - this.group.position.x;
     this.visual.rotation.z = damp(this.visual.rotation.z, laneOffset * -0.06, 12, delta);
     this.visual.rotation.y = damp(this.visual.rotation.y, laneOffset * -0.025, 10, delta);
-    this.joints.body.rotation.z = this.sliding ? 0 : stride * 0.022;
-    this.joints.body.rotation.y = this.sliding ? 0 : stride * 0.018;
-    this.joints.body.position.y = this.sliding ? 0 : Math.abs(Math.cos(this.runPhase)) * 0.012;
+    const groundedRun = !this.sliding && !airborne && !landing;
+    this.joints.body.rotation.z = this.sliding ? 0 : stride * 0.02;
+    if (this.sliding) {
+      this.joints.body.rotation.y = damp(this.joints.body.rotation.y, 0, 14, delta);
+      this.joints.body.position.y = 0;
+    } else if (!groundedRun) {
+      // The run cycle owns the torso; air and landing poses ease back to it.
+      this.joints.body.rotation.y = damp(this.joints.body.rotation.y, 0, 12, delta);
+      this.joints.body.position.y = damp(this.joints.body.position.y, airborne ? 0.02 : -0.03, 14, delta);
+    }
     this.joints.head.rotation.y = damp(this.joints.head.rotation.y,
       this.sliding ? 0 : laneOffset * -0.075, 9, delta);
-    this.joints.head.rotation.x = damp(this.joints.head.rotation.x,
-      this.sliding ? -0.12 : landing ? 0.13 : airborne ? -0.08 : stride * 0.018, 10, delta);
+    if (!groundedRun) {
+      this.joints.head.rotation.x = damp(this.joints.head.rotation.x,
+        this.sliding ? -0.12 : landing ? 0.13 : airborne ? -0.08 : 0, 10, delta);
+    }
     this.joints.head.rotation.z = damp(this.joints.head.rotation.z, 0, 10, delta);
     this.joints.backpack.rotation.x = damp(this.joints.backpack.rotation.x,
-      this.sliding ? -0.12 : stride * 0.025, 12, delta);
-    this.joints.backpack.position.y = this.sliding ? 0 : Math.abs(Math.cos(this.runPhase)) * 0.015;
+      this.sliding ? -0.12 : groundedRun ? 0.06 + stride * 0.03 : 0, 12, delta);
+    this.joints.backpack.position.y = this.sliding ? 0
+      : (groundedRun ? this.joints.body.position.y * 0.6 : Math.abs(Math.cos(this.runPhase)) * 0.012);
     this.animateBackpackDetails(delta, this.sliding ? 0.6 : 1, stride, Math.abs(Math.cos(this.runPhase)));
     this.animateTrick(delta);
   }

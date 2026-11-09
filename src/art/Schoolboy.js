@@ -16,9 +16,9 @@ const SHOE = 0x11141b;
 let shirtGeometry;
 let shirtGeometryKey = '';
 const SHIRT_PROFILE = [
-  [0.232, -0.40], [0.238, -0.33], [0.216, -0.20], [0.205, -0.06],
-  [0.228, 0.06], [0.262, 0.17], [0.284, 0.27], [0.272, 0.345],
-  [0.216, 0.405], [0.14, 0.44], [0.105, 0.44],
+  [0.208, -0.325], [0.216, -0.29], [0.200, -0.18], [0.190, -0.06],
+  [0.218, 0.06], [0.258, 0.17], [0.283, 0.27], [0.268, 0.345],
+  [0.208, 0.405], [0.132, 0.44], [0.098, 0.44],
 ];
 const SHIRT_BASE_Y = 1.545;
 const SHIRT_DEPTH = 0.74;
@@ -61,14 +61,14 @@ function limbGeometry(kind, palette = {}) {
   const cacheKey = [kind, shirt, shorts, skin, skinLight, palette.outfit || 'uniform', palette.accent || 0].join(':');
   if (limbGeometryCache.has(cacheKey)) return limbGeometryCache.get(cacheKey);
   const jacket = palette.outfit === 'jacket';
-  const length = arm ? 0.66 : 1.09;
-  const joint = arm ? 0.34 : 0.56;
+  const length = arm ? 0.70 : 1.12;
+  const joint = arm ? 0.36 : 0.575;
   const rings = arm ? 30 : 34;
   const sides = 24;
   // Biceps/forearm and quad/calf silhouettes replace the old straight tubes.
   const profile = arm
-    ? [[0, 0.104], [0.14, 0.112], [0.3, 0.102], [0.42, 0.083], [0.55, 0.075], [0.74, 0.067], [0.9, 0.058], [1, 0.045]]
-    : [[0, 0.134], [0.18, 0.129], [0.31, 0.110], [0.42, 0.095], [0.5, 0.085], [0.62, 0.092], [0.76, 0.080], [0.9, 0.062], [1, 0.066]];
+    ? [[0, 0.098], [0.14, 0.104], [0.3, 0.094], [0.42, 0.078], [0.55, 0.070], [0.74, 0.062], [0.9, 0.054], [1, 0.043]]
+    : [[0, 0.128], [0.18, 0.122], [0.31, 0.104], [0.42, 0.090], [0.5, 0.081], [0.62, 0.094], [0.76, 0.078], [0.9, 0.058], [1, 0.062]];
   const radiusAt = (t) => {
     for (let index = 1; index < profile.length; index += 1) {
       if (t <= profile[index][0]) {
@@ -192,13 +192,13 @@ function makeArm(side, palette) {
   const sleeveColor = longSleeve ? palette.shirt : skin;
   const forearmColor = longSleeve ? palette.shirt : skinLight;
   // Deltoid, biceps and forearm definition sit on top of the skinned tube.
-  sphere(shoulder, 0.1, [0, -0.055, 0], palette.shirt, {
-    scale: [1.02, 0.98, 0.94], widthSegments: 16, heightSegments: 10, roughness: 0.9,
+  sphere(shoulder, 0.076, [0, -0.075, 0], palette.shirt, {
+    scale: [1.02, 0.92, 0.94], widthSegments: 16, heightSegments: 10, roughness: 0.9,
   });
-  sphere(shoulder, 0.074, [side * 0.008, -0.17, -0.012], palette.shirt, {
-    scale: [0.9, 1.2, 0.86], widthSegments: 12, heightSegments: 8, roughness: 0.9,
+  sphere(shoulder, 0.06, [side * 0.006, -0.16, -0.01], palette.shirt, {
+    scale: [0.92, 1.15, 0.88], widthSegments: 12, heightSegments: 8, roughness: 0.9,
   });
-  cylinder(shoulder, [0.098], 0.038, [0, -0.225, 0], longSleeve ? palette.shirt : 0xf3efe0, {
+  cylinder(shoulder, [0.083], 0.032, [0, -0.215, 0], longSleeve ? palette.shirt : 0xf3efe0, {
     segments: 14, scale: [1, 1, 0.9], roughness: 0.9,
   });
   if (jacket) {
@@ -233,7 +233,7 @@ function makeArm(side, palette) {
     cylinder(wrist, [0.082], 0.035, [0, -0.018, 0], 0xb98c66, { segments: 12, roughness: 0.8 });
   }
   detailedHand(wrist, side, {
-    y: -0.05, z: -0.012, scale: 0.66, skin, skinLight: palette.skinLight ?? SKIN_LIGHT,
+    y: -0.05, z: -0.012, scale: 0.8, skin, skinLight: palette.skinLight ?? SKIN_LIGHT,
     curl: 0.95,
   });
   if (palette.accessories?.includes('wristbands')) {
@@ -285,9 +285,6 @@ function makeLeg(side, palette) {
   // Shorts hem, kneecap, calf and a detailed lace-up shoe.
   cylinder(hip, [0.196], 0.075, [0, -0.075, 0], hipColor, {
     segments: 14, scale: [1, 1, 0.95], roughness: 0.9,
-  });
-  sphere(hip, 0.12, [side * 0.012, -0.16, -0.02], hipColor, {
-    scale: [0.95, 1.2, 0.92], widthSegments: 12, heightSegments: 8, roughness: 0.9,
   });
   sphere(knee, 0.072, [0, -0.012, -0.038], kneeColor, {
     scale: [0.9, 0.84, 0.62], widthSegments: 12, heightSegments: 8, roughness: 0.72,
@@ -351,10 +348,22 @@ function buildHead(head, palette) {
   const shadow = palette.skinShadow ?? 0x8f5a3e;
 
   // Face parts sit on the sculpted mask surface rather than floating in front of it.
+  // Face features follow the real skull ellipsoid below, so nothing floats in
+  // front of the head or sinks inside it.
+  const surface = (x, y, cx, cy, cz, rx, ry, rz) => {
+    const nx = (x - cx) / rx;
+    const ny = (y - cy) / ry;
+    const k = 1 - nx * nx - ny * ny;
+    return k <= 0 ? null : cz - rz * Math.sqrt(k);
+  };
   const faceZ = (x, y) => {
-    const nx = x / 0.30;
-    const ny = (y - 0.155) / 0.255;
-    return -0.03 - 0.30 * Math.sqrt(Math.max(0.04, 1 - nx * nx - ny * ny));
+    const values = [
+      surface(x, y, 0, 0.245, 0.005, 0.335, 0.372, 0.325),
+      surface(x, y, 0, 0.155, -0.03, 0.30, 0.255, 0.30),
+      surface(x, y, 0, 0.085, -0.05, 0.215, 0.16, 0.265),
+      surface(x, y, 0, 0.028, -0.13, 0.175, 0.10, 0.165),
+    ].filter((value) => value !== null);
+    return values.length ? Math.min(...values) : -0.30;
   };
   // Skull, brow, cheek and jaw volumes blend into one readable silhouette.
   sphere(head, 1, [0, 0.245, 0.005], skinLight, {
@@ -385,16 +394,19 @@ function buildHead(head, palette) {
       rotation: [0.22, 0, side * 0.42], radialSegments: 7, capSegments: 2, roughness: 0.75,
     });
     detailedEye(head, side, {
-      y: 0.248, z: faceZ(0.098, 0.248) + 0.012, scale: 0.84, skin, shadow, lidCover: 0.56,
+      y: 0.252, z: faceZ(0.108, 0.252) + 0.012, scale: 0.86, skin, shadow, lidCover: 0.5,
       iris: palette.eyeColor ?? 0x4a2f1d,
     });
     detailedBrow(head, side, {
-      y: 0.338, z: faceZ(0.098, 0.338) - 0.006, color: palette.hair ?? HAIR, angle: 0.08,
+      y: 0.331, z: faceZ(0.1, 0.331) - 0.004, color: palette.hair ?? HAIR, angle: 0.06,
     });
     detailedEar(head, side, { y: 0.225, z: -0.012, skin, inner: 0xa8694a, scale: 0.86 });
   }
-  detailedNose(head, { y: 0.185, z: faceZ(0, 0.185) + 0.004, skin, skinLight, shadow });
-  detailedMouth(head, { y: 0.074, z: faceZ(0, 0.074) + 0.004, lip: palette.lip ?? 0x8f4a3d, lipDark: 0x6f332b });
+  detailedNose(head, { y: 0.185, z: faceZ(0, 0.185) - 0.004, skin, skinLight, shadow });
+  detailedMouth(head, {
+    y: 0.072, z: faceZ(0, 0.072) - 0.002, scale: 0.92,
+    lip: palette.lip ?? 0xa35a49, lipDark: 0x713a30,
+  });
 
   // Hair: dense cap, faded temples, swept fringe strands and sideburns.
   const hair = palette.hair ?? HAIR;
@@ -403,8 +415,8 @@ function buildHead(head, palette) {
     widthSegments: 24, heightSegments: 16,
     scale: [0.345, style === 'fade' ? 0.115 : 0.20, 0.325], roughness: 0.92,
   });
-  sphere(head, 1, [0, 0.335, 0.13], hair, {
-    widthSegments: 20, heightSegments: 14, scale: [0.315, 0.235, 0.235], roughness: 0.92,
+  sphere(head, 1, [0, 0.352, 0.128], hair, {
+    widthSegments: 20, heightSegments: 14, scale: [0.312, 0.212, 0.232], roughness: 0.92,
   });
   const fringeCount = palette.capStyle === 'peaked' ? 0 : style === 'curly' ? 11 : style === 'fade' ? 5 : 8;
   for (let index = 0; index < fringeCount; index += 1) {
@@ -521,29 +533,30 @@ function buildBackpack(body, palette) {
   }
 
   // Main body with rounded shell, front pocket and side bottle sleeve.
-  sphere(backpack, 1, [0, 1.585, 0.255], bagColor, {
-    scale: [0.265, 0.315, 0.17], widthSegments: 24, heightSegments: 18, roughness: 0.85,
+  const BAG_Z = 0.295;
+  sphere(backpack, 1, [0, 1.585, BAG_Z], bagColor, {
+    scale: [0.19, 0.245, 0.105], widthSegments: 24, heightSegments: 18, roughness: 0.85,
   });
-  roundedBox(backpack, [0.4, 0.26, 0.12], [0, 1.44, 0.37], bagColor, {
+  roundedBox(backpack, [0.30, 0.20, 0.08], [0, 1.45, BAG_Z + 0.08], bagColor, {
     radius: 0.06, segments: 3, roughness: 0.85,
   });
-  roundedBox(backpack, [0.32, 0.12, 0.05], [0, 1.43, 0.425], accent, {
+  roundedBox(backpack, [0.23, 0.09, 0.035], [0, 1.44, BAG_Z + 0.12], accent, {
     radius: 0.03, segments: 2, roughness: 0.8,
   });
-  seam(backpack, [0.009, 0.32, 0.01], [0, 1.59, 0.418], 0x5f2133);
-  seam(backpack, [0.25, 0.009, 0.01], [0, 1.70, 0.418], 0x5f2133);
+  seam(backpack, [0.009, 0.24, 0.01], [0, 1.57, BAG_Z + 0.108], 0x5f2133);
+  seam(backpack, [0.17, 0.009, 0.01], [0, 1.655, BAG_Z + 0.108], 0x5f2133);
   for (const side of [-1, 1]) {
-    capsule(backpack, 0.032, 0.2, [side * 0.258, 1.47, 0.27], accent, {
+    capsule(backpack, 0.026, 0.16, [side * 0.192, 1.47, BAG_Z], accent, {
       radialSegments: 9, capSegments: 3, roughness: 0.8,
     });
-    seam(backpack, [0.035, 0.15, 0.01], [side * 0.2, 1.53, 0.425], 0xe4d9c4);
+    seam(backpack, [0.028, 0.11, 0.01], [side * 0.15, 1.53, BAG_Z + 0.112], 0xe4d9c4);
   }
   // Top flap hinge: its own joint so it can bounce with each stride.
   const flap = new THREE.Group();
   flap.name = 'Backpack flap';
-  flap.position.set(0, 1.815, 0.26);
+  flap.position.set(0, 1.775, 0.295);
   backpack.add(flap);
-  roundedBox(flap, [0.46, 0.14, 0.1], [0, 0.012, 0.015], bagColor, {
+  roundedBox(flap, [0.38, 0.125, 0.09], [0, 0.012, 0.015], bagColor, {
     radius: 0.045, segments: 3, roughness: 0.85,
   });
   roundedBox(flap, [0.13, 0.06, 0.028], [0, -0.045, 0.066], 0xd9b45e, {
@@ -560,7 +573,7 @@ function buildBackpack(body, palette) {
   // Side bottle in a mesh sleeve, animated separately.
   const bottle = new THREE.Group();
   bottle.name = 'Backpack water bottle';
-  bottle.position.set(0.262, 1.53, 0.315);
+  bottle.position.set(0.196, 1.52, 0.325);
   backpack.add(bottle);
   cylinder(bottle, [0.034, 0.037], 0.17, [0, 0, 0], 0x9fd2e0, {
     segments: 12, roughness: 0.3, metalness: 0.05,
@@ -570,7 +583,7 @@ function buildBackpack(body, palette) {
   // Zip pulls and a small woven charm tag swing with the bag.
   const charm = new THREE.Group();
   charm.name = 'Backpack charm';
-  charm.position.set(-0.17, 1.69, 0.425);
+  charm.position.set(-0.125, 1.665, 0.405);
   backpack.add(charm);
   capsule(charm, 0.005, 0.045, [0, -0.022, 0], 0xb9a26a, { radialSegments: 5, capSegments: 2 });
   roundedBox(charm, [0.055, 0.033, 0.014], [0, -0.062, 0], 0xf2c94c, {
@@ -579,23 +592,32 @@ function buildBackpack(body, palette) {
   roundedBox(charm, [0.034, 0.019, 0.016], [0, -0.062, 0], 0x2b6b52, { radius: 0.006 });
   // Shoulder harness with adjusters and a chest strap.
   for (const side of [-1, 1]) {
-    sphere(backpack, 1, [side * 0.175, 1.79, 0.21], accent, {
-      scale: [0.07, 0.055, 0.09], widthSegments: 16, heightSegments: 10, roughness: 0.8,
+    sphere(backpack, 1, [side * 0.145, 1.76, 0.22], accent, {
+      scale: [0.062, 0.05, 0.11], widthSegments: 16, heightSegments: 10, roughness: 0.8,
     });
-    box(body, [0.042, 0.44, 0.018], [side * 0.135, 1.6, shirtFront(1.6, 0.004)], strap, {
-      rotation: [0, 0, side * 0.08], roughness: 0.85,
-    });
-    box(body, [0.05, 0.34, 0.022], [side * 0.175, 1.66, 0.245], strap, {
-      rotation: [0, 0, side * 0.08], roughness: 0.85,
-    });
-    roundedBox(body, [0.05, 0.08, 0.028], [side * 0.185, 1.5, 0.29], 0x2f343b, {
+    // Shoulder strap: front run down the chest, then a rear run into the bag.
+    for (let segment = 0; segment < 4; segment += 1) {
+      const t = segment / 3;
+      const y = 1.79 - t * 0.4;
+      box(body, [0.046, 0.115, 0.016], [side * (0.128 + t * 0.02), y, shirtFront(y, 0.006)], strap, {
+        rotation: [0, 0, side * 0.1], roughness: 0.85,
+      });
+    }
+    for (let segment = 0; segment < 3; segment += 1) {
+      const t = segment / 2;
+      const y = 1.78 - t * 0.24;
+      box(body, [0.048, 0.13, 0.018], [side * (0.148 + t * 0.01), y, 0.196 + t * 0.008], strap, {
+        rotation: [0.12, 0, side * 0.08], roughness: 0.85,
+      });
+    }
+    roundedBox(body, [0.05, 0.07, 0.026], [side * 0.148, 1.47, 0.2], 0x2f343b, {
       radius: 0.01, roughness: 0.5,
     });
     capsule(body, 0.009, 0.15, [side * 0.09, 1.46, shirtFront(1.46, 0.03)], 0x30363d, {
       rotation: [0, 0, Math.PI / 2], radialSegments: 5, capSegments: 2,
     });
   }
-  torus(backpack, 0.095, 0.018, [0, 1.89, 0.245], strap, {
+  torus(backpack, 0.075, 0.015, [0, 1.865, 0.245], strap, {
     rotation: [Math.PI / 2, 0, 0], roughness: 0.85,
   });
   return { backpack, flap, bottle, charm };
@@ -742,14 +764,17 @@ export function createSchoolboy(options = {}) {
   cylinder(body, [0.086, 0.078], 0.19, [0, 1.945, 0.004], palette.skin, {
     segments: 14, scale: [1, 1, 0.92], roughness: 0.72,
   });
-  sphere(body, 0.05, [0, 2.0, -0.05], palette.skin, {
-    scale: [1.15, 0.5, 0.8], widthSegments: 12, heightSegments: 8, roughness: 0.8,
+  sphere(body, 0.105, [0, 1.955, 0], palette.skin, {
+    scale: [1, 0.55, 1], widthSegments: 16, heightSegments: 10, roughness: 0.78,
+  });
+  cylinder(body, [0.104, 0.118], 0.05, [0, 1.952, 0], palette.shirt, {
+    segments: 18, roughness: 0.9,
   });
 
   const head = new THREE.Group();
   head.name = 'Sculpted head';
-  head.position.set(0, 2.035, 0);
-  head.scale.setScalar(0.56);
+  head.position.set(0, 2.02, 0);
+  head.scale.setScalar(0.5);
   body.add(head);
   buildHead(head, palette);
 

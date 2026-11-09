@@ -96,7 +96,12 @@ export class Game {
     this.qualityPreference = QUALITY_TIERS.includes(requestedTier)
       ? requestedTier : this.readQualityPreference();
     this.qualityTier = this.qualityPreference
-      ?? detectQualityTier({ ...readDeviceHints(), software: this.softwareRenderer });
+      ?? detectQualityTier({ ...readDeviceHints(this.renderer), software: this.softwareRenderer });
+    // Tessellation is chosen before any artwork is built, so weak phones get
+    // lighter meshes for the whole world and every character.
+    configureSurfaceQuality({
+      tessellation: { low: 0.6, medium: 0.8, high: 1, ultra: 1 }[this.qualityTier] ?? 1,
+    });
     // Shared emissive materials that become the "after hours" light sources.
     this.litWindowMaterial = sharedMaterial(0xffd69a, {
       roughness: 0.28, emissive: 0xffb85c, emissiveIntensity: 0.95,
@@ -283,8 +288,12 @@ export class Game {
     this.graphics.maxPixelRatio = Math.min(window.devicePixelRatio || 1, profile.pixelRatioCap);
     this.graphics.minimumPixelRatio = Math.min(this.graphics.maxPixelRatio, profile.pixelRatioFloor);
     this.graphics.applyProfile(profile);
+    // Scenery is culled past the detail distance, so the fog must close in
+    // just behind it instead of showing sections vanish.
+    this.fogLimit = profile.detailDistance + 58;
     this.world?.setQuality({
       detailDistance: profile.detailDistance,
+      signDistance: profile.signDistance,
       animationHz: profile.animationHz,
       generationBudget: profile.generationBudget,
     });
@@ -561,7 +570,8 @@ export class Game {
       this.themeTargets.fog.copy(duskFog).lerp(nightFog, night * 0.82);
       this.themeTargets.night = night;
       this.themeTargets.fogNear = (palette.fogNear ?? 82) + night * 12;
-      this.themeTargets.fogFar = (palette.fogFar ?? 285) - night * 26;
+      this.themeTargets.fogFar = Math.min((palette.fogFar ?? 285) - night * 26,
+        this.fogLimit ?? 320);
       const duskSun = new THREE.Color(hot ? 0xffa06b : mist ? 0xffb987 : 0xffad73);
       const duskFill = new THREE.Color(mist ? 0x92b9ef : 0x9bbcff);
       this.themeTargets.sun.copy(duskSun).lerp(palette.nightSun, night * 0.8);

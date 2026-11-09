@@ -40,6 +40,7 @@ export class WorldGenerator {
     this.scene = scene;
     this.baseDetailDistance = detailDistance;
     this.detailDistance = detailDistance;
+    this.signDistance = 110;
     this.animationInterval = 1 / Math.max(1, animationHz);
     this.generationBudget = Math.max(0, generationBudget);
     this.animationAccumulator = 0;
@@ -436,6 +437,12 @@ export class WorldGenerator {
     const scenery = draft.userData.scenery;
     section.add(scenery);
     scenery.visible = section.position.z > -this.detailDistance;
+    const labels = [];
+    scenery.traverse((node) => {
+      if (node.isMesh && node.userData.text !== undefined) labels.push(node);
+    });
+    section.userData.labels = labels;
+    section.userData.labelsVisible = undefined;
     section.userData.generationJob = null;
     this.rebuildCount += 1;
     this.generationCommits += 1;
@@ -486,11 +493,26 @@ export class WorldGenerator {
         section.userData.scenery.visible = !section.userData.generationJob
           && section.position.z > -this.detailDistance;
       }
+      // Sign faces are individually textured planes, so each one is a draw
+      // call. Beyond the sign distance they are only a few pixels wide and are
+      // hidden; the painted sign body behind them keeps the skyline read.
+      const labels = section.userData.labels;
+      if (labels) {
+        const show = section.position.z > -this.signDistance;
+        if (section.userData.labelsVisible !== show) {
+          section.userData.labelsVisible = show;
+          for (const label of labels) label.visible = show;
+        }
+      }
     }
   }
 
   /** Applies a graphics tier's scenery budget without rebuilding any section. */
-  setQuality({ detailDistance, animationHz, generationBudget } = {}) {
+  setQuality({ detailDistance, signDistance, animationHz, generationBudget } = {}) {
+    if (Number.isFinite(signDistance)) {
+      this.signDistance = signDistance;
+      this.updateVisibility();
+    }
     if (Number.isFinite(detailDistance)) {
       this.baseDetailDistance = detailDistance;
       this.detailDistance = this.performanceMode ? Math.min(detailDistance, 135) : detailDistance;

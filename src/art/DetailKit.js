@@ -13,42 +13,49 @@ export function detailedEye(parent, side, {
   iris = 0x4a2f1d, highlight = 0xffffff, lidCover = 0.42,
 } = {}) {
   const s = scale;
-  // Socket recession keeps the eye from reading as a sticker on a ball.
-  sphere(parent, 0.072 * s, [side * 0.125 * s, y + 0.006 * s, z + 0.018 * s], shadow, {
-    scale: [1.02, 0.78, 0.5], widthSegments: 16, heightSegments: 10,
-    roughness: 0.92,
+  const cx = side * 0.108 * s;
+  // Every offset is mirrored through `side`, so the two eyes are exact
+  // reflections: no lopsided highlights, pupils or lids.
+  const at = (dx, dy, dz) => [cx + side * dx * s, y + dy * s, z + dz * s];
+  // Socket: a shallow recess that stops the eye reading as a sticker.
+  sphere(parent, 0.066 * s, at(0, 0.004, 0.014), shadow, {
+    scale: [1.06, 0.66, 0.42], widthSegments: 16, heightSegments: 10, roughness: 0.94,
   });
-  sphere(parent, 0.057 * s, [side * 0.125 * s, y, z], 0xfff6e4, {
-    scale: [1.14, 0.86, 0.5], widthSegments: 18, heightSegments: 12, roughness: 0.22,
+  // Sclera, narrower than it is tall so the eye reads as an almond.
+  sphere(parent, 0.047 * s, at(0, 0, 0), 0xfdf6e7, {
+    scale: [1.06, 0.74, 0.4], widthSegments: 18, heightSegments: 12, roughness: 0.2,
   });
-  const irisRadius = 0.024 * s;
-  cylinder(parent, [irisRadius, irisRadius], 0.008 * s,
-    [side * 0.125 * s, y - 0.002 * s, z - 0.026 * s], iris, {
-      segments: 16, rotation: [Math.PI / 2, 0, 0], roughness: 0.3,
-    });
-  cylinder(parent, [irisRadius * 0.44, irisRadius * 0.44], 0.004 * s,
-    [side * 0.125 * s, y - 0.002 * s, z - 0.031 * s], 0x120d0a, {
-      segments: 12, rotation: [Math.PI / 2, 0, 0], roughness: 0.4,
-    });
-  sphere(parent, 0.0062 * s, [side * 0.125 * s + 0.008 * s, y + 0.009 * s, z - 0.034 * s], highlight, {
-    widthSegments: 6, heightSegments: 4, roughness: 0.1,
+  // Iris + pupil sit just proud of the sclera so the gaze stays readable.
+  const irisR = 0.0205 * s;
+  sphere(parent, irisR, at(0, -0.001, -0.014), iris, {
+    scale: [1, 1, 0.4], widthSegments: 16, heightSegments: 10, roughness: 0.24,
   });
-  sphere(parent, 0.0034 * s, [side * 0.125 * s - 0.009 * s, y - 0.009 * s, z - 0.034 * s], highlight, {
-    widthSegments: 5, heightSegments: 4, roughness: 0.1,
+  sphere(parent, irisR * 0.62, at(0, -0.001, -0.019), 0x2a1a10, {
+    scale: [1, 1, 0.36], widthSegments: 12, heightSegments: 8, roughness: 0.3,
+  });
+  sphere(parent, irisR * 0.34, at(0, -0.001, -0.0225), 0x0f0a07, {
+    scale: [1, 1, 0.34], widthSegments: 10, heightSegments: 6, roughness: 0.4,
+  });
+  // One catchlight per eye, mirrored, plus a smaller secondary glint.
+  sphere(parent, 0.0056 * s, at(0.007, 0.008, -0.0205), highlight, {
+    widthSegments: 6, heightSegments: 5, roughness: 0.08, emissive: 0xffffff, emissiveIntensity: 0.22,
+  });
+  sphere(parent, 0.0028 * s, at(-0.007, -0.007, -0.0195), highlight, {
+    widthSegments: 5, heightSegments: 4, roughness: 0.12,
   });
   // Upper lid and lash line overlap the sclera just enough to shape the gaze.
-  sphere(parent, 0.062 * s, [side * 0.125 * s, y + 0.034 * s * lidCover / 0.42, z + 0.004 * s], skin, {
-    scale: [1.12, 0.52, 0.55], widthSegments: 16, heightSegments: 10, roughness: 0.72,
+  sphere(parent, 0.052 * s, at(0, 0.028 * (lidCover / 0.42), 0.002), skin, {
+    scale: [1.06, 0.36, 0.40], widthSegments: 16, heightSegments: 10, roughness: 0.72,
   });
-  const lash = torus(parent, 0.052 * s, 0.007 * s,
-    [side * 0.125 * s, y + 0.012 * s, z - 0.018 * s], 0x241a14, {
-      arc: Math.PI * 0.94, rotation: [0.18, 0, side > 0 ? 0 : Math.PI], roughness: 0.8,
-    });
-  lash.scale.y = 0.72;
-  sphere(parent, 0.056 * s, [side * 0.125 * s, y - 0.037 * s, z + 0.006 * s], skin, {
-    scale: [1.02, 0.3, 0.5], widthSegments: 14, heightSegments: 8, roughness: 0.72,
+  const lash = torus(parent, 0.042 * s, 0.0044 * s, at(0, 0.008, -0.008), 0x241a14, {
+    arc: Math.PI * 0.92, rotation: [0.16, 0, side > 0 ? 0 : Math.PI], roughness: 0.78,
   });
-  return { x: side * 0.125 * s, y, z };
+  lash.scale.y = 0.66;
+  // Lower lid: a thin skin ridge rather than a second ring.
+  sphere(parent, 0.05 * s, at(0, -0.031, 0.004), skin, {
+    scale: [1.02, 0.26, 0.42], widthSegments: 14, heightSegments: 8, roughness: 0.72,
+  });
+  return { x: cx, y, z };
 }
 
 export function detailedBrow(parent, side, {

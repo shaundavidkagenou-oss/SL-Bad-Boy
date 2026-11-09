@@ -6,13 +6,27 @@ const materialCache = new Map();
 const geometryCache = new Map();
 const labelMaterialCache = new Map();
 const surfaceTextureCache = new Map();
-const surfaceQuality = { bump: true, roadBump: false, anisotropy: 4 };
+const surfaceQuality = {
+  bump: true, roadBump: false, anisotropy: 4, tessellation: 1,
+};
 const fallbackLabelMaterial = new THREE.MeshBasicMaterial({ color: 0x213b56, side: THREE.DoubleSide });
 
-export function configureSurfaceQuality({ bump = true, roadBump = false, anisotropy = 4 } = {}) {
-  surfaceQuality.bump = bump;
-  surfaceQuality.roadBump = roadBump;
-  surfaceQuality.anisotropy = anisotropy;
+export function configureSurfaceQuality({ bump, roadBump, anisotropy, tessellation } = {}) {
+  if (bump !== undefined) surfaceQuality.bump = bump;
+  if (roadBump !== undefined) surfaceQuality.roadBump = roadBump;
+  if (anisotropy !== undefined) surfaceQuality.anisotropy = anisotropy;
+  if (tessellation !== undefined) surfaceQuality.tessellation = tessellation;
+}
+
+/**
+ * Low-end phones pay for every vertex. Scaling the primitive segment counts
+ * (never below a readable floor) removes roughly a third of the scenery
+ * triangles without touching silhouettes that matter.
+ */
+export function segmentsFor(value, floor = 5) {
+  const scale = surfaceQuality.tessellation ?? 1;
+  if (scale >= 1) return value;
+  return Math.max(floor, Math.min(value, Math.round(value * scale)));
 }
 
 export function material(color, options = {}) {
@@ -228,7 +242,7 @@ export function roundedBox(parent, size, position, color, options = {}) {
 
 export function cylinder(parent, radii, height, position, color, options = {}) {
   const [top, bottom = top] = radii;
-  const segments = options.segments ?? 8;
+  const segments = segmentsFor(options.segments ?? 8, 6);
   const geo = geometry(`cyl:${top},${bottom},${segments}`,
     () => new THREE.CylinderGeometry(top, bottom, 1, segments));
   const mesh = new THREE.Mesh(geo, material(color, options));
@@ -237,8 +251,8 @@ export function cylinder(parent, radii, height, position, color, options = {}) {
 }
 
 export function capsule(parent, radius, length, position, color, options = {}) {
-  const capSegments = options.capSegments ?? 4;
-  const radialSegments = options.radialSegments ?? 10;
+  const capSegments = segmentsFor(options.capSegments ?? 4, 2);
+  const radialSegments = segmentsFor(options.radialSegments ?? 10, 6);
   const geo = geometry(`capsule:${radius},${length},${capSegments},${radialSegments}`,
     () => new THREE.CapsuleGeometry(radius, length, capSegments, radialSegments));
   const mesh = new THREE.Mesh(geo, material(color, options));
@@ -248,8 +262,8 @@ export function capsule(parent, radius, length, position, color, options = {}) {
 }
 
 export function sphere(parent, radius, position, color, options = {}) {
-  const width = options.widthSegments ?? 8;
-  const height = options.heightSegments ?? 6;
+  const width = segmentsFor(options.widthSegments ?? 8, 7);
+  const height = segmentsFor(options.heightSegments ?? 6, 5);
   const geo = geometry(`sphere:${width},${height}`, () => new THREE.SphereGeometry(1, width, height));
   const mesh = new THREE.Mesh(geo, material(color, options));
   const scale = options.scale ?? [1, 1, 1];
@@ -258,7 +272,7 @@ export function sphere(parent, radius, position, color, options = {}) {
 }
 
 export function cone(parent, radius, height, position, color, options = {}) {
-  const segments = options.segments ?? 8;
+  const segments = segmentsFor(options.segments ?? 8, 6);
   const geo = geometry(`cone:${segments}`, () => new THREE.ConeGeometry(1, 1, segments));
   const mesh = new THREE.Mesh(geo, material(color, options));
   mesh.scale.set(radius, height, radius);
