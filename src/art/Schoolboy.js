@@ -457,8 +457,8 @@ function buildHead(head, palette) {
       });
     }
     // Short regulation haircut under the cap and a clipped moustache.
-    sphere(head, 1, [0, 0.33, 0.02], palette.hair ?? HAIR, {
-      scale: [0.33, 0.13, 0.31], widthSegments: 20, heightSegments: 12, roughness: 0.95,
+    sphere(head, 1, [0, 0.365, 0.012], palette.hair ?? HAIR, {
+      scale: [0.342, 0.155, 0.336], widthSegments: 22, heightSegments: 14, roughness: 0.95,
     });
     for (const side of [-1, 1]) {
       capsule(head, 0.026, 0.075, [side * 0.30, 0.21, -0.05], palette.hair ?? HAIR, {
