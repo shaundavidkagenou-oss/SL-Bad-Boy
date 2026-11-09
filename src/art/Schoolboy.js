@@ -431,17 +431,18 @@ function buildHead(head, palette) {
     sphere(head, 1, [0, 0.515, 0.015], hairSheen, {
       widthSegments: 22, heightSegments: 10, scale: [0.30, 0.055, 0.295], roughness: 0.62,
     });
-    // Side-swept fringe: staggered tapered strands, longest over the part.
-    const strandCount = style === 'curly' ? 11 : 8;
-    for (let index = 0; index < strandCount; index += 1) {
-      const t = strandCount === 1 ? 0.5 : index / (strandCount - 1);
-      const x = -0.235 + t * 0.46;
-      const sweep = style === 'side' ? 0.55 : 0.34;
-      const taper = Math.sin(Math.PI * Math.min(1, Math.max(0, t))) * 0.055;
-      capsule(head, 0.019 + taper * 0.22, 0.085 + taper, [x, 0.397 - Math.cos(t * Math.PI) * 0.014, -0.198],
-        index % 3 === 0 ? hairSheen : hair, {
-          rotation: [0.5, 0, sweep * 0.6 - t * 0.5], radialSegments: 7, capSegments: 3, roughness: 0.94,
-        });
+    // Soft irregular hairline: a bead row along the forehead edge hides the
+    // hard cut where the cap meets skin.
+    for (let i = 0; i < 15; i += 1) {
+      const t = i / 14;
+      const x = -0.262 + t * 0.524;
+      const arc = Math.sqrt(Math.max(0.02, 1 - (x / 0.352) ** 2));
+      const z = -arc * 0.31 + 0.03;
+      const y = 0.404 + Math.sin(t * Math.PI * 3.1) * 0.011 + (i % 2) * 0.006;
+      sphere(head, 1, [x, y, z + 0.006], hair, {
+        scale: [0.024, 0.028, 0.022], rotation: [0, 0, (t - 0.5) * 0.5],
+        widthSegments: 8, heightSegments: 6, roughness: 0.94,
+      });
     }
     // Temple fade and sideburns.
     for (const side of [-1, 1]) {
