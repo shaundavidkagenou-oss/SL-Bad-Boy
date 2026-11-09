@@ -32,6 +32,7 @@ import { createDistrictGateway, createSriLankanRoadside } from '../art/Roadside.
 import { createDistrictSideFill } from '../art/DistrictDetail.js';
 import { createElephant, updateElephant } from '../art/Elephant.js';
 import { createAdBoardField } from '../art/AdBoards.js';
+import { createPedestrianCrowd } from '../art/Pedestrians.js';
 import { eveningPalette } from './Evening.js';
 
 export class WorldGenerator {
@@ -57,7 +58,7 @@ export class WorldGenerator {
     this.animationTime = 0;
     this.groundTarget = new THREE.Color();
 
-    this.ground = box(this.group, [150, 0.35, 370], [0, -0.175, -85], 0x68845a, {
+    this.ground = box(this.group, [320, 0.4, 620], [0, -0.2, -110], 0x68845a, {
       castShadow: false, receiveShadow: false, surface: 'grass',
     });
     this.backdrop = null;
@@ -294,6 +295,10 @@ export class WorldGenerator {
     yield section;
 
     if (!isTunnel) {
+      // Pavement life: locals walking, waiting and chatting outside the lanes.
+      const crowd = createPedestrianCrowd(sequence, ROAD.sectionLength);
+      scenery.add(crowd);
+      section.userData.pedestrians = (section.userData.pedestrians || 0) + crowd.userData.pedestrianCount;
       const sinhalaBoard = createSinhalaBoard(sequence, theme.id);
       sinhalaBoard.position.set(sequence % 2 ? 6.95 : -6.95, 0.02, 1.5);
       scenery.add(sinhalaBoard);
@@ -484,6 +489,17 @@ export class WorldGenerator {
     }
   }
 
+  /** Applies a graphics tier's scenery budget without rebuilding any section. */
+  setQuality({ detailDistance, animationHz, generationBudget } = {}) {
+    if (Number.isFinite(detailDistance)) {
+      this.baseDetailDistance = detailDistance;
+      this.detailDistance = this.performanceMode ? Math.min(detailDistance, 135) : detailDistance;
+    }
+    if (Number.isFinite(animationHz)) this.animationInterval = 1 / Math.max(1, animationHz);
+    if (Number.isFinite(generationBudget)) this.generationBudget = Math.max(0, generationBudget);
+    this.updateVisibility();
+  }
+
   setPerformanceMode(enabled) {
     const next = Boolean(enabled);
     if (next === this.performanceMode) return;
@@ -574,6 +590,11 @@ export class WorldGenerator {
       animatedElephants: this.sections.reduce((count, section) => count + (section.userData.animatedScenery?.length || 0), 0),
       animatedVegetation: this.sections.reduce((count, section) => count + (section.userData.animatedVegetation?.length || 0), 0),
       advertisingBoards: this.sections.reduce((count, section) => count + (section.userData.adBoards || 0), 0),
+      pedestrians: this.sections.reduce((count, section) => {
+        let total = count;
+        section.traverse((node) => { if (node.userData?.pedestrianCount) total += node.userData.pedestrianCount; });
+        return total;
+      }, 0),
       travelled: this.travelled,
       theme: this.getCurrentTheme().id,
     };

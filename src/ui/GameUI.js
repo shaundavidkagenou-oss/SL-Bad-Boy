@@ -48,6 +48,10 @@ export class GameUI {
     byId('mute-button').addEventListener('click', actions.mute);
     byId('music-volume').addEventListener('input', (event) => actions.musicVolume?.(Number(event.target.value)));
     byId('sfx-volume').addEventListener('input', (event) => actions.sfxVolume?.(Number(event.target.value)));
+    this.graphicsOptions = [...document.querySelectorAll('#graphics-options .graphics-option')];
+    for (const option of this.graphicsOptions) {
+      option.addEventListener('click', () => actions.graphics?.(option.dataset.quality));
+    }
   }
 
   hideScreens() {
@@ -385,6 +389,21 @@ export class GameUI {
     byId('audio-label').textContent = muted ? 'MUTED' : 'SOUND ON';
     byId('mute-button').setAttribute('aria-label', muted ? 'Unmute sound' : 'Mute sound');
     byId('mute-button').setAttribute('aria-pressed', String(muted));
+  }
+
+  setQuality(tier) {
+    for (const option of this.graphicsOptions) {
+      const active = option.dataset.quality === tier;
+      option.classList.toggle('is-active', active);
+      option.setAttribute('aria-checked', String(active));
+    }
+    const hint = byId('graphics-hint');
+    if (hint) {
+      hint.textContent = `${tier.toUpperCase()} • ${tier === 'low' ? 'MOST BATTERY LIFE'
+        : tier === 'medium' ? 'BALANCED'
+          : tier === 'high' ? 'CINEMATIC'
+            : 'SHOWCASE'}`;
+    }
   }
 
   setVolumes(music, sfx) {

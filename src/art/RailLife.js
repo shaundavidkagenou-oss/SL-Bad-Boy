@@ -30,6 +30,19 @@ export class MonsoonRain {
     this.lines.frustumCulled = false;
     this.group.add(this.lines);
     this.visible = false;
+    this.density = 1;
+    this.performanceScale = 1;
+  }
+
+  /** Graphics-tier density; keeps one pooled draw but shortens the draw range. */
+  setDensity(fraction) {
+    this.density = Math.max(0.1, Math.min(1, fraction));
+    if (this.visible) this.applyDrawRange();
+  }
+
+  applyDrawRange() {
+    const active = Math.floor(this.count * this.density * this.performanceScale);
+    this.lines.geometry.setDrawRange(0, Math.max(0, active) * 2);
   }
 
   setActive(active, performanceMode = false) {
@@ -37,7 +50,8 @@ export class MonsoonRain {
     if (next === this.visible) return;
     this.visible = next;
     this.group.visible = next;
-    this.lines.geometry.setDrawRange(0, next ? (performanceMode ? Math.floor(this.count * 0.55) : this.count) * 2 : 0);
+    this.performanceScale = performanceMode ? 0.55 : 1;
+    this.applyDrawRange();
   }
 
   update(delta, player, performanceMode = false) {

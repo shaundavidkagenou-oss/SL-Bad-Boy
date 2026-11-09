@@ -12,6 +12,7 @@ import { box, configureSurfaceQuality, getMeshKitStats, sphere } from '../src/ar
 import { WorldGenerator } from '../src/game/WorldGenerator.js';
 import { createDistrictSideFill } from '../src/art/DistrictDetail.js';
 import { createElephant, updateElephant } from '../src/art/Elephant.js';
+import { createFigure, createPedestrianCrowd, PEDESTRIAN_VARIANTS } from '../src/art/Pedestrians.js';
 
 function renderStats(root) {
   let meshes = 0;
@@ -226,4 +227,30 @@ test('filled hill terrain, hot forest atmosphere, detailed lotus and animated el
   assert.equal(world.sections[0].userData.animatedScenery.length, 1);
   assert.doesNotThrow(() => world.update(1 / 60, 0));
   assert.equal(world.getStats().animatedElephants, 1);
+});
+
+test('pavement crowds stay out of the traffic lanes and vary every figure', () => {
+  const heights = new Set();
+  const styles = new Set();
+  for (let seed = 0; seed < 12; seed += 1) {
+    const crowd = createPedestrianCrowd(seed, 30);
+    assert.ok(crowd.userData.pedestrianCount >= 4 && crowd.userData.pedestrianCount <= 5,
+      'each section carries four or five pedestrians');
+    assert.equal(crowd.userData.figurePositions.length, crowd.userData.pedestrianCount);
+    for (const [x] of crowd.userData.figurePositions) {
+      // Decorative only: every figure stays on the pavement, clear of the lanes.
+      assert.ok(Math.abs(x) >= 7.0, 'pedestrians must never stand in a traffic lane');
+      assert.ok(Math.abs(x) <= 8.6, 'pedestrians must stay on the pavement');
+    }
+    for (const style of crowd.userData.figureStyles) styles.add(style);
+  }
+  for (let seed = 0; seed < PEDESTRIAN_VARIANTS * 3; seed += 1) {
+    const figure = createFigure(seed);
+    const bounds = new THREE.Box3().setFromObject(figure);
+    heights.add(bounds.max.y.toFixed(2));
+    assert.ok(bounds.min.x >= -1.6 && bounds.max.x <= 1.6, 'figure limbs stay within one lane width');
+    assert.ok(bounds.max.y > 1.35 && bounds.max.y < 2.0, 'figures keep human scale');
+  }
+  assert.ok(heights.size >= 5, 'pedestrians vary in height');
+  assert.ok(styles.size >= 5, 'pedestrians vary in style');
 });

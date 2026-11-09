@@ -53,6 +53,29 @@ export function createDistrictBackdrop(themeId = 'colombo') {
     }
   }
 
+  if (!hill && !coast && !ancient) {
+    // Lateral city blocks: without them the horizon beside the corridor is bare
+    // ground. Two staggered rows per side read as the rest of the city and are
+    // merged into the single backdrop batch, so they cost no extra draw calls.
+    const facade = [0x8f9c9a, 0xa89b8a, 0x8c8fa0, 0x9fa393];
+    for (const side of [-1, 1]) {
+      for (let index = 0; index < 22; index += 1) {
+        // Blocks run the length of the corridor behind the shopfronts, so any
+        // side-on camera angle meets city instead of empty ground.
+        const distance = 30 + ((index * 9 + (side > 0 ? 13 : 0)) % 52);
+        const height = 5 + ((index * 13 + (side > 0 ? 5 : 0)) % 15);
+        const depth = 26 - index * 11.5;
+        box(root, [8, height, 9], [side * distance, height / 2, depth], facade[index % 4]);
+        if (index % 3 === 1) {
+          box(root, [2.4, 1.7, 2.4], [side * distance, height + 0.85, depth], 0x6f7c80);
+        }
+        if (index % 4 === 2) {
+          box(root, [5.5, 0.4, 5.5], [side * (distance + 6), height + 0.2, depth + 5], 0x5d6b6d);
+        }
+      }
+    }
+  }
+
   if (themeId === 'colombo') {
     cylinder(root, [0.65, 1.25], 29, [-38, 14.5, z + 2], 0x9aa9a4, { segments: 12 });
     sphere(root, 3.3, [-38, 30, z + 2], 0x7e9c85, { scale: [1, 0.6, 1] });

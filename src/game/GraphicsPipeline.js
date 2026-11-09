@@ -82,6 +82,9 @@ function createSky() {
       horizonColor: { value: new THREE.Color(0xf08a62) },
       sunColor: { value: new THREE.Color(0xffc38a) },
       sunDirection: { value: new THREE.Vector3(24, 8.5, -90).normalize() },
+      moonDirection: { value: new THREE.Vector3(-30, 26, -70).normalize() },
+      night: { value: 0 },
+      time: { value: 0 },
     },
     vertexShader: `
       varying vec3 vWorldPosition;
@@ -97,17 +100,49 @@ function createSky() {
       uniform vec3 horizonColor;
       uniform vec3 sunColor;
       uniform vec3 sunDirection;
+      uniform vec3 moonDirection;
+      uniform float night;
+      uniform float time;
       varying vec3 vWorldPosition;
+      float hash21(vec2 point) {
+        point = fract(point * vec2(123.34, 456.21));
+        point += dot(point, point + 45.32);
+        return fract(point.x * point.y);
+      }
       void main() {
         vec3 direction = normalize(vWorldPosition - cameraPosition);
         vec3 color = mix(horizonColor, midColor, smoothstep(-0.08, 0.24, direction.y));
         color = mix(color, topColor, smoothstep(0.18, 0.76, direction.y));
+        // Below the horizon the sky settles into the dark ground haze so the
+        // world edge never shows as a bright band behind the city.
+        color = mix(color, horizonColor * 0.22, smoothstep(0.0, -0.2, direction.y));
         float sunDot = max(dot(direction, sunDirection), 0.0);
         float disc = smoothstep(0.9982, 0.99925, sunDot);
         float halo = pow(sunDot, 18.0) * 0.42;
-        color += sunColor * (disc * 3.1 + halo);
+        color += sunColor * (disc * 3.1 + halo) * max(0.0, 1.0 - night * 1.15);
         float horizonHaze = pow(1.0 - max(direction.y, 0.0), 7.0) * 0.14;
-        color += sunColor * horizonHaze;
+        color += sunColor * horizonHaze * (1.0 - night * 0.5);
+        // Warm city glow sits on the horizon once Colombo after-hours lighting takes over.
+        color += vec3(0.42, 0.24, 0.13) * pow(1.0 - max(direction.y, 0.0), 12.0) * night * 0.9;
+        // Sparse twinkling star field with a soft Milky-Way band.
+        vec2 skyUv = vec2(atan(direction.z, direction.x) / 6.2831853, asin(clamp(direction.y, -1.0, 1.0)) / 1.5707963);
+        vec2 starGrid = skyUv * vec2(760.0, 380.0);
+        vec2 cell = floor(starGrid);
+        vec2 local = fract(starGrid) - 0.5;
+        float star = hash21(cell);
+        float twinkle = 0.55 + 0.45 * sin(time * 1.7 + star * 63.0);
+        float starShape = smoothstep(0.34, 0.02, length(local));
+        float starMask = smoothstep(0.9971, 0.9995, star) * starShape
+          * smoothstep(0.02, 0.3, direction.y) * night;
+        vec3 starColor = mix(vec3(0.72, 0.82, 1.0), vec3(1.0, 0.88, 0.72), hash21(cell + 7.1));
+        color += starColor * starMask * (0.8 + 1.6 * twinkle);
+        float band = exp(-pow((skyUv.y - 0.18) * 5.2, 2.0)) * night * 0.05;
+        color += vec3(0.42, 0.46, 0.62) * band * (0.55 + 0.45 * sin(skyUv.x * 42.0));
+        // Cool moon disc and halo.
+        float moonDot = max(dot(direction, moonDirection), 0.0);
+        float moonDisc = smoothstep(0.99955, 0.99985, moonDot);
+        color += vec3(0.86, 0.9, 1.0) * moonDisc * night * 2.2;
+        color += vec3(0.45, 0.55, 0.86) * pow(moonDot, 220.0) * night * 0.9;
         gl_FragColor = vec4(color, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -130,6 +165,9 @@ export class GraphicsPipeline {
     this.coarsePointer = coarsePointer;
     this.software = software;
     this.quality = software ? 'compatibility-software' : coarsePointer ? 'balanced-mobile' : 'high-desktop';
+    this.profile = null;
+    this.night = 0;
+    this.nightTarget = 0;
     this.sky = createSky();
     scene.add(this.sky);
     this.hdrSupported = !software && !coarsePointer && renderer.extensions.has('EXT_color_buffer_float');
@@ -237,9 +275,64 @@ export class GraphicsPipeline {
 
   setTheme(skyColor, fogColor) {
     const uniforms = this.sky.material.uniforms;
-    uniforms.topColor.value.copy(skyColor).lerp(SUNSET_ZENITH, 0.62).multiplyScalar(0.72);
-    uniforms.midColor.value.copy(fogColor).lerp(SUNSET_MID, 0.6);
-    uniforms.horizonColor.value.copy(fogColor).lerp(SUNSET_HORIZON, 0.65);
+    const night = this.night;
+    // Dusk mixes toward the sunset identity; after hours the sky keeps the
+    // district's own blend so the warm sunset never overrides the night.
+    uniforms.topColor.value.copy(skyColor)
+      .lerp(SUNSET_ZENITH, 0.62 * (1 - night)).multiplyScalar(1 - night * 0.45);
+    uniforms.midColor.value.copy(fogColor).lerp(SUNSET_MID, 0.6 * (1 - night));
+    uniforms.horizonColor.value.copy(fogColor).lerp(SUNSET_HORIZON, 0.65 * (1 - night));
+  }
+
+  ensureEnvironment() {
+    if (this.environmentTarget || this.software) return this.environmentTarget;
+    if (typeof document === 'undefined') return null;
+    try {
+      this.environmentTarget = createReflectionEnvironment(
+        this.renderer, this.scene, this.profile?.id === 'low' || this.coarsePointer,
+      );
+    } catch {
+      this.environmentTarget = null;
+      this.scene.environment = null;
+    }
+    return this.environmentTarget;
+  }
+
+  releaseEnvironment() {
+    if (!this.environmentTarget) return;
+    this.scene.environment = null;
+    this.environmentTarget.dispose();
+    this.environmentTarget = null;
+  }
+
+  /**
+   * Applies a named graphics tier. Only cost toggles here: resolution caps,
+   * post-processing, reflection probe, clouds and adaptive behaviour. Scene
+   * content, collision and gameplay are untouched.
+   */
+  applyProfile(profile) {
+    if (!profile) return;
+    this.profile = profile;
+    if (this.bloomPass) {
+      this.bloomPass.enabled = Boolean(profile.bloom);
+      this.bloomPass.strength = profile.bloomStrength || 0;
+      this.postprocessing = Boolean(profile.postprocessing);
+    } else {
+      this.postprocessing = false;
+    }
+    if (profile.environment) this.ensureEnvironment();
+    else this.releaseEnvironment();
+    for (const cloud of this.clouds) cloud.visible = Boolean(profile.clouds) && !this.performanceMode;
+    this.minimumPixelRatio = Math.min(this.maxPixelRatio, profile.pixelRatioFloor ?? this.minimumPixelRatio);
+    this.adaptations = 0;
+    this.slowWindows = 0;
+    this.frameTime = 0;
+    this.frameCount = 0;
+    this.quality = profile.id;
+  }
+
+  setNight(value) {
+    this.nightTarget = THREE.MathUtils.clamp(value, 0, 1);
   }
 
   adapt(delta) {
@@ -256,7 +349,10 @@ export class GraphicsPipeline {
 
     // Preserve native CSS-pixel sharpness. Remove expensive full-screen and
     // distant-scene work before considering any resolution reduction.
-    if (this.bloomPass?.enabled) {
+    if (this.profile && this.adaptations < 1 && this.bloomPass?.enabled) {
+      this.bloomPass.enabled = false;
+      this.quality = `${this.profile.id}-adaptive`;
+    } else if (this.bloomPass?.enabled) {
       this.bloomPass.enabled = false;
       this.quality = 'adaptive-grade';
     } else if (this.postprocessing) {
@@ -271,7 +367,9 @@ export class GraphicsPipeline {
       for (const cloud of this.clouds) cloud.visible = false;
     } else {
       const current = this.renderer.getPixelRatio();
-      const minimum = this.minimumPixelRatio ?? Math.min(current, this.coarsePointer ? 0.85 : 1);
+      const floor = this.profile?.pixelRatioFloor ?? (this.coarsePointer ? 0.85 : 1);
+      const cap = Number.isFinite(this.maxPixelRatio) ? this.maxPixelRatio : current;
+      const minimum = Math.min(cap, floor);
       if (current <= minimum + 0.01) return;
       this.applyPixelRatio(Math.max(minimum, current * 0.9));
       this.quality = 'adaptive-resolution';
@@ -286,6 +384,10 @@ export class GraphicsPipeline {
       this.cinematicPass.uniforms.boost.value = this.boost;
       this.cinematicPass.uniforms.toneMappingExposure.value = this.renderer.toneMappingExposure;
     }
+    this.night = THREE.MathUtils.lerp(this.night, this.nightTarget, 1 - Math.exp(-Math.max(0, delta) * 1.4));
+    const skyUniforms = this.sky.material.uniforms;
+    skyUniforms.night.value = this.night;
+    skyUniforms.time.value += Math.max(0, delta);
     this.sky.position.copy(this.camera.position);
     for (let index = 0; index < this.clouds.length; index += 1) {
       const cloud = this.clouds[index];
@@ -293,8 +395,8 @@ export class GraphicsPipeline {
       cloud.position.x += delta * (0.12 + index * 0.015);
       if (cloud.position.x > cloud.userData.startX + 16) cloud.position.x = cloud.userData.startX - 16;
     }
-    if (!this.software) this.adapt(delta);
-    if (this.composer) this.composer.render(delta);
+    if (!this.software && this.profile?.id !== 'low') this.adapt(delta);
+    if (this.composer && this.postprocessing) this.composer.render(delta);
     else this.renderer.render(this.scene, this.camera);
   }
 

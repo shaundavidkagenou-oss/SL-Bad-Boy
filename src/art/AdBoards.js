@@ -612,7 +612,11 @@ export function createAdBoardField(sequence, sectionLength = 30) {
       const width = slot.width * (0.94 + random() * 0.12);
       const height = slot.height * (0.94 + random() * 0.12);
       const z = ((slot.z + (side > 0 ? 1.6 : -1.6) + sectionLength * 0.5) % sectionLength) - sectionLength * 0.5;
-      const face = billboardGeometry(width, height, uv);
+      // Lightboxes are illuminated on both faces in Colombo; free-standing
+      // hoardings keep a sheeted rear. The rear sheet sits fully behind the
+      // artwork so a frame can never mask the printed face.
+      const twoSided = slot.kind === 'lightbox';
+      const face = billboardGeometry(width, height, uv, twoSided);
       const matrix = new THREE.Matrix4()
         .makeRotationY(-side * Math.PI / 2 + (random() - 0.5) * 0.05)
         .setPosition(side * slot.x, slot.y, z);
@@ -630,7 +634,9 @@ export function createAdBoardField(sequence, sectionLength = 30) {
         }
         box(frame, [width + 0.16, 0.09, 0.16], [0, height * 0.5 + 0.06, 0.06], 0x3f4648);
         box(frame, [width + 0.16, 0.07, 0.16], [0, -height * 0.5 - 0.05, 0.06], 0x3f4648);
-        box(frame, [width, height, 0.05], [0, 0, -0.045], 0x8b8f8c, { roughness: 0.8 });
+        box(frame, [width, height, 0.05], [0, 0, -0.045], 0x9aa2a1, {
+          roughness: 0.68, metalness: 0.26, emissive: 0x39413f, emissiveIntensity: 1.0,
+        });
       } else if (slot.kind === 'pole') {
         const postHeight = Math.max(0.3, slot.y - height * 0.5);
         cylinder(frame, [0.06], postHeight, [0, -slot.y + postHeight / 2, 0.03], 0x4a5153, {
@@ -639,7 +645,9 @@ export function createAdBoardField(sequence, sectionLength = 30) {
         box(frame, [width + 0.1, 0.06, 0.1], [0, -height * 0.5 - 0.02, 0.05], 0x3f4648);
       } else {
         // City-light box with a lit base.
-        box(frame, [width + 0.12, height + 0.12, 0.1], [0, 0, -0.04], 0x2d3436);
+        box(frame, [width + 0.12, height + 0.12, 0.1], [0, 0, -0.1], 0x555f62, {
+          roughness: 0.62, metalness: 0.32, emissive: 0x3c4548, emissiveIntensity: 1.15,
+        });
         box(frame, [width + 0.2, 0.12, 0.2], [0, -height * 0.5 - 0.07, 0.06], 0x1f2527);
       }
       frame.position.set(side * slot.x, slot.y, z);

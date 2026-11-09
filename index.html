@@ -171,6 +171,15 @@
             <label for="music-volume"><span>MUSIC</span><input id="music-volume" type="range" min="0" max="1" step="0.05" value="0.55" /></label>
             <label for="sfx-volume"><span>SOUND FX</span><input id="sfx-volume" type="range" min="0" max="1" step="0.05" value="0.85" /></label>
           </div>
+          <div class="graphics-settings" aria-label="Graphics settings">
+            <div class="graphics-heading"><span>GRAPHICS</span><small id="graphics-hint">AUTO-SELECTED FOR THIS DEVICE</small></div>
+            <div id="graphics-options" class="graphics-options" role="radiogroup" aria-label="Graphics quality">
+              <button type="button" class="graphics-option" data-quality="low" role="radio" aria-checked="false">LOW</button>
+              <button type="button" class="graphics-option" data-quality="medium" role="radio" aria-checked="false">MEDIUM</button>
+              <button type="button" class="graphics-option" data-quality="high" role="radio" aria-checked="false">HIGH</button>
+              <button type="button" class="graphics-option" data-quality="ultra" role="radio" aria-checked="false">ULTRA</button>
+            </div>
+          </div>
         </div>
       </section>
 

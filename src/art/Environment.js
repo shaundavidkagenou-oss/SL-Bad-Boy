@@ -304,6 +304,46 @@ export function createMarketStall(variant = 0) {
   return stall;
 }
 
+// Warm sodium spill drawn as one additive card per lamp. A single shared
+// material keeps the whole street on one texture upload and lets the night
+// mix drive the intensity without touching every light.
+const streetGlow = { material: null, texture: null, geometry: null };
+function streetGlowMaterial() {
+  if (!streetGlow.material) {
+    if (typeof document === 'undefined') {
+      // Headless unit tests import this module without a DOM.
+      streetGlow.material = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+      return streetGlow.material;
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const context = canvas.getContext('2d');
+    const gradient = context.createRadialGradient(64, 64, 4, 64, 64, 64);
+    gradient.addColorStop(0, 'rgba(255,214,138,0.95)');
+    gradient.addColorStop(0.42, 'rgba(255,186,96,0.42)');
+    gradient.addColorStop(1, 'rgba(255,160,70,0)');
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, 128, 128);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.generateMipmaps = false;
+    streetGlow.texture = texture;
+    streetGlow.material = new THREE.MeshBasicMaterial({
+      map: texture, transparent: true, opacity: 0.3, depthWrite: false,
+      blending: THREE.AdditiveBlending, toneMapped: false, side: THREE.DoubleSide,
+    });
+  }
+  return streetGlow.material;
+}
+
+export function setStreetGlow(night = 0) {
+  const material = streetGlowMaterial();
+  material.opacity = 0.06 + Math.max(0, Math.min(1, night)) * 0.4;
+}
+
 export function createStreetlight(side = 1) {
   const root = new THREE.Group();
   cylinder(root, [0.075, 0.13], 5.4, [0, 2.7, 0], 0x4a585c, { segments: 8 });
@@ -313,6 +353,16 @@ export function createStreetlight(side = 1) {
   box(root, [0.44, 0.035, 0.23], [-side * 1.15, 5.15, 0], 0xffdf8a, {
     emissive: 0xffc95c, emissiveIntensity: 1.35, castShadow: false,
   });
+  if (typeof document !== 'undefined') {
+    streetGlow.geometry = streetGlow.geometry || new THREE.PlaneGeometry(6.4, 6.4);
+    const pool = new THREE.Mesh(streetGlow.geometry, streetGlowMaterial());
+    pool.rotation.x = -Math.PI / 2;
+    pool.position.set(-side * 1.15, 0.06, 0);
+    pool.renderOrder = 2;
+    pool.userData.streetGlow = true;
+    pool.frustumCulled = false;
+    root.add(pool);
+  }
   return root;
 }
 

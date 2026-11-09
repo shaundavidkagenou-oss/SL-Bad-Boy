@@ -14,6 +14,10 @@ import { CameraRig } from './CameraRig.js';
 import { AudioManager } from './AudioManager.js';
 import { GameUI } from '../ui/GameUI.js';
 import { GraphicsPipeline, isSoftwareRenderer } from './GraphicsPipeline.js';
+import { QUALITY_TIERS, qualityProfile, detectQualityTier, readDeviceHints } from './QualityProfiles.js';
+import { material as sharedMaterial } from '../art/MeshKit.js';
+import { getAdMaterial } from '../art/AdBoards.js';
+import { setStreetGlow } from '../art/Environment.js';
 import { configureSurfaceQuality } from '../art/MeshKit.js';
 import { VisualEffects } from './VisualEffects.js';
 import { ContactShadows } from './ContactShadows.js';
@@ -87,6 +91,18 @@ export class Game {
       this.graphics.quality = 'performance-mobile';
       for (const cloud of this.graphics.clouds) cloud.visible = false;
     }
+    this.qualityTiers = QUALITY_TIERS;
+    const requestedTier = new URLSearchParams(window.location.search).get('tier');
+    this.qualityPreference = QUALITY_TIERS.includes(requestedTier)
+      ? requestedTier : this.readQualityPreference();
+    this.qualityTier = this.qualityPreference
+      ?? detectQualityTier({ ...readDeviceHints(), software: this.softwareRenderer });
+    // Shared emissive materials that become the "after hours" light sources.
+    this.litWindowMaterial = sharedMaterial(0xffd69a, {
+      roughness: 0.28, emissive: 0xffb85c, emissiveIntensity: 0.95,
+    });
+    this.adMaterial = getAdMaterial();
+    this.nightMix = 0;
 
     this.score = new ScoreManager();
     this.progress = new ProgressionManager();
@@ -208,6 +224,7 @@ export class Game {
         this.ui.setMuted(muted);
         if (!muted) this.audio.play('button');
       },
+      graphics: (tier) => this.setQualityTier(tier),
       musicVolume: (value) => this.audio.setMusicVolume(value),
       sfxVolume: (value) => this.audio.setSfxVolume(value),
     });
@@ -227,7 +244,7 @@ export class Game {
     this.themeTargets = {
       sky: new THREE.Color(), fog: new THREE.Color(), fogNear: 82, fogFar: 285,
       sun: new THREE.Color(0xffad73), fill: new THREE.Color(0x9bbcff),
-      exposure: 1.08, sunIntensity: 2.15, hemisphereIntensity: 0.62,
+      exposure: 1.08, sunIntensity: 2.15, hemisphereIntensity: 0.62, night: 0.55,
     };
     this.handleResize = () => this.resize();
     this.handleVisibility = () => {
@@ -242,8 +259,55 @@ export class Game {
     this.ui.setMuted(this.audio.muted);
     this.ui.setVolumes(this.audio.musicVolume, this.audio.sfxVolume);
     this.updateTheme(0);
+    this.applyQualityTier(this.qualityTier, { persist: false, silent: true });
     this.animate = this.animate.bind(this);
     this.renderer.setAnimationLoop(this.animate);
+  }
+
+  readQualityPreference() {
+    try {
+      const stored = globalThis.localStorage?.getItem('lanka-run-graphics-v1');
+      if (QUALITY_TIERS.includes(stored)) return stored;
+    } catch { /* storage can be blocked; auto-detect still runs */ }
+    return null;
+  }
+
+  /**
+   * Switches graphics tier live. Only rendering cost changes; the road, lanes,
+   * traffic, scoring and collision are identical on every tier.
+   */
+  applyQualityTier(tier, { persist = true, silent = false } = {}) {
+    const profile = qualityProfile(tier);
+    this.qualityTier = profile.id;
+    this.pixelRatioLimit = profile.pixelRatioCap;
+    this.graphics.maxPixelRatio = Math.min(window.devicePixelRatio || 1, profile.pixelRatioCap);
+    this.graphics.minimumPixelRatio = Math.min(this.graphics.maxPixelRatio, profile.pixelRatioFloor);
+    this.graphics.applyProfile(profile);
+    this.world?.setQuality({
+      detailDistance: profile.detailDistance,
+      animationHz: profile.animationHz,
+      generationBudget: profile.generationBudget,
+    });
+    if (this.longShadows) this.longShadows.enabled = profile.longShadows && !this.softwareRenderer;
+    if (this.godRays) this.godRays.enabled = profile.godRays && !this.softwareRenderer;
+    if (this.roadLights) {
+      this.roadLights.roadGlow = profile.roadGlow;
+      this.roadLights.enabled = true;
+    }
+    this.rain?.setDensity(profile.rainDrops / 420);
+    this.resize();
+    this.ui?.setQuality(profile.id);
+    if (persist) {
+      try { globalThis.localStorage?.setItem('lanka-run-graphics-v1', profile.id); } catch { /* offline */ }
+    }
+    if (!silent) this.ui?.showFeedback(`${profile.label} GRAPHICS`, profile.blurb);
+    return profile;
+  }
+
+  setQualityTier(tier) {
+    if (!QUALITY_TIERS.includes(tier)) return;
+    this.buttonFeedback();
+    this.applyQualityTier(tier);
   }
 
   buttonFeedback() {
@@ -484,17 +548,30 @@ export class Game {
       this.currentTheme = theme;
       this.spawner.setDistrict(theme.id);
       const palette = eveningPalette(theme);
-      this.themeTargets.sky.set(palette.sky);
-      this.themeTargets.fog.set(palette.fog);
-      this.themeTargets.fogNear = palette.fogNear ?? 82;
-      this.themeTargets.fogFar = palette.fogFar ?? 285;
       const hot = ['ancient', 'palmyrah'].includes(theme.layout);
       const mist = ['hill', 'rail', 'tea'].includes(theme.layout);
-      this.themeTargets.sun.set(hot ? 0xffa06b : mist ? 0xffb987 : 0xffad73);
-      this.themeTargets.fill.set(mist ? 0x92b9ef : 0x9bbcff);
-      this.themeTargets.exposure = hot ? 1.04 : mist ? 1.06 : 1.08;
-      this.themeTargets.sunIntensity = hot ? 2.0 : mist ? 1.65 : 2.15;
-      this.themeTargets.hemisphereIntensity = mist ? 0.72 : 0.62;
+      const night = palette.night ?? 0.55;
+      // "After hours": blend the district's dusk palette into moonlit night and
+      // keep the warm street glow in the fog so the city still reads at distance.
+      const duskSky = new THREE.Color(palette.sky);
+      const duskFog = new THREE.Color(palette.fog);
+      const nightSky = new THREE.Color(palette.nightSky);
+      const nightFog = new THREE.Color(palette.nightFog);
+      this.themeTargets.sky.copy(duskSky).lerp(nightSky, night * 0.86);
+      this.themeTargets.fog.copy(duskFog).lerp(nightFog, night * 0.82);
+      this.themeTargets.night = night;
+      this.themeTargets.fogNear = (palette.fogNear ?? 82) + night * 12;
+      this.themeTargets.fogFar = (palette.fogFar ?? 285) - night * 26;
+      const duskSun = new THREE.Color(hot ? 0xffa06b : mist ? 0xffb987 : 0xffad73);
+      const duskFill = new THREE.Color(mist ? 0x92b9ef : 0x9bbcff);
+      this.themeTargets.sun.copy(duskSun).lerp(palette.nightSun, night * 0.8);
+      this.themeTargets.fill.copy(duskFill).lerp(palette.nightFill, night * 0.85);
+      this.themeTargets.exposure = THREE.MathUtils.lerp(hot ? 1.04 : mist ? 1.06 : 1.08,
+        palette.nightExposure, night * 0.7);
+      this.themeTargets.sunIntensity = THREE.MathUtils.lerp(hot ? 2.0 : mist ? 1.65 : 2.15,
+        palette.nightSunIntensity, night * 0.85);
+      this.themeTargets.hemisphereIntensity = THREE.MathUtils.lerp(mist ? 0.72 : 0.62,
+        palette.nightHemisphere, night * 0.8);
       this.ui.setDistrict(theme, announce);
       if (announce && this.state === 'running') {
         const stampBonus = this.progress.visitDistrict(theme.id);
@@ -525,6 +602,15 @@ export class Game {
       this.scene.fog.near = THREE.MathUtils.lerp(this.scene.fog.near, this.themeTargets.fogNear, blend);
       this.scene.fog.far = THREE.MathUtils.lerp(this.scene.fog.far, this.themeTargets.fogFar, blend);
     }
+    // Shared emissive materials become the city's after-hours light sources.
+    const nightBlend = delta === 0 ? 1 : 1 - Math.exp(-delta * 0.8);
+    this.nightMix = THREE.MathUtils.lerp(this.nightMix, this.themeTargets.night, nightBlend);
+    this.litWindowMaterial.emissiveIntensity = 0.95 + this.nightMix * 1.35;
+    if (this.adMaterial) this.adMaterial.emissiveIntensity = 0.22 + this.nightMix * 0.5;
+    document.body.classList.toggle('is-night', this.nightMix > 0.55);
+    setStreetGlow(this.nightMix);
+    if (this.hemisphere) this.hemisphere.color.setHex(0x8fa8d6).lerp(new THREE.Color(0x54689b), this.nightMix);
+    this.graphics.setNight(this.themeTargets.night);
     this.graphics.setTheme(this.scene.background, this.scene.fog.color);
   }
 
