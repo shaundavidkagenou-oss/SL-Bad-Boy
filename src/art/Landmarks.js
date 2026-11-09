@@ -300,3 +300,57 @@ export function createTunnelSection(length = 30, { portalStart = false, portalEn
   if (portalEnd) addPortal(-length / 2, false);
   return root;
 }
+
+/**
+ * Shared forecourt that makes every district landmark read as a real place:
+ * paving, stone balustrade, flower beds, lamps, benches and a bilingual
+ * information board. Batched with the scenery, so it adds no extra draws.
+ */
+export function createLandmarkForecourt(themeId, side = 1) {
+  const root = new THREE.Group();
+  root.name = `${themeId} landmark forecourt`;
+  root.userData.forecourt = themeId;
+  const width = 9.5;
+  box(root, [width, 0.09, 5.2], [0, 0.045, 0], 0xc8bfa8, { surface: 'paving', roughness: 0.92 });
+  for (let step = 0; step < 2; step += 1) {
+    box(root, [width * 0.72, 0.12, 0.5], [0, 0.1 + step * 0.11, 2.75 - step * 0.42], 0xd7cfb9, {
+      roughness: 0.92,
+    });
+  }
+  // Balustrade along the road edge.
+  for (let x = -width / 2 + 0.3; x <= width / 2 - 0.2; x += 0.62) {
+    cylinder(root, [0.055, 0.075], 0.72, [x, 0.45, 2.5], 0xe4ddc8, { segments: 8 });
+    sphere(root, 0.085, [x, 0.84, 2.5], 0xeae3ce, { widthSegments: 8, heightSegments: 6 });
+  }
+  box(root, [width - 0.4, 0.11, 0.18], [0, 0.86, 2.5], 0xded6c1);
+  // Flower beds and clipped hedges.
+  for (const x of [-width * 0.34, width * 0.34]) {
+    box(root, [2.5, 0.24, 1.05], [x, 0.2, 0.9], 0x9c8f74, { roughness: 0.95 });
+    for (let plant = 0; plant < 6; plant += 1) {
+      sphere(root, 0.22, [x - 1 + plant * 0.4, 0.42, 0.9 + (plant % 2) * 0.12], 0x4d7f45, {
+        scale: [1, 0.8, 1], widthSegments: 10, heightSegments: 7,
+      });
+      sphere(root, 0.075, [x - 1 + plant * 0.4, 0.58, 0.94], plant % 2 ? 0xe6a0b4 : 0xf2cd63, {
+        widthSegments: 8, heightSegments: 6,
+      });
+    }
+  }
+  // Twin lamp posts, a bench and an information board.
+  for (const x of [-width * 0.42, width * 0.42]) {
+    cylinder(root, [0.06, 0.09], 3.4, [x, 1.7, 2.1], 0x3c484a, { segments: 8 });
+    cylinder(root, [0.2], 0.16, [x, 3.5, 2.1], 0x2f393b, { segments: 8 });
+    sphere(root, 0.16, [x, 3.38, 2.1], 0xffe3ae, {
+      scale: [1, 0.7, 1], emissive: 0xffc46a, emissiveIntensity: 1.1, widthSegments: 10, heightSegments: 7,
+    });
+  }
+  box(root, [1.85, 0.12, 0.55], [-width * 0.1, 0.52, 1.55], 0x8c6a44, { roughness: 0.9 });
+  box(root, [1.85, 0.55, 0.12], [-width * 0.1, 0.82, 1.32], 0x8c6a44, { roughness: 0.9 });
+  for (const x of [-0.85, 0.65]) box(root, [0.12, 0.45, 0.5], [-width * 0.1 + x, 0.28, 1.55], 0x3f4548);
+  box(root, [1.5, 0.09, 0.5], [-width * 0.1, 0.58, 1.55], 0x6f5638);
+  cylinder(root, [0.05], 1.9, [width * 0.2, 0.95, 1.8], 0x4d5658, { segments: 7 });
+  label(root, 'ආයුබෝවන්\nWELCOME', [1.25, 0.72], [width * 0.2, 1.72, 1.86], {
+    background: '#176b52', foreground: '#fff7d8', border: '#f4b942', fontSize: 42,
+    lineScales: [0.9, 0.45],
+  });
+  return root;
+}

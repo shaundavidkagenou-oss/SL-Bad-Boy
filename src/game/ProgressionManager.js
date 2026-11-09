@@ -1,5 +1,12 @@
 const PROGRESS_KEY = 'lanka-run-schoolboy-rush-island-progress-v1';
 const RANKS = ['EXPLORER', 'PATHFINDER', 'ISLAND RUNNER', 'ROUTE ACE', 'ISLAND LEGEND'];
+const DISTRICT_IDS = ['colombo', 'suburb', 'market', 'kotte', 'kandy', 'kadugannawa',
+  'nuwara-eliya', 'ella', 'galle', 'negombo', 'anuradhapura', 'polonnaruwa', 'jaffna', 'trincomalee'];
+
+function dayNumber(day) {
+  const [year, month, date] = String(day).split('-').map(Number);
+  return Math.floor(Date.UTC(year, month - 1, date) / 86400000);
+}
 
 export function localDayKey(date = new Date()) {
   const year = date.getFullYear();
@@ -44,6 +51,9 @@ export class ProgressionManager {
     this.stars = 0;
     this.totals = { runs: 0, distance: 0, coins: 0, nearMisses: 0, bestDistance: 0 };
     this.missions = createMissions(this.day);
+    this.streak = 0;
+    this.streakDay = null;
+    this.stamps = {};
     this.load();
   }
 
@@ -53,6 +63,16 @@ export class ProgressionManager {
     if (!saved || typeof saved !== 'object') return;
     this.stars = Math.floor(number(saved.stars));
     for (const key of Object.keys(this.totals)) this.totals[key] = number(saved.totals?.[key]);
+    this.streak = Math.floor(number(saved.streak));
+    this.streakDay = typeof saved.streakDay === 'string' ? saved.streakDay : null;
+    if (saved.stamps && typeof saved.stamps === 'object') {
+      for (const id of DISTRICT_IDS) {
+        if (saved.stamps[id]) this.stamps[id] = Math.floor(number(saved.stamps[id]));
+      }
+    }
+    // Roll the streak forward if the saved run happened yesterday.
+    if (this.streakDay && this.streakDay !== this.day
+      && dayNumber(this.day) - dayNumber(this.streakDay) > 1) this.streak = 0;
     if (saved.day !== this.day || !Array.isArray(saved.missions)) return;
     for (const mission of this.missions) {
       const old = saved.missions.find((item) => item?.id === mission.id);
@@ -68,6 +88,10 @@ export class ProgressionManager {
         day: this.day,
         stars: this.stars,
         totals: this.totals,
+        missionDay: this.day,
+        streak: this.streak,
+        streakDay: this.streakDay,
+        stamps: this.stamps,
         missions: this.missions.map(({ id, progress, completed }) => ({ id, progress, completed })),
       }));
     } catch {
@@ -106,8 +130,30 @@ export class ProgressionManager {
       }
     }
     const starsEarned = completed.reduce((sum, mission) => sum + mission.reward, 0);
+    // Daily streak: the first run of a new day extends it, and the bonus grows
+    // to a week. Repeat runs on the same day never duplicate the reward.
+    let streakBonus = 0;
+    if (this.streakDay !== this.day) {
+      const previous = this.streakDay ? dayNumber(this.day) - dayNumber(this.streakDay) : 99;
+      this.streak = previous === 1 ? this.streak + 1 : 1;
+      this.streakDay = this.day;
+      streakBonus = Math.min(7, this.streak) * 2;
+    }
     this.save();
-    return { starsEarned, completed, totalStars: this.stars };
+    return { starsEarned, completed, totalStars: this.stars, streak: this.streak, streakBonus };
+  }
+
+  /** Records a district the runner has entered; returns a new-stamp bonus. */
+  visitDistrict(id) {
+    if (!DISTRICT_IDS.includes(id)) return 0;
+    const first = !this.stamps[id];
+    this.stamps[id] = (this.stamps[id] || 0) + 1;
+    if (first) this.save();
+    return first ? 5 : 0;
+  }
+
+  get stampCount() {
+    return Object.keys(this.stamps).length;
   }
 
   getSnapshot() {
@@ -120,6 +166,11 @@ export class ProgressionManager {
       rank: RANKS[Math.min(RANKS.length - 1, level - 1)],
       levelProgress: (this.stars % 10) / 10,
       totals: { ...this.totals },
+      streak: this.streak,
+      streakToday: this.streakDay === this.day,
+      stamps: { ...this.stamps },
+      stampCount: this.stampCount,
+      districtTotal: DISTRICT_IDS.length,
       missions: this.missions.map((mission) => ({
         ...mission,
         ratio: Math.min(1, mission.progress / mission.target),

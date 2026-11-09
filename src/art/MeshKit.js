@@ -285,7 +285,7 @@ export function label(parent, text, size, position, options = {}) {
     mesh.scale.set(size[0], size[1], 1);
     return finish(mesh, parent, position, options.rotation, { castShadow: false, receiveShadow: false });
   }
-  const key = `${lines.join('|')}:${background}:${foreground}:${border}:${fontFamily}:${fontSize}`;
+  const key = `${lines.join('|')}:${background}:${foreground}:${border}:${fontFamily}:${fontSize}:${(options.lineScales ?? []).join(',')}`;
   if (!labelMaterialCache.has(key)) {
     const canvas = document.createElement('canvas');
     canvas.width = 512;
@@ -301,9 +301,13 @@ export function label(parent, text, size, position, options = {}) {
     context.textAlign = 'center';
     context.textBaseline = 'middle';
     const lineHeight = Math.min(76, (canvas.height - 30) / lines.length);
+    const lineScales = options.lineScales ?? [];
     lines.forEach((line, index) => {
       const y = canvas.height / 2 + (index - (lines.length - 1) / 2) * lineHeight;
+      const scale = lineScales[index] ?? 1;
+      if (scale !== 1) context.font = `700 ${Math.round(fontSize * scale)}px ${fontFamily}`;
       context.fillText(line, 256, y, 470);
+      if (scale !== 1) context.font = `700 ${fontSize}px ${fontFamily}`;
     });
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;

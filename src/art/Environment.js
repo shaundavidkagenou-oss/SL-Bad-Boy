@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import { box, roundedBox, cylinder, sphere, cone, label } from './MeshKit.js';
+import { box, capsule, roundedBox, cylinder, sphere, cone, label } from './MeshKit.js';
 import { createObstacleModel } from './Vehicles.js';
+import { createAdBoard } from './AdBoards.js';
 import { hasLocalSignFonts, LOCAL_SIGN_FONT } from '../ui/SignFonts.js';
 
 export { createPalm, createPalmyrah, createBananaPlant, createTree } from './Vegetation.js';
@@ -46,6 +47,94 @@ function addBalcony(parent, width, y, z) {
   }
 }
 
+// Every shopfront on the island is Sinhala-first, with a small English line
+// beneath it exactly like a real Sri Lankan kade or city store.
+const SINHALA_SHOPS = Object.freeze({
+  city: [
+    ['තේ කඩේ', 'TEA SHOP'], ['පොත් කඩේ', 'BOOKS'], ['කෑම කඩේ', 'SHORT EATS'],
+    ['ඖෂධ කඩේ', 'PHARMACY'], ['රෙදි කඩේ', 'TEXTILES'], ['සිල්ලර කඩේ', 'GROCERY'],
+    ['බේකරි', 'BAKERY'], ['ජංගම දුරකථන', 'MOBILE'], ['ආයුබෝවන්', 'WELCOME'],
+  ],
+  market: [
+    ['තැඹිලි කඩේ', 'KING COCONUT'], ['එළවළු කඩේ', 'VEGETABLES'], ['කුළු බඩු', 'SPICES'],
+    ['රෙදි කඩේ', 'TEXTILES'], ['පළතුරු කඩේ', 'FRESH FRUIT'], ['සහල් කඩේ', 'RICE'],
+    ['මාළු කඩේ', 'FISH'], ['කිරි කඩේ', 'DAIRY'],
+  ],
+  fort: [
+    ['පොත් කඩේ', 'FORT BOOKS'], ['කෝපි කඩේ', 'RAMPART CAFE'], ['සිල්ලර කඩේ', 'GALLE STORES'],
+    ['තේ කඩේ', 'LIGHTHOUSE TEA'], ['කෑම කඩේ', 'DUTCH LANE'], ['බේකරි', 'FORT BAKERY'],
+  ],
+  hill: [
+    ['තේ කඩේ', 'HILL TEA'], ['බේකරි', 'KANDY BAKERY'], ['දුම්රිය කඩේ', 'RAIL VIEW'],
+    ['කුළු බඩු', 'TEA & SPICE'], ['කෑම කඩේ', 'SHORT EATS'], ['සිල්ලර කඩේ', 'STORE'],
+  ],
+  coast: [
+    ['මාළු කඩේ', 'LAGOON FISH'], ['තැඹිලි කඩේ', 'KING COCONUT'], ['මුහුදු ආහාර', 'SEAFOOD'],
+    ['බේකරි', 'CANAL BAKERY'], ['සිල්ලර කඩේ', 'NEGOMBO STORES'], ['කෑම කඩේ', 'SHORT EATS'],
+  ],
+});
+
+function shopNamesFor(style) {
+  if (style === 'market' || style === 'negombo') return SINHALA_SHOPS.market;
+  if (style === 'galle') return SINHALA_SHOPS.fort;
+  if (['kandy', 'kadugannawa', 'ella', 'nuwara-eliya'].includes(style)) return SINHALA_SHOPS.hill;
+  if (style === 'negombo' || style === 'trincomalee') return SINHALA_SHOPS.coast;
+  return SINHALA_SHOPS.city;
+}
+
+/** Glazed shopfront: display goods, price strips, spill light and a live sign. */
+function shopFrontage(root, { width, front, variant, lit, local }) {
+  // Hanging "open" board, edge-lit and readable from the road.
+  box(root, [0.05, 0.34, 0.05], [width * 0.33, 2.02, front + 0.34], 0x4a5153);
+  box(root, [0.62, 0.3, 0.05], [width * 0.33, 1.87, front + 0.34], 0x1f3f39);
+  label(root, local ? 'විවෘතයි' : 'OPEN', [0.55, 0.24], [width * 0.33, 1.87, front + 0.37], {
+    background: '#176b52', foreground: '#fff7d8', border: '#f4b942', fontSize: 46,
+    fontFamily: local ? LOCAL_SIGN_FONT : 'Arial, sans-serif',
+  });
+  // Glass display window with shelved produce and price cards.
+  box(root, [width * 0.52, 1.5, 0.06], [width * 0.24, 1.32, front + 0.09], 0x2c4c52, {
+    roughness: 0.22, metalness: 0.1,
+  });
+  for (let shelf = 0; shelf < 3; shelf += 1) {
+    box(root, [width * 0.48, 0.035, 0.05], [width * 0.24, 0.72 + shelf * 0.42, front + 0.13], 0xe8dfc9);
+    for (let item = 0; item < 5; item += 1) {
+      const hue = [0xc9522f, 0x4f8a3c, 0xdca63b, 0x8c5aa8, 0x2f7f8a][(variant + shelf + item) % 5];
+      box(root, [0.15, 0.2, 0.09], [width * 0.24 - width * 0.2 + item * width * 0.1,
+        0.84 + shelf * 0.42, front + 0.15], hue, { roughness: 0.75 });
+    }
+    box(root, [0.24, 0.11, 0.012], [width * 0.24 - width * 0.16, 0.66 + shelf * 0.42, front + 0.17], 0xf6efd9);
+  }
+  // Warm spill light on the pavement and awning bulbs.
+  if (lit) {
+    box(root, [width * 0.54, 0.04, 0.5], [width * 0.24, 0.56, front + 0.31], 0xffe1ab, {
+      emissive: 0xffbf70, emissiveIntensity: 0.55, roughness: 0.6,
+    });
+    for (let bulb = 0; bulb < 4; bulb += 1) {
+      sphere(root, 0.045, [-width * 0.32 + bulb * width * 0.22, 2.06, front + 0.42],
+        LIT_WINDOW_COLOR, { ...LIT_WINDOW_OPTIONS, widthSegments: 8, heightSegments: 6 });
+    }
+  }
+  // Crates, sacks and a handcart outside the door.
+  box(root, [0.66, 0.34, 0.44], [width * 0.36, 0.19, front + 0.32], 0x8a5a34);
+  box(root, [0.6, 0.3, 0.4], [width * 0.36, 0.5, front + 0.32], 0x96633b);
+  for (const offset of [-0.16, 0.02, 0.2]) {
+    sphere(root, 0.1, [width * 0.36 + offset, 0.72, front + 0.32], 0x4f8a3c, {
+      widthSegments: 8, heightSegments: 6,
+    });
+  }
+  for (const offset of [-0.3, 0, 0.3]) {
+    capsule(root, 0.09, 0.2, [width * 0.02 + offset, 0.22, front + 0.3], 0xd9c9a2, {
+      scale: [1, 1, 0.8], radialSegments: 8, capSegments: 2, roughness: 0.9,
+    });
+  }
+  cylinder(root, [0.24, 0.26], 0.62, [width * 0.31, 0.55, front + 0.12], 0xd8d3c2, {
+    segments: 12, roughness: 0.85,
+  });
+  sphere(root, 0.2, [width * 0.31, 0.86, front + 0.12], 0x3f6d3c, {
+    scale: [1, 0.65, 1], widthSegments: 10, heightSegments: 7,
+  });
+}
+
 function commercialBuilding(variant, style) {
   const root = new THREE.Group();
   const market = style === 'market' || style === 'negombo';
@@ -74,26 +163,22 @@ function commercialBuilding(variant, style) {
     box(root, [0.18, height, 0.18], [x, height / 2, front + 0.02], 0xe3d7bd);
   }
 
-  const shopNames = fort
-    ? ['FORT BOOKS', 'RAMPART CAFE', 'GALLE STORES', 'LIGHTHOUSE TEA', 'DUTCH LANE', 'FORT BAKERY']
-    : hill
-      ? ['HILL TEA', 'KANDY BAKERY', 'RAIL VIEW STORE', 'TEA & SPICE', 'HORTON KADE', 'ELLA SHORT EATS']
-      : style === 'negombo'
-        ? ['LAGOON FISH', 'KING COCONUT', 'SEAFOOD STORE', 'CANAL BAKERY', 'FISH MARKET', 'NEGOMBO STORES']
-        : market
-          ? ['KOTTE POLA', 'KING COCONUT', 'SPICE HOUSE', 'MARKET TEXTILES', 'FRESH FRUIT', 'ISLAND RICE']
-          : ['CEYLON TEA', 'LOTUS KADE', 'SHORT EATS', 'COLOMBO BAKERY', 'GALLE BOOKS', 'CITY STORES'];
-  const sinhalaShopNames = market
-    ? ['තැඹිලි', 'එළවළු', 'කුළු බඩු', 'රෙදි කඩේ', 'පළතුරු', 'සහල් කඩේ']
-    : ['තේ කඩේ', 'පොත් කඩේ', 'කෑම කඩේ', 'පාසල් උපකරණ', 'ඖෂධ කඩේ', 'ආයුබෝවන්'];
-  const localSign = hasLocalSignFonts() && variant % 2 === 0;
+  const shopNames = shopNamesFor(style);
+  const [shopSinhala, shopEnglish] = shopNames[variant % shopNames.length];
+  const localSign = hasLocalSignFonts();
   const shopLit = variant % 3 !== 1;
   root.userData.shopLight = shopLit;
+  root.userData.shopSign = shopSinhala;
+  root.userData.shopSignLanguage = 'sinhala';
   const signColors = ['#7f2d43', '#166b63', '#25466d', '#a84b2a'];
-  box(root, [width * 0.9, 0.68, 0.14], [0, 2.63, front + 0.08], 0x213b56);
-  label(root, localSign ? sinhalaShopNames[variant % shopNames.length] : shopNames[variant % shopNames.length],
-    [width * 0.84, 0.53], [0, 2.64, front + 0.16], {
-      background: signColors[variant % signColors.length], foreground: '#fff4cf', border: '#f4b942', fontSize: 45,
+  box(root, [width * 0.9, 0.72, 0.14], [0, 2.63, front + 0.08], 0x213b56);
+  box(root, [width * 0.93, 0.055, 0.18], [0, 2.26, front + 0.1], 0xf4b942, {
+    emissive: 0xffb54a, emissiveIntensity: 0.35,
+  });
+  label(root, localSign ? `${shopSinhala}\n${shopEnglish}` : shopEnglish,
+    [width * 0.84, localSign ? 0.6 : 0.53], [0, 2.64, front + 0.16], {
+      background: signColors[variant % signColors.length], foreground: '#fff4cf', border: '#f4b942',
+      fontSize: localSign ? 46 : 45, lineScales: localSign ? [0.92, 0.38] : undefined,
       fontFamily: localSign ? LOCAL_SIGN_FONT : 'Arial, sans-serif',
     });
   addAwning(root, width * 0.96, 2.18, front + 0.47, market ? 0xc44d42 : 0x278276, variant % 2 === 0);
@@ -102,6 +187,11 @@ function commercialBuilding(variant, style) {
   }
 
   box(root, [0.92, 1.75, 0.1], [0, 0.9, front + 0.07], 0x29454a);
+  roundedBox(root, [0.98, 1.84, 0.06], [0, 0.93, front + 0.04], 0x35595f, { radius: 0.03 });
+  cylinder(root, [0.028], 0.22, [0.34, 0.94, front + 0.16], 0xd9b45e, {
+    segments: 8, rotation: [Math.PI / 2, 0, 0], metalness: 0.35, roughness: 0.4,
+  });
+  shopFrontage(root, { width, front, variant, lit: shopLit, local: localSign });
   for (const side of [-1, 1]) {
     const x = side * width * 0.29;
     if (variant % 3 === 1) {
@@ -345,18 +435,7 @@ export function createSinhalaBoard(variant = 0, theme = 'colombo') {
 }
 
 export function createAdvertisingBoard(variant = 0) {
-  const root = new THREE.Group();
-  for (const x of [-1.25, 1.25]) cylinder(root, [0.07], 3.8, [x, 1.9, 0], 0x4d5657);
-  const local = hasLocalSignFonts() && variant % 4 !== 3;
-  const localTexts = ['තේ  •  தேநீர்\nCEYLON TEA', 'ආයුබෝවන්\nWELCOME', 'තැඹිලි\nKING COCONUT'];
-  const texts = ['CEYLON TEA', 'VISIT THE POLA', 'KING COCONUT', 'ISLAND EXPRESS'];
-  label(root, local ? localTexts[variant % localTexts.length] : texts[variant % texts.length],
-    [3.25, local ? 1.35 : 1.15], [0, 3.35, 0.04], {
-      background: ['#8b3048', '#176b63', '#b85832', '#274b73'][variant % 4], foreground: '#fff3cf',
-      border: '#f4b942', fontSize: local ? 46 : 48,
-      fontFamily: local ? LOCAL_SIGN_FONT : 'Arial, sans-serif',
-    });
-  return root;
+  return createAdBoard(variant);
 }
 
 export function createTrafficLight() {

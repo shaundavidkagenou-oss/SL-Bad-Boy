@@ -192,6 +192,17 @@ export class AudioManager {
         this.noise(0.42, 0.32, 360);
         this.tone(115, 42, 0.38, 0.2, 'sawtooth');
         break;
+      case 'magnet':
+        this.tone(320, 880, 0.22, 0.09, 'sine');
+        this.tone(640, 1760, 0.18, 0.055, 'triangle', 0.1);
+        break;
+      case 'combo':
+        this.tone(620, 940, 0.12, 0.06, 'triangle');
+        break;
+      case 'cow':
+        this.tone(148, 96, 0.5, 0.075, 'sawtooth');
+        this.tone(196, 120, 0.36, 0.045, 'triangle', 0.14);
+        break;
       case 'button': this.tone(430, 520, 0.055, 0.045, 'triangle'); break;
       default: break;
     }

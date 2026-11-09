@@ -27,6 +27,7 @@ export class GameUI {
     this.reviveAdStatus = 'unsupported';
     this.reviveAdMessage = '';
     this.revivePending = false;
+    this.comboValue = 1;
 
     byId('play-button').addEventListener('click', actions.play);
     byId('restart-button').addEventListener('click', actions.restart);
@@ -68,6 +69,8 @@ export class GameUI {
 
   showMenu(bestScore, progress = null) {
     this.updateBoost(null);
+    this.setMagnet(false);
+    this.setCombo(1);
     this.feedbackAnimation?.cancel();
     byId('menu-best').textContent = bestScore.toLocaleString();
     this.updateProgress(progress);
@@ -78,6 +81,21 @@ export class GameUI {
 
   updateProgress(progress) {
     if (!progress) return;
+    if (byId('streak-days')) byId('streak-days').textContent = String(progress.streak ?? 0);
+    if (byId('stamp-count')) byId('stamp-count').textContent = String(progress.stampCount ?? 0);
+    const stampRow = byId('stamp-row');
+    if (stampRow && progress.stamps) {
+      const ids = ['colombo', 'suburb', 'market', 'kotte', 'kandy', 'kadugannawa', 'nuwara-eliya',
+        'ella', 'galle', 'negombo', 'anuradhapura', 'polonnaruwa', 'jaffna', 'trincomalee'];
+      const labels = ['CMB', 'MHA', 'PET', 'KOT', 'KAN', 'KDU', 'NUE', 'ELL', 'GAL', 'NEG', 'ANU', 'POL', 'JAF', 'TRI'];
+      stampRow.replaceChildren(...ids.map((id, index) => {
+        const chip = document.createElement('i');
+        chip.textContent = labels[index];
+        chip.className = progress.stamps[id] ? 'is-earned' : '';
+        chip.title = id;
+        return chip;
+      }));
+    }
     byId('island-stars').textContent = progress.stars.toLocaleString();
     byId('island-rank').textContent = `LEVEL ${progress.level} • ${progress.rank || 'EXPLORER'}`;
     byId('rank-fill').style.transform = `scaleX(${progress.levelProgress})`;
@@ -95,6 +113,28 @@ export class GameUI {
     byId('menu-wallet').textContent = wallet.toLocaleString();
     byId('shop-wallet').textContent = wallet.toLocaleString();
     this.setJuice(juice);
+  }
+
+  setMagnet(active, remaining = 0, duration = 8) {
+    const hud = byId('power-hud');
+    if (!hud) return;
+    hud.classList.toggle('is-visible', Boolean(active));
+    hud.setAttribute('aria-hidden', String(!active));
+    document.body.classList.toggle('magnet-active', Boolean(active));
+    if (!active) return;
+    byId('magnet-time').textContent = `${remaining.toFixed(1)} s`;
+    byId('magnet-fill').style.transform = `scaleX(${Math.max(0, remaining / duration)})`;
+  }
+
+  setCombo(multiplier = 1, combo = 0) {
+    const badge = byId('combo-badge');
+    if (!badge) return;
+    this.comboValue = multiplier;
+    const visible = multiplier > 1;
+    badge.classList.toggle('is-visible', visible);
+    badge.classList.toggle('is-hot', multiplier >= 4);
+    badge.setAttribute('aria-hidden', String(!visible));
+    if (visible) byId('combo-value').textContent = `x${multiplier}`;
   }
 
   setJuice(count) {
@@ -230,7 +270,7 @@ export class GameUI {
     document.body.dataset.gameState = 'paused';
   }
 
-  showGameOver(score, rewards = null, progress = null) {
+  showGameOver(score, rewards = null, progress = null, stats = null) {
     this.updateBoost(null);
     this.feedbackAnimation?.cancel();
     byId('final-score').textContent = score.score.toLocaleString();
@@ -244,6 +284,21 @@ export class GameUI {
       ? rewards.completed.map((mission) => mission.shortLabel).join(' • ')
       : `${score.nearMisses || 0} NEAR MISSES • DAILY GOALS IN PROGRESS`;
     byId('run-rewards').classList.toggle('has-reward', earned > 0);
+    const summary = stats || {};
+    if (byId('summary-speed')) {
+      byId('summary-speed').textContent = `${Math.round((summary.topSpeed || 0) * 3.6)} km/h`;
+      byId('summary-near').textContent = String(score.nearMisses || 0);
+      byId('summary-combo').textContent = `x${Math.min(5, 1 + Math.floor((summary.bestCombo || 0) / 2))}`;
+      byId('summary-magnets').textContent = String(summary.magnets || 0);
+      byId('summary-tricks').textContent = String(summary.tricks || 0);
+      byId('summary-stamps').textContent = `${summary.stampCount ?? progress?.stampCount ?? 0} / ${summary.districtTotal ?? 14}`;
+    }
+    const streakNote = byId('streak-note');
+    if (streakNote) {
+      const bonus = rewards?.streakBonus || 0;
+      streakNote.hidden = !bonus;
+      if (bonus) streakNote.textContent = `DAY ${rewards.streak} STREAK • +${bonus} COINS`;
+    }
     this.hud.classList.remove('is-visible');
     this.showScreen('gameover');
     document.body.dataset.gameState = 'gameover';
@@ -261,6 +316,7 @@ export class GameUI {
 
   updateHud(score, speed, force = false, player = null) {
     this.updateBoost(player);
+    if (player) this.setMagnet(Boolean(player.magnetActive), player.magnetTimer || 0);
     const now = performance.now();
     if (!force && now - this.lastHudUpdate < 80) return;
     this.lastHudUpdate = now;
@@ -268,6 +324,7 @@ export class GameUI {
     this.score.textContent = score.score.toLocaleString();
     this.coins.textContent = String(score.coins);
     this.speed.textContent = `${Math.round(speed * 3.6)} km/h`;
+    this.setCombo(score.multiplier ?? 1, score.combo ?? 0);
   }
 
   setDistrict(theme, announce = false) {

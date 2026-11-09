@@ -22,25 +22,61 @@ export class ScoreManager {
     this.nearMisses = 0;
     this.score = 0;
     this.newBest = false;
+    this.combo = 0;
+    this.bestCombo = 0;
+    this.bonus = 0;
+    this.magnets = 0;
+    this.tricks = 0;
+    this.topSpeed = 0;
+  }
+
+  get multiplier() {
+    return Math.min(5, 1 + Math.floor(this.combo / 2));
   }
 
   update(delta, speed) {
     this.distance += speed * delta;
+    this.topSpeed = Math.max(this.topSpeed, speed);
     this.recalculate();
   }
 
   addCoin() {
     this.coins += 1;
+    // Coins are worth the live near-miss combo multiplier.
+    this.bonus += (this.multiplier - 1) * 100;
     this.recalculate();
   }
 
   addNearMiss() {
     this.nearMisses += 1;
+    this.combo += 1;
+    this.bestCombo = Math.max(this.bestCombo, this.combo);
+    this.recalculate();
+  }
+
+  addMagnet() {
+    this.magnets += 1;
+  }
+
+  addTrick(points = 150) {
+    this.tricks += 1;
+    this.bonus += points;
+    this.recalculate();
+  }
+
+  addBonus(points = 0) {
+    this.bonus += Math.max(0, Math.floor(points));
+    this.recalculate();
+  }
+
+  breakCombo() {
+    this.combo = 0;
     this.recalculate();
   }
 
   recalculate() {
-    this.score = Math.floor(this.distance * 10) + this.coins * 100 + this.nearMisses * 250;
+    this.score = Math.floor(this.distance * 10) + this.coins * 100
+      + this.nearMisses * 250 + this.bonus;
   }
 
   finish() {

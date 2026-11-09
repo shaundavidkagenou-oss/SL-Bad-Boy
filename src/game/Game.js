@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { GAME } from '../config.js';
 import { WorldGenerator } from './WorldGenerator.js';
-import { ObstacleSpawner } from './ObstacleSpawner.js';
+import { MonsoonRain } from '../art/RailLife.js';
+import { MAGNET_DURATION, ObstacleSpawner } from './ObstacleSpawner.js';
 import { Player } from './Player.js';
 import { PoliceChase } from './PoliceChase.js';
 import { ScoreManager } from './ScoreManager.js';
@@ -104,6 +105,12 @@ export class Game {
       slide: () => this.audio.play('slide'),
       lane: (direction) => { this.audio.play('lane'); this.cameraRig.pulse(0.06, direction); },
       step: () => this.audio.play('step'),
+      trick: () => this.audio.play('slide'),
+      landTrick: () => {
+        this.score.addTrick(150);
+        this.audio.play('combo');
+        this.ui?.showFeedback('STYLE FLIP', '+150');
+      },
     }, this.shop.selectedId);
     this.police = new PoliceChase(this.scene);
     this.contactShadows = new ContactShadows(this.scene, { capacity: coarsePointer ? 40 : 48 });
@@ -117,6 +124,7 @@ export class Game {
       enabled: true, roadGlow: !coarsePointer, capacity: coarsePointer || this.softwareRenderer ? 24 : 36,
     });
     this.effects = new VisualEffects(this.scene, { capacity: coarsePointer ? 112 : 144 });
+    this.rain = new MonsoonRain(this.scene, { count: coarsePointer ? 240 : 420 });
     this.spawner = new ObstacleSpawner(this.scene, {
       onCoin: () => {
         this.score.addCoin();
@@ -129,6 +137,8 @@ export class Game {
         this.audio.play('collision');
         this.effects.crash(this.player.group.position);
         this.cameraRig.pulse(0.65);
+        this.score.breakCombo();
+        this.ui?.setCombo(1, 0);
         this.endRun();
       },
       onScooter: () => {
@@ -147,7 +157,22 @@ export class Game {
         this.audio.play('nearMiss');
         this.effects.nearMiss(this.player.group.position);
         this.cameraRig.pulse(0.16, direction);
-        this.ui?.showFeedback('NEAR MISS', '+250');
+        const multiplier = this.score.multiplier;
+        this.ui?.showFeedback(multiplier > 1 ? `COMBO x${multiplier}` : 'NEAR MISS',
+          multiplier > 1 ? 'KEEP IT CLOSE' : '+250');
+        this.ui?.setCombo(multiplier, this.score.combo);
+      },
+      onMagnet: () => {
+        if (!this.player.startMagnet(MAGNET_DURATION)) return;
+        this.score.addMagnet();
+        this.audio.play('magnet');
+        this.effects.shield(this.player.group.position);
+        this.ui?.showFeedback('COIN MAGNET', '8 SECONDS • COINS COME TO YOU');
+        this.ui?.setMagnet(true, MAGNET_DURATION);
+      },
+      onCow: () => {
+        this.audio.play('cow');
+        this.ui?.showFeedback('MOO!', 'ROAD COW • CHANGE LANE');
       },
       onJuice: (entry) => {
         if (!this.juice.add()) {
@@ -267,6 +292,8 @@ export class Game {
     this.audio.setState('running');
     this.ui.showRunning();
     this.ui.setJuice(this.juice.count);
+    this.ui.setMagnet(false);
+    this.ui.setCombo(1, 0);
     this.ui.updateHud(this.score, this.speed, true, this.player);
     if (this.rewardedAds.supported && this.rewardedAds.status !== 'ready') this.rewardedAds.initialize();
   }
@@ -310,9 +337,19 @@ export class Game {
     this.score.finish();
     this.shop.save();
     this.runRewards = this.progress.recordRun(this.score);
+    if (this.runRewards.streakBonus) this.shop.earn(this.runRewards.streakBonus);
+    this.shop.save();
     this.audio.setState('gameover');
     this.ui.flashImpact();
-    this.ui.showGameOver(this.score, this.runRewards, this.progress.getSnapshot());
+    const snapshot = this.progress.getSnapshot();
+    this.ui.showGameOver(this.score, this.runRewards, snapshot, {
+      topSpeed: this.score.topSpeed,
+      bestCombo: this.score.bestCombo,
+      magnets: this.score.magnets,
+      tricks: this.score.tricks,
+      stampCount: snapshot.stampCount,
+      districtTotal: snapshot.districtTotal,
+    });
   }
 
   respawn() {
@@ -459,6 +496,14 @@ export class Game {
       this.themeTargets.sunIntensity = hot ? 2.0 : mist ? 1.65 : 2.15;
       this.themeTargets.hemisphereIntensity = mist ? 0.72 : 0.62;
       this.ui.setDistrict(theme, announce);
+      if (announce && this.state === 'running') {
+        const stampBonus = this.progress.visitDistrict(theme.id);
+        if (stampBonus > 0) {
+          this.shop.earn(stampBonus);
+          this.ui.showFeedback('NEW DISTRICT STAMP', `+${stampBonus} COINS • ${this.progress.stampCount}/14`);
+          this.ui.setInventory(this.shop.wallet, this.juice.count);
+        }
+      }
     }
     const lightBlend = delta === 0 ? 1 : 1 - Math.exp(-delta * 0.9);
     this.sun.color.lerp(this.themeTargets.sun, lightBlend);
@@ -545,6 +590,12 @@ export class Game {
     this.roadLights.enabled = true;
     this.roadLights.roadGlow = !this.graphics.performanceMode;
     this.roadLights.update(this.spawner.entries);
+    const rainLayouts = ['hill', 'tea', 'rail'];
+    const rainActive = (this.state === 'running' || this.state === 'menu' || this.state === 'gameover')
+      && rainLayouts.includes(this.world.getCurrentTheme().layout);
+    this.rain.setActive(rainActive, this.graphics.performanceMode);
+    this.rain.update(frameDelta, this.player, this.graphics.performanceMode);
+    if (this.state !== 'running') this.ui.setCombo(this.score.multiplier, this.score.combo);
     const boostTarget = this.state === 'running' && this.player.scooterActive ? 0.85 : 0;
     this.graphics.render(frameDelta, boostTarget);
   }

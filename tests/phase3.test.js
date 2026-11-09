@@ -11,7 +11,8 @@ test('Sri Lankan police pursuer has uniform details and articulated joints', () 
   const scene = new THREE.Scene();
   const police = new PoliceChase(scene);
   assert.equal(police.visual.userData.isSriLankanPolice, true);
-  assert.equal(police.visual.userData.uniform, 'khaki-shirt-trousers-navy-peaked-cap');
+  assert.equal(police.visual.userData.uniform, 'dark-khaki-tunic-black-peaked-cap-silver-badge-black-sam-browne');
+  assert.equal(police.visual.userData.detailLevel, 'sculpted-face-pressed-uniform-articulated-hands');
   for (const name of ['head', 'pelvis', 'baton', 'leftWrist', 'rightWrist', 'leftAnkle', 'rightAnkle']) {
     assert.ok(police.joints[name], `missing police joint: ${name}`);
   }

@@ -25,11 +25,13 @@ import {
 import { mulberry32 } from './Random.js';
 import { advanceSectionCenter } from './RoadMath.js';
 import { isThemeTunnel, isTransitionTunnelSection, themeForDistance, themeForSequence, themeSectionIndex, THEME_SECTIONS } from './EnvironmentThemes.js';
-import { createDistrictLandmark, createLandscapeStrip, createTunnelSection } from '../art/Landmarks.js';
+import { createDistrictLandmark, createLandmarkForecourt, createLandscapeStrip, createTunnelSection } from '../art/Landmarks.js';
+import { createLevelCrossing, createRailwayTrack, createRailwayTrain } from '../art/RailLife.js';
 import { batchStaticGroup, disposeBatchedGeometry } from '../art/StaticBatcher.js';
 import { createDistrictGateway, createSriLankanRoadside } from '../art/Roadside.js';
 import { createDistrictSideFill } from '../art/DistrictDetail.js';
 import { createElephant, updateElephant } from '../art/Elephant.js';
+import { createAdBoardField } from '../art/AdBoards.js';
 import { eveningPalette } from './Evening.js';
 
 export class WorldGenerator {
@@ -61,6 +63,11 @@ export class WorldGenerator {
     this.backdrop = null;
     this.backdropTheme = null;
     this.updateBackdrop(themeForSequence(0));
+    this.railTrain = createRailwayTrain();
+    this.railTrain.name = 'Animated hill country train';
+    this.railTrain.visible = false;
+    this.railTrainZ = -150;
+    this.group.add(this.railTrain);
     for (let i = 0; i < ROAD.sectionCount; i += 1) {
       const section = this.createSection(i);
       this.sections.push(section);
@@ -162,6 +169,7 @@ export class WorldGenerator {
     section.userData.featureLandmark = localIndex === 4 ? theme.featureLandmark || null : null;
     section.userData.animatedScenery = [];
     section.userData.animatedVegetation = [];
+    section.userData.crossings = [];
     const swayRoots = new Set();
     const nextTheme = transitionTunnel ? themeForSequence(sequence + THEME_SECTIONS - localIndex) : null;
     const nextLandmarkSide = Math.floor((sequence + 1) / THEME_SECTIONS) % 2 ? -1 : 1;
@@ -240,7 +248,13 @@ export class WorldGenerator {
         scenery.add(parked);
       }
       if (!isTunnel && side !== approachVistaSide && !(landmarkId && side === activeLandmarkSide)) {
-        scenery.add(createDistrictSideFill(theme.id, side, sequence));
+        const railway = theme.layout === 'rail' && side === -1;
+        scenery.add(createDistrictSideFill(theme.id, side, sequence, { railway }));
+        if (railway) {
+          const track = createRailwayTrack(ROAD.sectionLength);
+          track.position.set(-20.5, 0, 0);
+          scenery.add(track);
+        }
       }
       // Each roadside is a bounded generation stage instead of one long task.
       yield section;
@@ -253,6 +267,10 @@ export class WorldGenerator {
     }
     if (landmarkId) {
       const approaching = localIndex === 0 && Boolean(theme.approachLandmark);
+      const forecourt = createLandmarkForecourt(landmarkId, activeLandmarkSide);
+      forecourt.position.set(activeLandmarkSide * 9.4, 0.02, approaching ? 4 : -1);
+      forecourt.rotation.y = -activeLandmarkSide * Math.PI / 2;
+      scenery.add(forecourt);
       const districtLandmark = createDistrictLandmark(landmarkId);
       districtLandmark.position.set(activeLandmarkSide * (approaching ? 12.1 : 14.2), 0.02, approaching ? 4 : -1);
       if (approaching) districtLandmark.scale.setScalar(1.18);
@@ -301,10 +319,23 @@ export class WorldGenerator {
       board.position.set(sequence % 2 ? 8.2 : -8.2, 0.02, -11);
       scenery.add(board);
     }
+    if (!isTunnel) {
+      // Twelve fully painted boards per section, all sharing one atlas draw.
+      const advertising = createAdBoardField(sequence, ROAD.sectionLength);
+      scenery.add(advertising);
+      section.userData.adBoards = (section.userData.adBoards || 0) + advertising.userData.adBoardCount;
+      section.userData.adKinds = advertising.userData.kinds?.size || 0;
+    }
     if (!isTunnel && sequence % 3 === 0) {
       const sign = createRoadSign(sequence % 6 === 0 ? theme.roadName : 'SCHOOL ZONE');
       sign.position.set(sequence % 2 ? -6.85 : 6.85, 0.02, -10);
       scenery.add(sign);
+    }
+    if (!isTunnel && theme.layout === 'rail' && localIndex % 3 === 1) {
+      const crossing = createLevelCrossing();
+      crossing.position.set(0, 0.02, localIndex % 2 ? 9 : -9);
+      scenery.add(crossing);
+      section.userData.crossings.push(crossing);
     }
     if (!isTunnel && sequence % 2 === 0) {
       const bin = createRoadsideBin();
@@ -393,7 +424,8 @@ export class WorldGenerator {
       previous.removeFromParent();
     }
     for (const key of ['scenery', 'sequence', 'theme', 'tunnel', 'landmark',
-      'approachLandmark', 'featureLandmark', 'animatedScenery', 'animatedVegetation']) {
+      'approachLandmark', 'featureLandmark', 'animatedScenery', 'animatedVegetation',
+      'crossings', 'adBoards', 'adKinds']) {
       section.userData[key] = draft.userData[key];
     }
     const scenery = draft.userData.scenery;
@@ -462,6 +494,8 @@ export class WorldGenerator {
 
   reset() {
     this.travelled = 0;
+    this.railTrainZ = -150;
+    if (this.railTrain) this.railTrain.visible = false;
     this.animationTime = 0;
     this.animationAccumulator = 0;
     this.nextSequence = ROAD.sectionCount;
@@ -492,12 +526,20 @@ export class WorldGenerator {
     this.updateVisibility();
     const theme = this.getCurrentTheme();
     this.updateBackdrop(theme);
+    const railVisible = ['rail', 'tea'].includes(theme.layout);
+    this.railTrain.visible = railVisible;
+    if (railVisible) {
+      this.railTrainZ += Math.max(0, speed) * delta * 1.35;
+      if (this.railTrainZ > 55) this.railTrainZ = -235;
+      this.railTrain.position.set(-20.5, 0.3, this.railTrainZ);
+    }
     this.groundTarget.set(eveningPalette(theme).ground);
     this.ground.material.color.lerp(this.groundTarget, Math.min(1, delta * 1.5));
     if (this.animationAccumulator + 1e-9 >= this.animationInterval) {
       this.animationAccumulator = 0;
       for (const section of this.sections) {
         if (!section.userData.scenery?.visible) continue;
+        for (const crossing of section.userData.crossings || []) crossing.userData.updateCrossing?.(this.animationTime);
         for (const elephant of section.userData.animatedScenery || []) updateElephant(elephant, this.animationTime);
         for (const sway of section.userData.animatedVegetation || []) {
           sway.root.rotation.z = sway.baseZ + Math.sin(this.animationTime * 0.82 + sway.phase) * sway.amplitude;
@@ -531,6 +573,7 @@ export class WorldGenerator {
       maxGenerationQueue: this.maxGenerationQueue,
       animatedElephants: this.sections.reduce((count, section) => count + (section.userData.animatedScenery?.length || 0), 0),
       animatedVegetation: this.sections.reduce((count, section) => count + (section.userData.animatedVegetation?.length || 0), 0),
+      advertisingBoards: this.sections.reduce((count, section) => count + (section.userData.adBoards || 0), 0),
       travelled: this.travelled,
       theme: this.getCurrentTheme().id,
     };

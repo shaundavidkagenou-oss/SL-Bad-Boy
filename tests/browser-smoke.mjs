@@ -187,7 +187,7 @@ try {
     chaseStarted: window.__LANKA_RUN__.police.chaseStarted,
     oncoming: window.__LANKA_RUN__.spawner.entries.some((entry) => entry.oncoming),
   }));
-  assert.equal(pursuit.uniform, 'khaki-shirt-trousers-navy-peaked-cap');
+  assert.equal(pursuit.uniform, 'dark-khaki-tunic-black-peaked-cap-silver-badge-black-sam-browne');
   assert.ok(pursuit.gap >= 2.2);
   assert.equal(pursuit.detailedJoints, true);
   assert.equal(pursuit.visible, true);

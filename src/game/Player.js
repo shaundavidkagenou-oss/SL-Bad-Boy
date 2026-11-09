@@ -70,6 +70,12 @@ export class Player {
     this.runPhase = 0;
     this.menuTime = 0;
     this.stepMarker = 0;
+    this.trickTimer = 0;
+    this.trickAwarded = false;
+    this.magnetActive = false;
+    this.magnetTimer = 0;
+    this.bagTime = 0;
+    this.visual.rotation.set(0, 0, 0);
     Object.values(this.joints).forEach((joint) => joint.rotation.set(0, 0, 0));
     this.joints.body.position.set(0, 0, 0);
     this.joints.backpack.position.set(0, 0, 0);
@@ -111,6 +117,13 @@ export class Player {
     return true;
   }
 
+  startMagnet(duration = 8) {
+    if (this.crashed) return false;
+    this.magnetActive = true;
+    this.magnetTimer = duration;
+    return true;
+  }
+
   stopScooter() {
     this.scooterActive = false;
     this.scooterTimer = 0;
@@ -128,6 +141,13 @@ export class Player {
     if (this.crashed || this.scooterActive) return false;
     if (this.group.position.y > 0.02 || Math.abs(this.velocityY) > 0.01) {
       this.velocityY = Math.min(this.velocityY, -11);
+      // Air-dive trick: a visual front flip while the fast fall keeps the
+      // existing collider and landing timing untouched.
+      if (this.trickTimer <= 0 && !this.sliding) {
+        this.trickTimer = 0.46;
+        this.trickAwarded = false;
+        this.callbacks.trick?.();
+      }
       return false;
     }
     this.sliding = true;
@@ -139,6 +159,8 @@ export class Player {
   crash() {
     this.crashed = true;
     this.invincibleTimer = 0;
+    this.magnetActive = false;
+    this.magnetTimer = 0;
     this.stopScooter();
     this.crashTimer = 0;
     this.sliding = false;
@@ -215,12 +237,23 @@ export class Player {
       this.joints.leftWrist.rotation.z = 0;
       this.joints.backpack.rotation.x = breath * 0.012 - lift * 0.05;
       this.joints.backpack.position.y = lift * 0.018;
+      this.animateBackpackDetails(delta, 0.35, sway, lift);
       return;
     }
 
     if (this.scooterActive) {
       this.scooterTimer = Math.max(0, this.scooterTimer - delta);
       if (this.scooterTimer <= 0) this.stopScooter();
+    }
+    if (this.magnetActive) {
+      this.magnetTimer = Math.max(0, this.magnetTimer - delta);
+      if (this.magnetTimer === 0) this.magnetActive = false;
+      if (!this.scooterActive) {
+        this.shield.visible = true;
+        this.shield.material.color.set(0x7fe8ff);
+        this.shield.material.opacity = 0.13 + Math.sin(this.runPhase * 2.2) * 0.04;
+        this.shield.rotation.y += delta * 1.8;
+      }
     }
     this.startTimer = Math.max(0, this.startTimer - delta);
     const wasAirborne = this.group.position.y > 0 || this.velocityY > 0;
@@ -271,6 +304,7 @@ export class Player {
       this.joints.head.rotation.x = damp(this.joints.head.rotation.x, -0.06, 12, delta);
       this.joints.head.rotation.y = damp(this.joints.head.rotation.y, laneOffset * -0.06, 10, delta);
       this.joints.backpack.rotation.x = damp(this.joints.backpack.rotation.x, -0.04, 12, delta);
+      this.animateBackpackDetails(delta, 1.6, Math.sin(this.runPhase * 0.5), 0.4);
       for (const wheel of this.scooter.userData.wheels) {
         wheel.rotation.x -= speed * delta / (wheel.userData.radius || 0.34);
       }
@@ -354,6 +388,41 @@ export class Player {
     this.joints.backpack.rotation.x = damp(this.joints.backpack.rotation.x,
       this.sliding ? -0.12 : stride * 0.025, 12, delta);
     this.joints.backpack.position.y = this.sliding ? 0 : Math.abs(Math.cos(this.runPhase)) * 0.015;
+    this.animateBackpackDetails(delta, this.sliding ? 0.6 : 1, stride, Math.abs(Math.cos(this.runPhase)));
+    this.animateTrick(delta);
+  }
+
+  /** Flap, bottle and charm move on their own joints for a living backpack. */
+  animateBackpackDetails(delta, energy = 1, stride = 0, bounce = 0) {
+    this.bagTime += delta;
+    const { backpackFlap, backpackBottle, backpackCharm } = this.joints;
+    if (!backpackFlap || !backpackBottle || !backpackCharm) return;
+    const flapTarget = stride * 0.06 * energy + bounce * 0.05 * energy;
+    backpackFlap.rotation.x = damp(backpackFlap.rotation.x, flapTarget, 14, delta);
+    backpackBottle.rotation.z = damp(backpackBottle.rotation.z, 0.12 + stride * 0.06 * energy, 10, delta);
+    backpackBottle.rotation.x = damp(backpackBottle.rotation.x, -stride * 0.045 * energy, 12, delta);
+    backpackCharm.rotation.z = damp(backpackCharm.rotation.z,
+      Math.sin(this.bagTime * 3.2) * 0.22 * energy, 12, delta);
+    backpackCharm.rotation.x = damp(backpackCharm.rotation.x,
+      Math.cos(this.bagTime * 2.4) * 0.16 * energy, 12, delta);
+  }
+
+  /** Front-flip dive trick. Purely visual; the collider never changes. */
+  animateTrick(delta) {
+    if (this.trickTimer <= 0) return;
+    this.trickTimer = Math.max(0, this.trickTimer - delta);
+    const progress = 1 - this.trickTimer / 0.46;
+    this.visual.rotation.x = -progress * Math.PI * 2;
+    // Lift the pivot so the flip reads as a dive rather than sweeping the
+    // character through the road surface.
+    this.visual.position.y = Math.sin(progress * Math.PI) * 0.55;
+    if (this.trickTimer === 0) {
+      this.visual.rotation.x = 0;
+      if (!this.trickAwarded) {
+        this.trickAwarded = true;
+        this.callbacks.landTrick?.();
+      }
+    }
   }
 
   getCollider() {

@@ -4,6 +4,8 @@ import { createObstacleModel } from '../art/Vehicles.js';
 import { createCoin } from '../art/MeshKit.js';
 import { createScooter } from '../art/Scooter.js';
 import { createJuicePacket } from '../art/JuicePacket.js';
+import { createMagnetPickup } from '../art/Magnet.js';
+import { createCow, updateCow } from '../art/Cow.js';
 import { ENVIRONMENT_THEMES } from './EnvironmentThemes.js';
 import { PatternPlanner } from './PatternPlanner.js';
 import { intersects, makeCollider } from './Collision.js';
@@ -12,10 +14,13 @@ import { disposeBatchedGeometry } from '../art/StaticBatcher.js';
 const SCOOTER_HALO_GEOMETRY = new THREE.TorusGeometry(1.05, 0.045, 6, 28);
 const SCOOTER_HALO_MATERIAL = new THREE.MeshBasicMaterial({ color: 0x73fff2, transparent: true, opacity: 0.72, depthWrite: false });
 const NEAR_MISS_VEHICLES = new Set(['public-bus', 'private-bus', 'car', 'tuk-tuk']);
+const RURAL_DISTRICTS = new Set(['kandy', 'kadugannawa', 'nuwara-eliya', 'ella', 'anuradhapura', 'polonnaruwa', 'jaffna']);
+export const MAGNET_DURATION = 8;
+export const MAGNET_RADIUS = 3.4;
 const COIN_CAPACITY = 96;
 
 export class ObstacleSpawner {
-  constructor(scene, { onCoin = () => {}, onHit = () => {}, onScooter = () => {}, onShieldHit = () => {}, onNearMiss = () => {}, onJuice = () => {} } = {}) {
+  constructor(scene, { onCoin = () => {}, onHit = () => {}, onScooter = () => {}, onShieldHit = () => {}, onNearMiss = () => {}, onJuice = () => {}, onMagnet = () => {}, onCow = () => {} } = {}) {
     this.group = new THREE.Group();
     this.group.name = 'Traffic, road hazards and coins';
     scene.add(this.group);
@@ -35,7 +40,11 @@ export class ObstacleSpawner {
     this.onShieldHit = onShieldHit;
     this.onNearMiss = onNearMiss;
     this.onJuice = onJuice;
+    this.onMagnet = onMagnet;
+    this.onCow = onCow;
     this.nextSpawnIn = 30;
+    this.nextMagnetIn = 240;
+    this.cowCount = 0;
     this.nextScooterIn = 320;
     this.collisionEnabled = true;
     this.district = 'colombo';
@@ -68,6 +77,8 @@ export class ObstacleSpawner {
     this.pendingJuice = false;
     this.nextSpawnIn = 30;
     this.nextScooterIn = 320;
+    this.nextMagnetIn = 240;
+    this.cowCount = 0;
     for (let index = 0; index < 5; index += 1) {
       this.spawnPattern(this.planner.next(), -42 - index * 30);
     }
@@ -90,6 +101,12 @@ export class ObstacleSpawner {
         obstacles.push({ kind: trafficKinds[Math.abs(pattern.id * 3 + lane) % trafficKinds.length], lane, oncoming: false });
       }
     }
+    if (RURAL_DISTRICTS.has(this.district) && !pattern.requiredAction && obstacles.length
+      && pattern.id % 5 === 0 && obstacles[0].oncoming !== true) {
+      // A road cow replaces one vehicle in rural districts. It blocks exactly
+      // the same lane, so the planner's guaranteed free lane is preserved.
+      obstacles[0].kind = 'cow';
+    }
     for (const obstacle of obstacles) {
       const entry = this.spawnObstacle(obstacle.kind, obstacle.lane, z, pattern.id, { oncoming: obstacle.oncoming });
       approachSpeed = Math.max(approachSpeed, entry.approachSpeed);
@@ -107,8 +124,14 @@ export class ObstacleSpawner {
   spawnObstacle(kind, lane, z, rowId = -1, options = {}) {
     const spec = OBSTACLE_SPECS[kind];
     if (!spec) throw new Error(`Cannot spawn unknown obstacle: ${kind}`);
-    const mesh = createObstacleModel(kind, Math.abs(rowId * 3 + lane) % 4);
+    const mesh = kind === 'cow'
+      ? createCow(Math.abs(rowId * 3 + lane) % 4)
+      : createObstacleModel(kind, Math.abs(rowId * 3 + lane) % 4);
     mesh.position.set(LANES[lane], 0, z);
+    if (kind === 'cow') {
+      mesh.rotation.y = Math.abs(rowId + lane) % 2 ? 0.35 : -0.5;
+      this.cowCount += 1;
+    }
     mesh.userData.kind = kind;
     const bus = kind === 'public-bus' || kind === 'private-bus';
     // Normal planner rows always keep road speed. Faster movement is reserved
@@ -117,7 +140,8 @@ export class ObstacleSpawner {
     const approachSpeed = oncoming ? 5 + Math.abs(rowId + lane) % 3 : 0;
     mesh.userData.oncoming = oncoming;
     this.group.add(mesh);
-    const entry = { type: 'obstacle', kind, lane, rowId, spec, mesh, oncoming, approachSpeed, currentApproachSpeed: approachSpeed };
+    const entry = { type: 'obstacle', kind, lane, rowId, spec, mesh, oncoming, approachSpeed,
+      currentApproachSpeed: approachSpeed, animTime: Math.abs(rowId) * 0.7 };
     this.entries.push(entry);
     return entry;
   }
@@ -144,6 +168,25 @@ export class ObstacleSpawner {
     const entry = {
       type: 'juice', kind: 'juice', lane, rowId, mesh, baseY: 1.05,
       spec: { width: 0.78, depth: 0.48, minY: -0.38, maxY: 0.38 }, spin: 0,
+    };
+    this.entries.push(entry);
+    return entry;
+  }
+
+  spawnMagnet(lane, z, rowId = -1) {
+    const mesh = createMagnetPickup();
+    mesh.position.set(LANES[lane], 1.05, z);
+    const halo = new THREE.Mesh(SCOOTER_HALO_GEOMETRY, SCOOTER_HALO_MATERIAL);
+    halo.rotation.x = Math.PI / 2;
+    halo.scale.setScalar(0.78);
+    halo.position.y = -0.02;
+    halo.material = SCOOTER_HALO_MATERIAL;
+    mesh.add(halo);
+    mesh.userData.pickupHalo = halo;
+    this.group.add(mesh);
+    const entry = {
+      type: 'magnet', kind: 'magnet', lane, rowId, mesh, baseY: 1.05,
+      spec: { width: 0.9, depth: 0.6, minY: -0.6, maxY: 0.6 }, spin: 0,
     };
     this.entries.push(entry);
     return entry;
@@ -264,6 +307,20 @@ export class ObstacleSpawner {
         for (const wheel of entry.mesh.userData.wheels) {
           wheel.rotation.x -= entryTravel / (wheel.userData.radius || 0.34);
         }
+      } else if (entry.type === 'magnet') {
+        entry.spin += delta * 2.6;
+        entry.mesh.rotation.y += delta * 1.7;
+        entry.mesh.position.y = entry.baseY + Math.sin(entry.spin * 1.5) * 0.1;
+        const halo = entry.mesh.userData.pickupHalo;
+        halo.rotation.z += delta * 1.2;
+        halo.scale.setScalar(0.72 + Math.sin(entry.spin * 2) * 0.08);
+      } else if (entry.kind === 'cow' && entry.mesh.position.z > -46) {
+        entry.animTime += delta;
+        updateCow(entry.mesh, entry.animTime);
+        if (entry.mesh.position.z > -24 && !entry.cowGreeted) {
+          entry.cowGreeted = true;
+          this.onCow(entry);
+        }
       } else if (entry.mesh.userData.wheels) {
         for (const wheel of entry.mesh.userData.wheels) {
           wheel.rotation.x -= entryTravel / (wheel.userData.radius || 0.4);
@@ -292,6 +349,9 @@ export class ObstacleSpawner {
       } else if (entry.type === 'scooter') {
         this.removeEntry(index);
         this.onScooter(entry);
+      } else if (entry.type === 'magnet') {
+        this.removeEntry(index);
+        this.onMagnet(entry);
       } else if (player.scooterActive) {
         this.removeEntry(index);
         this.onShieldHit(entry);
@@ -302,6 +362,7 @@ export class ObstacleSpawner {
       }
     }
 
+    if (player.magnetActive) this.attractCoins(delta, player);
     if (this.nextSpawnIn <= 0) {
       this.spawnPattern(this.planner.next(speed), GAME.spawnZ);
       this.nextSpawnIn = this.planner.spacingForSpeed(speed);
@@ -310,8 +371,35 @@ export class ObstacleSpawner {
       this.spawnScooter(this.planner.randomLane(), GAME.spawnZ + 12);
       this.nextScooterIn = 280 + Math.floor(this.planner.random() * 140);
     }
+    this.nextMagnetIn -= travel;
+    if (this.nextMagnetIn <= 0) {
+      this.spawnMagnet(this.planner.randomLane(), GAME.spawnZ + 8);
+      this.nextMagnetIn = 360 + Math.floor(this.planner.random() * 180);
+    }
     this.syncCoins();
     return 'running';
+  }
+
+  /** Coins inside the magnet radius curve toward the runner and collect. */
+  attractCoins(delta, player) {
+    const px = player.group.position.x;
+    const pz = player.group.position.z;
+    for (let index = this.entries.length - 1; index >= 0; index -= 1) {
+      const entry = this.entries[index];
+      if (entry.type !== 'coin') continue;
+      const dz = entry.mesh.position.z - pz;
+      if (dz < -6 || dz > 8) continue;
+      const dx = entry.mesh.position.x - px;
+      if (Math.hypot(dx, dz) > MAGNET_RADIUS * 2.6) continue;
+      if (Math.abs(dz) < 2.4 && Math.abs(dx) < 2.2) {
+        this.removeEntry(index);
+        this.onCoin(entry);
+        continue;
+      }
+      const pull = Math.min(1, delta * 8.5);
+      entry.mesh.position.x += (px - entry.mesh.position.x) * pull;
+      entry.mesh.position.y += (1 - entry.mesh.position.y) * pull;
+    }
   }
 
   prepareRespawn() {

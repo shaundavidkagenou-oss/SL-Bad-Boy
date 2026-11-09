@@ -18,10 +18,12 @@ class FakeTarget {
   emit(type, event) { this.listeners.get(type)?.({ preventDefault() {}, ...event }); }
 }
 
-test('fourteen districts use approximately minute-long blocks and wrap cleanly', () => {
-  assert.equal(THEME_SECTIONS, 36);
-  assert.equal(THEME_LENGTH, 1080);
-  assert.ok(THEME_LENGTH / 18 >= 55 && THEME_LENGTH / 18 <= 65);
+test('fourteen districts use expanded 1,320 m blocks and wrap cleanly', () => {
+  assert.equal(THEME_SECTIONS, 44);
+  assert.equal(THEME_LENGTH, 1320);
+  // Longer districts (about 73 s at an 18 m/s cruise) make the island circuit
+  // larger without increasing the recycled section count or draw cost.
+  assert.ok(THEME_LENGTH / 18 >= 65 && THEME_LENGTH / 18 <= 80);
   assert.equal(ENVIRONMENT_THEMES.length, 14);
   const ids = ['colombo', 'suburb', 'market', 'kotte', 'kandy', 'kadugannawa', 'nuwara-eliya', 'ella', 'galle', 'negombo', 'anuradhapura', 'polonnaruwa', 'jaffna', 'trincomalee'];
   ids.forEach((id, index) => {

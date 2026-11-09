@@ -1,7 +1,8 @@
 import { ROAD } from '../config.js';
 
-// 1,080 m is about a minute at an 18 m/s cruise, while retaining fair speed scaling.
-export const THEME_SECTIONS = 36;
+// 1,320 m per district is roughly 1.5 minutes at cruise: a noticeably larger
+// island circuit while keeping the recycled section count (and draw cost) fixed.
+export const THEME_SECTIONS = 44;
 export const THEME_LENGTH = THEME_SECTIONS * ROAD.sectionLength;
 export const TRANSITION_TUNNEL_SECTIONS = 2;
 

@@ -1,9 +1,9 @@
 {
   "name": "sl-bad-boy",
-  "version": "2.9.0",
+  "version": "2.10.0",
   "private": true,
   "type": "module",
-  "description": "SL BAD BOY — an original 3D Sri Lankan endless runner for web and Android.",
+  "description": "SL BAD BOY \u2014 an original 3D Sri Lankan endless runner for web and Android.",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",

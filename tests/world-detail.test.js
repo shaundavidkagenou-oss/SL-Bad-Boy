@@ -6,6 +6,7 @@ import { createDistrictLandmark } from '../src/art/Landmarks.js';
 import { createBackdrop, createTree } from '../src/art/Environment.js';
 import { createSriLankanRoadside } from '../src/art/Roadside.js';
 import { createSchoolboy } from '../src/art/Schoolboy.js';
+import { THEME_SECTIONS } from '../src/game/EnvironmentThemes.js';
 import { batchStaticGroup, disposeBatchedGeometry } from '../src/art/StaticBatcher.js';
 import { box, configureSurfaceQuality, getMeshKitStats, sphere } from '../src/art/MeshKit.js';
 import { WorldGenerator } from '../src/game/WorldGenerator.js';
@@ -55,9 +56,11 @@ test('fourteen districts have bounded local backdrops, six kinds of roadside det
 
 test('continuous skinned schoolboy and layered tree geometry replace assembled block figures', () => {
   const boy = createSchoolboy();
-  assert.equal(boy.userData.anatomy, 'continuous-skinned-limbs-lathe-torso-shaped-head');
+  assert.equal(boy.userData.anatomy, 'athletic-v-taper-lathe-torso-sculpted-head-articulated-hands');
+  assert.equal(boy.userData.detailLevel, 'sculpted-face-anatomy-tailored-clothing-articulated-backpack');
+  assert.equal(boy.userData.backpackAnimated, true);
   assert.equal(boy.userData.skinnedLimbs.length, 4);
-  assert.equal(boy.userData.shoulders, 'closed-caps-with-rounded-deltoid-joins');
+  assert.equal(boy.userData.shoulders, 'rounded-deltoids-with-closed-skinned-sleeves');
   for (const limb of boy.userData.skinnedLimbs) {
     assert.equal(limb.isSkinnedMesh, true);
     assert.equal(limb.skeleton.bones.length, 3);
@@ -218,7 +221,8 @@ test('filled hill terrain, hot forest atmosphere, detailed lotus and animated el
   assert.equal(trunkDisposals, 1, 'custom animated geometry must be disposed exactly once');
 
   const world = new WorldGenerator(new THREE.Scene());
-  world.buildScenery(world.sections[0], 363);
+  // Anuradhapura elephant rows recur every THEME_SECTIONS; derive, don't hardcode.
+  world.buildScenery(world.sections[0], THEME_SECTIONS * 10 + 3);
   assert.equal(world.sections[0].userData.animatedScenery.length, 1);
   assert.doesNotThrow(() => world.update(1 / 60, 0));
   assert.equal(world.getStats().animatedElephants, 1);

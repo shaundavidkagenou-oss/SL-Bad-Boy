@@ -49,7 +49,7 @@ function createTerrain(themeId, side, variant) {
   return terrain;
 }
 
-export function createDistrictSideFill(themeId, side, variant = 0) {
+export function createDistrictSideFill(themeId, side, variant = 0, options = {}) {
   const group = new THREE.Group();
   group.userData.districtSideFill = true;
   group.add(createTerrain(themeId, side, variant));
@@ -70,7 +70,9 @@ export function createDistrictSideFill(themeId, side, variant = 0) {
     group.add(tree);
   });
 
-  if (URBAN.has(themeId)) {
+  // A rail corridor owns this side: keep the track sightline clear of houses.
+  const railway = Boolean(options.railway);
+  if (URBAN.has(themeId) && !railway) {
     const rear = createBuilding(variant + (side > 0 ? 2 : 5), themeId);
     const x = 18.5 + (variant % 2) * 2;
     const z = variant % 2 ? -4 : 4;

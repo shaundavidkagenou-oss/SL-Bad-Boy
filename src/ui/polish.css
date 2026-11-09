@@ -76,3 +76,66 @@
   .mission-list { margin-top: 7px; }
   .audio-settings { margin-top: 14px; padding-top: 11px; }
 }
+
+/* 3.0 field kit: magnet timer, near-miss combo and island stamp book. */
+.combo-badge {
+  position: absolute; z-index: 8; right: max(20px, env(safe-area-inset-right));
+  top: 50%; display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
+  padding: 8px 14px 9px; color: #fff4d2; pointer-events: none; opacity: 0;
+  transform: translate(10px, -50%); transition: opacity .18s, transform .18s;
+  background: linear-gradient(120deg, rgba(122,45,26,.92), rgba(58,22,42,.92));
+  border: 1px solid rgba(244,185,66,.6); border-radius: 14px 4px 14px 4px;
+}
+.combo-badge.is-visible { opacity: 1; transform: translate(0, -50%); }
+.combo-badge strong { font-size: 24px; line-height: 1; letter-spacing: .5px; color: #ffcf6a; }
+.combo-badge span { font-size: 7px; font-weight: 800; letter-spacing: 1.5px; color: #f3dcb6; }
+.combo-badge.is-hot { box-shadow: 0 0 26px rgba(255,150,60,.45); }
+
+.power-hud {
+  position: absolute; z-index: 8; left: 50%; bottom: 24px; width: min(300px, calc(100% - 28px));
+  padding: 9px 14px 8px; color: #e8fbff; pointer-events: none; opacity: 0;
+  transform: translate(-50%, 12px); transition: opacity .2s, transform .2s;
+  background: linear-gradient(110deg, rgba(8,34,52,.94), rgba(16,82,96,.94));
+  border: 1px solid rgba(127,232,255,.55); border-radius: 8px 18px 8px 18px;
+}
+.power-hud.is-visible { opacity: 1; transform: translate(-50%, 0); }
+.power-row { display: flex; align-items: baseline; justify-content: space-between; font-size: 8px; font-weight: 800; letter-spacing: 1.5px; }
+.power-row b { color: #9ff3ff; font-size: 13px; font-variant-numeric: tabular-nums; }
+.power-track { height: 4px; margin-top: 6px; overflow: hidden; background: rgba(0,0,0,.3); border-radius: 4px; }
+.power-track span { display: block; width: 100%; height: 100%; transform-origin: left; background: linear-gradient(90deg, #2f9fc4, #8ff2ff); }
+body.magnet-active .boost-hud { bottom: 96px; }
+body.magnet-active .power-hud { bottom: 24px; }
+
+.island-streak { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0 8px; }
+.island-streak div { padding: 7px 9px; background: rgba(255,255,255,.05); border-left: 2px solid var(--gold); }
+.island-streak span { display: block; font-size: 7px; font-weight: 800; letter-spacing: 1.3px; color: #b9c8c6; }
+.island-streak strong { display: block; margin-top: 3px; font-size: 12px; color: var(--cream); }
+.stamp-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 8px; }
+.stamp-row i {
+  display: flex; align-items: center; justify-content: center; height: 22px;
+  font-size: 7px; font-style: normal; font-weight: 800; letter-spacing: .4px;
+  color: rgba(255,255,255,.32); background: rgba(255,255,255,.05);
+  border: 1px dashed rgba(255,255,255,.16); border-radius: 4px;
+}
+.stamp-row i.is-earned {
+  color: #20180c; background: linear-gradient(140deg, #f4c766, #d29a2f);
+  border: 1px solid #ffe3a3; box-shadow: 0 0 10px rgba(244,185,66,.22);
+}
+
+.run-summary {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px 12px;
+  margin-bottom: 18px; padding: 12px 0 0; border-top: 1px solid rgba(255,255,255,.12);
+}
+.run-summary span { display: block; font-size: 7px; font-weight: 700; letter-spacing: 1.3px; color: #aebfc1; }
+.run-summary strong { display: block; margin-top: 4px; font-size: 13px; color: var(--cream); }
+.streak-note { margin: -6px 0 14px; font-size: 8px; font-weight: 800; letter-spacing: 1.2px; color: var(--gold); text-align: center; }
+
+@media (max-width: 720px) {
+  .power-hud { bottom: max(92px, calc(env(safe-area-inset-bottom) + 84px)); width: min(260px, calc(100% - 40px)); }
+  body.magnet-active .power-hud { bottom: max(92px, calc(env(safe-area-inset-bottom) + 84px)); }
+  body.magnet-active .boost-hud { bottom: max(150px, calc(env(safe-area-inset-bottom) + 142px)); }
+  .combo-badge { top: 42%; right: max(10px, env(safe-area-inset-right)); padding: 6px 10px; }
+  .combo-badge strong { font-size: 18px; }
+  .combo-badge span { font-size: 6px; }
+  .run-summary { grid-template-columns: repeat(2, 1fr); }
+}
