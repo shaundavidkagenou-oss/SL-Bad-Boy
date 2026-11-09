@@ -238,6 +238,7 @@ export class GraphicsPipeline {
     this.frameCount = 0;
     this.slowWindows = 0;
     this.adaptations = 0;
+    this.scenerySteps = 0;
     this.performanceMode = false;
     this.boost = 0;
   }
@@ -325,6 +326,7 @@ export class GraphicsPipeline {
     for (const cloud of this.clouds) cloud.visible = Boolean(profile.clouds) && !this.performanceMode;
     this.minimumPixelRatio = Math.min(this.maxPixelRatio, profile.pixelRatioFloor ?? this.minimumPixelRatio);
     this.adaptations = 0;
+    this.scenerySteps = 0;
     this.slowWindows = 0;
     this.frameTime = 0;
     this.frameCount = 0;
@@ -365,6 +367,12 @@ export class GraphicsPipeline {
       this.environmentTarget?.dispose();
       this.environmentTarget = null;
       for (const cloud of this.clouds) cloud.visible = false;
+    } else if (this.scenerySteps < 2) {
+      // Everything free is already off: shorten the scenery draw distance
+      // before touching resolution, which the user must never see drop.
+      this.scenerySteps += 1;
+      this.quality = 'adaptive-scenery';
+      this.onSlowScenery?.(this.scenerySteps);
     } else {
       const current = this.renderer.getPixelRatio();
       const floor = this.profile?.pixelRatioFloor ?? (this.coarsePointer ? 0.85 : 1);
@@ -395,7 +403,7 @@ export class GraphicsPipeline {
       cloud.position.x += delta * (0.12 + index * 0.015);
       if (cloud.position.x > cloud.userData.startX + 16) cloud.position.x = cloud.userData.startX - 16;
     }
-    if (!this.software && this.profile?.id !== 'low') this.adapt(delta);
+    if (!this.software) this.adapt(delta);
     if (this.composer && this.postprocessing) this.composer.render(delta);
     else this.renderer.render(this.scene, this.camera);
   }

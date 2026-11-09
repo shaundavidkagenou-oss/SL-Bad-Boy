@@ -97,6 +97,7 @@ export class Game {
       ? requestedTier : this.readQualityPreference();
     this.qualityTier = this.qualityPreference
       ?? detectQualityTier({ ...readDeviceHints(this.renderer), software: this.softwareRenderer });
+    this.graphics.onSlowScenery = (step) => this.degradeScenery(step);
     // Tessellation is chosen before any artwork is built, so weak phones get
     // lighter meshes for the whole world and every character.
     configureSurfaceQuality({
@@ -281,6 +282,29 @@ export class Game {
    * Switches graphics tier live. Only rendering cost changes; the road, lanes,
    * traffic, scoring and collision are identical on every tier.
    */
+  /**
+   * Sustained slow frames on a real device: pull the scenery draw distance in
+   * (fog follows) before any resolution is sacrificed.
+   */
+  degradeScenery(step) {
+    if (!this.world) return;
+    const profile = qualityProfile(this.qualityTier);
+    const factor = step >= 2 ? 0.66 : 0.82;
+    this.fogLimit = Math.round(profile.detailDistance * factor) + 46;
+    this.world.setQuality({
+      detailDistance: Math.round(profile.detailDistance * factor),
+      signDistance: Math.round(profile.signDistance * factor),
+    });
+    if (this.themeTargets) {
+      this.themeTargets.fogFar = Math.min(this.themeTargets.fogFar, this.fogLimit);
+      this.scene.fog.far = Math.min(this.scene.fog.far, this.fogLimit);
+    }
+    if (step >= 2) {
+      this.graphics.minimumPixelRatio = Math.min(this.graphics.maxPixelRatio,
+        qualityProfile(this.qualityTier).pixelRatioFloor);
+    }
+  }
+
   applyQualityTier(tier, { persist = true, silent = false } = {}) {
     const profile = qualityProfile(tier);
     this.qualityTier = profile.id;
