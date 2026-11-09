@@ -6,12 +6,12 @@ An original 3D Sri Lankan endless runner for **web and Android**, built with **T
 
 **Package:** `lk.shaun.slbadboy` · **App name:** `SL BAD BOY` · **Minimum:** Android 7.0 (API 24) · **Target:** API 36.
 
-**Current APK:** 2.12.0 (versionCode 18) · 11,234,597 bytes · SHA-256 `6974f9b2e157addc5482d8a5c16a498fadd35805db6134162b71cfe0a8e9c160` (CI run [42643769872](https://github.com/shaundavidkagenou-oss/SL-Bad-Boy/actions/runs/42643769872)).
+**Current APK:** 2.13.0 (versionCode 19) · 11,234,701 bytes · SHA-256 `245f6d68b1f5cb4b5d0f13ce462708156a891fe87da609682774bced66970f72` (CI run [42669357505](https://github.com/shaundavidkagenou-oss/SL-Bad-Boy/actions/runs/42669357505)).
 
 - Direct branch download: **[artifacts/SL-BAD-BOY.apk](artifacts/SL-BAD-BOY.apk)** (produced and validated by the Android workflow).
 - GitHub Actions also publishes the same package as the **SL-BAD-BOY-APK** workflow artifact with a SHA-256 checksum.
 - The supplied APK is **debug-signed for direct installation/testing**, not signed for Play Store release. Android may ask you to allow installation from your browser/file manager.
-- CI debug certificates can differ between builds. **Uninstall an older test APK before installing 2.12.0 if Android reports a signature conflict**; Android clears that app's local scores, shop ownership and juice inventory on uninstall.
+- CI debug certificates can differ between builds. **Uninstall an older test APK before installing 2.13.0 if Android reports a signature conflict**; Android clears that app's local scores, shop ownership and juice inventory on uninstall.
 - The complete game, fonts and procedural artwork are bundled inside the APK. Gameplay does not require a server or network connection; only the optional rewarded ad needs network access and available AdMob inventory.
 
 ### One-click Windows APK build
@@ -77,6 +77,19 @@ The static production site is generated in `dist/`. Serve it over HTTP rather th
 Menus and the HUD pause button are clickable. The sound button toggles mute and remembers the preference; the pause screen also has independent music and sound-effects volume sliders. Audio is initialized only after user interaction to comply with browser autoplay rules. Android app backgrounding pauses an active run. The HUD, menus, loader and controls account for portrait/landscape layouts and display safe areas.
 
 ## Game features
+
+### New in 2.13.0
+
+A pure modelling pass on the runner: the leftover "assembled from primitives" defects are gone.
+
+1. **Hands are real fists** — `detailedHand` was rebuilt as a closed running hand: wrist, tapered palm, one continuous knuckle shelf instead of four separate bumps, three overlapping phalanx segments per finger (so no gaps open between fingers at any angle) and a thumb laid diagonally across the fingers with a thenar mound behind it. The old open splayed comb of capsules and its floating thumb tip are gone.
+2. **Torso is one smooth body** — the shirt lathe now samples a Catmull-Rom curve through the anatomical key radii, so the shoulder rolls into the chest. The old 2-point chamfer produced a hard facet that read as a seam across the collarbone.
+3. **Chest "shoulder plates" removed** — two 0.2 m white ellipsoids sat in front of the shirt surface and read as bow-tie-shaped pads on the chest; they are now small yoke tabs on top of the shoulders, and the balloon deltoid sphere was dropped so the sleeve tops out in a low dome inside the shirt line.
+4. **Correct shoulder span** — shoulders narrowed from 0.77 m to 0.60 m against a 0.31 m head, arms slimmed (sleeve 0.094 → 0.042 m taper) and the forearm no longer changes skin tone halfway down.
+5. **Head and neck** — the head is rescaled to 0.46 and lifted, so the neck reads under the jaw instead of the head sitting on the collar. Collar is a low stand plus two lapel points placed on the shirt surface, brows and nose are smaller, lip tone is lifted, and the hairline is a soft irregular bead row instead of a straight helmet cut.
+6. **Legs and shorts** — thighs slimmed and hip spacing widened so the legs read as two limbs; the old kneecap and calf blobs (which showed as lighter patches) are gone because the skinned tube profile carries the shape. Shorts are a pelvis mass, waistband, hem cuff and flap pockets, closing the shirt-hem gap that used to z-fight.
+7. **Footwear rebuilt** — the previous shoes were 0.51 m long and sank 8 cm through the road. They are now a 0.28 m sole, upper, toe cap, heel counter, collar, tongue and laces standing exactly on y = 0, with socks at the calf radius instead of twice it.
+8. **QA harness committed** — `test-results/visual-check.mjs` boots the real game in headless Chromium and captures face, hands, torso, front, quarter, side, back, run, police and road setups in evening or night light, plus render statistics.
 
 ### New in 2.12.0
 
@@ -276,7 +289,7 @@ npm test
 npm run build
 ```
 
-Current 2.12.0 source verification: **88/88 Node tests** and a clean production build. The LOW tier probe at 1280×860 measures **280 draw calls / 137,558 triangles / 38 textures** with zero page errors, against 374 calls / 243,630 triangles before, and now renders at 1.35× CSS pixels instead of 0.85×. These are software-WebGL diagnostics, not hardware frame rates; the Motorola G6 result still has to be measured on the device.
+Current 2.13.0 source verification: **88/88 Node tests** and a clean production build. The LOW tier probe at 1280×860 measures **281 draw calls / 140,484 triangles / 37 textures** and the HIGH probe **387 calls / 253,880 triangles / 51 textures**, both with zero page errors. LOW renders at 1.35× CSS pixels. These are software-WebGL diagnostics, not hardware frame rates; the Motorola G6 result still has to be measured on the device.
 
 Current 2.11.0 source verification: **88/88 Node tests** and a clean **production Vite build** passed. New regressions cover multi-stage offscreen generation, commit/disposal/reset behavior, seeded house/shop illumination with one shared emissive batch, and the low sunset shader/direction. Direct and high-quality browser screenshots were inspected for the visible sunset and warm windows with and without bloom. The browser run also verified the high-quality bloom/grading/god-ray/long-shadow/boost-blur path, reduced bloom buffers, native FXAA, visible bus halos and glass HUD animations in addition to software/mobile fallbacks. At 1920×1020 and DPR 1.25 it confirmed a 2400×1275 initial buffer, then simulated sustained slow frames and confirmed effects-first fallback ended at exactly **1920×1020 / pixel ratio 1.0**, not a reduced 1536×816 buffer. Gameplay, rewarded continues, juice revival, all fourteen districts and 7,200 metres of stable resource recycling remain covered. A 1280×860 DPR 1 high-quality probe of the 2.10.0 running scene with all 108 advertising boards live measured **465 render calls, 284,484 triangles, 325 geometries and 93 textures** with zero console or page errors; screenshots were inspected for the rebuilt runner, the police No.02 uniform, the Sinhala billboards and the widened map. These are rendering-cost diagnostics, **not physical-device FPS measurements**.
 
