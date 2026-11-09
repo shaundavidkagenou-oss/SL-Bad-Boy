@@ -6,12 +6,12 @@ An original 3D Sri Lankan endless runner for **web and Android**, built with **T
 
 **Package:** `lk.shaun.slbadboy` · **App name:** `SL BAD BOY` · **Minimum:** Android 7.0 (API 24) · **Target:** API 36.
 
-**Current APK:** 2.13.0 (versionCode 19) · 11,234,701 bytes · SHA-256 `245f6d68b1f5cb4b5d0f13ce462708156a891fe87da609682774bced66970f72` (CI run [42669357505](https://github.com/shaundavidkagenou-oss/SL-Bad-Boy/actions/runs/42669357505)).
+**Current APK:** 2.14.0 (versionCode 20) · 11,235,161 bytes · SHA-256 `30f85d2d176d3c58a096dafcdbbc79eca2634ef7c909d12ad97f1496f6ab8d70` (CI run [42677564488](https://github.com/shaundavidkagenou-oss/SL-Bad-Boy/actions/runs/42677564488)).
 
 - Direct branch download: **[artifacts/SL-BAD-BOY.apk](artifacts/SL-BAD-BOY.apk)** (produced and validated by the Android workflow).
 - GitHub Actions also publishes the same package as the **SL-BAD-BOY-APK** workflow artifact with a SHA-256 checksum.
 - The supplied APK is **debug-signed for direct installation/testing**, not signed for Play Store release. Android may ask you to allow installation from your browser/file manager.
-- CI debug certificates can differ between builds. **Uninstall an older test APK before installing 2.13.0 if Android reports a signature conflict**; Android clears that app's local scores, shop ownership and juice inventory on uninstall.
+- CI debug certificates can differ between builds. **Uninstall an older test APK before installing 2.14.0 if Android reports a signature conflict**; Android clears that app's local scores, shop ownership and juice inventory on uninstall.
 - The complete game, fonts and procedural artwork are bundled inside the APK. Gameplay does not require a server or network connection; only the optional rewarded ad needs network access and available AdMob inventory.
 
 ### One-click Windows APK build
@@ -77,6 +77,18 @@ The static production site is generated in `dist/`. Serve it over HTTP rather th
 Menus and the HUD pause button are clickable. The sound button toggles mute and remembers the preference; the pause screen also has independent music and sound-effects volume sliders. Audio is initialized only after user interaction to comply with browser autoplay rules. Android app backgrounding pauses an active run. The HUD, menus, loader and controls account for portrait/landscape layouts and display safe areas.
 
 ## Game features
+
+### New in 2.14.0
+
+The head is no longer a stack of ellipsoids.
+
+1. **One-piece sculpted head** — `src/art/HeadSculpt.js` builds the skull, brow ridge, eye sockets, cheekbones, jaw, chin and skull base as a *single* closed surface: a unit sphere displaced by a small field of anisotropic Gaussian bumps, then scaled to the head extents. One mesh, one set of smooth normals, so there is no seam left where two spheres used to cross, at any camera distance.
+2. **Correct head proportions** — the head silhouette was re-proportioned from 0.335 × 0.372 × 0.325 to 0.285 × 0.358 × 0.292, which removes the over-wide "square" face the old model had.
+3. **Features sit on real skin** — `sculptedHead()` returns a `faceZ` lookup generated from the surface vertices and mirrored in x, so the eyes, brows, nose and mouth are placed on the actual sculpt every time and cannot drift in depth or differ between the left and right side.
+4. **Hair is a skin-tight shell** — a second layer of the same surface, offset outward and clipped by a hairline curve that is high across the forehead, sweeps up over the ears and drops to the nape, with a short sideburn. The old ellipsoid "helmet" and its straight rim are gone.
+5. **Tier-aware sculpt cost** — the density follows the active quality tier (0.62× on LOW), so the extra detail costs the phones that cannot afford it nothing.
+6. **Police uniform re-fitted** — the peaked cap, band, lacquered peak, badge and regulation haircut were rescaled to the new head, so the cap no longer floats above it.
+7. **Waistband and belt** — the belt now reads as a band below the tucked shirt hem instead of hiding inside the torso, and the shorts/waistband z-fighting scallop at the waist is gone.
 
 ### New in 2.13.0
 
@@ -289,7 +301,7 @@ npm test
 npm run build
 ```
 
-Current 2.13.0 source verification: **88/88 Node tests** and a clean production build. The LOW tier probe at 1280×860 measures **281 draw calls / 140,484 triangles / 37 textures** and the HIGH probe **387 calls / 253,880 triangles / 51 textures**, both with zero page errors. LOW renders at 1.35× CSS pixels. These are software-WebGL diagnostics, not hardware frame rates; the Motorola G6 result still has to be measured on the device.
+Current 2.14.0 source verification: **88/88 Node tests** and a clean production build. The LOW tier probe at 1280×860 measures **281 draw calls / 140,378 triangles / 37 textures** and the HIGH probe **387 calls / 253,828 triangles / 51 textures**, both with zero page errors — the sculpted head costs no extra draw calls and no measurable triangles against 2.13.0. LOW renders at 1.35× CSS pixels. These are software-WebGL diagnostics, not hardware frame rates; the Motorola G6 result still has to be measured on the device.
 
 Current 2.11.0 source verification: **88/88 Node tests** and a clean **production Vite build** passed. New regressions cover multi-stage offscreen generation, commit/disposal/reset behavior, seeded house/shop illumination with one shared emissive batch, and the low sunset shader/direction. Direct and high-quality browser screenshots were inspected for the visible sunset and warm windows with and without bloom. The browser run also verified the high-quality bloom/grading/god-ray/long-shadow/boost-blur path, reduced bloom buffers, native FXAA, visible bus halos and glass HUD animations in addition to software/mobile fallbacks. At 1920×1020 and DPR 1.25 it confirmed a 2400×1275 initial buffer, then simulated sustained slow frames and confirmed effects-first fallback ended at exactly **1920×1020 / pixel ratio 1.0**, not a reduced 1536×816 buffer. Gameplay, rewarded continues, juice revival, all fourteen districts and 7,200 metres of stable resource recycling remain covered. A 1280×860 DPR 1 high-quality probe of the 2.10.0 running scene with all 108 advertising boards live measured **465 render calls, 284,484 triangles, 325 geometries and 93 textures** with zero console or page errors; screenshots were inspected for the rebuilt runner, the police No.02 uniform, the Sinhala billboards and the widened map. These are rendering-cost diagnostics, **not physical-device FPS measurements**.
 
