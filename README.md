@@ -6,7 +6,7 @@ An original 3D Sri Lankan endless runner for **web and Android**, built with **T
 
 **Package:** `lk.shaun.slbadboy` · **App name:** `SL BAD BOY` · **Minimum:** Android 7.0 (API 24) · **Target:** API 36.
 
-**Current APK:** 2.12.0 (versionCode 18) — built by CI from this commit; the checksum is published next to the file in `artifacts/SL-BAD-BOY.apk.sha256`.
+**Current APK:** 2.12.0 (versionCode 18) · 11,234,597 bytes · SHA-256 `6974f9b2e157addc5482d8a5c16a498fadd35805db6134162b71cfe0a8e9c160` (CI run [42643769872](https://github.com/shaundavidkagenou-oss/SL-Bad-Boy/actions/runs/42643769872)).
 
 - Direct branch download: **[artifacts/SL-BAD-BOY.apk](artifacts/SL-BAD-BOY.apk)** (produced and validated by the Android workflow).
 - GitHub Actions also publishes the same package as the **SL-BAD-BOY-APK** workflow artifact with a SHA-256 checksum.
@@ -275,6 +275,8 @@ Run the production build and all Node tests:
 npm test
 npm run build
 ```
+
+Current 2.12.0 source verification: **88/88 Node tests** and a clean production build. The LOW tier probe at 1280×860 measures **280 draw calls / 137,558 triangles / 38 textures** with zero page errors, against 374 calls / 243,630 triangles before, and now renders at 1.35× CSS pixels instead of 0.85×. These are software-WebGL diagnostics, not hardware frame rates; the Motorola G6 result still has to be measured on the device.
 
 Current 2.11.0 source verification: **88/88 Node tests** and a clean **production Vite build** passed. New regressions cover multi-stage offscreen generation, commit/disposal/reset behavior, seeded house/shop illumination with one shared emissive batch, and the low sunset shader/direction. Direct and high-quality browser screenshots were inspected for the visible sunset and warm windows with and without bloom. The browser run also verified the high-quality bloom/grading/god-ray/long-shadow/boost-blur path, reduced bloom buffers, native FXAA, visible bus halos and glass HUD animations in addition to software/mobile fallbacks. At 1920×1020 and DPR 1.25 it confirmed a 2400×1275 initial buffer, then simulated sustained slow frames and confirmed effects-first fallback ended at exactly **1920×1020 / pixel ratio 1.0**, not a reduced 1536×816 buffer. Gameplay, rewarded continues, juice revival, all fourteen districts and 7,200 metres of stable resource recycling remain covered. A 1280×860 DPR 1 high-quality probe of the 2.10.0 running scene with all 108 advertising boards live measured **465 render calls, 284,484 triangles, 325 geometries and 93 textures** with zero console or page errors; screenshots were inspected for the rebuilt runner, the police No.02 uniform, the Sinhala billboards and the widened map. These are rendering-cost diagnostics, **not physical-device FPS measurements**.
 
